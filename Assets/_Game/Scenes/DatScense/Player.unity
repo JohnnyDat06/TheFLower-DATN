@@ -1096,15 +1096,15 @@ PrefabInstance:
       objectReference: {fileID: 1181247429}
     - target: {fileID: 6395574915334592930, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 111.603004
+      value: -0.0000019073486
       objectReference: {fileID: 0}
     - target: {fileID: 6395574915334592930, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -2.722
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6395574915334592930, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -139.63
+      value: -0.0000014305115
       objectReference: {fileID: 0}
     - target: {fileID: 7801893651983491503, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: _hideIfFull
@@ -2117,6 +2117,8 @@ MonoBehaviour:
   _groundLayer:
     serializedVersion: 2
     m_Bits: 0
+  _hurtSFX: {fileID: 0}
+  _deathSFX: {fileID: 0}
   CurrentHealth:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -2278,6 +2280,8 @@ MonoBehaviour:
   _groundLayer:
     serializedVersion: 2
     m_Bits: 0
+  _hurtSFX: {fileID: 0}
+  _deathSFX: {fileID: 0}
   CurrentHealth:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -2635,6 +2639,8 @@ MonoBehaviour:
   _groundLayer:
     serializedVersion: 2
     m_Bits: 0
+  _hurtSFX: {fileID: 0}
+  _deathSFX: {fileID: 0}
   CurrentHealth:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -3071,32 +3077,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 78052cb85b9af794f848213ab5a92c63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ShowTopMostFoldoutHeaderGroup: 1
-  Target: {fileID: 0}
-  IsDetected:
-    UpdateTraits:
-      MinSecondsBetweenUpdates: 0
-      MaxSecondsBetweenUpdates: 0
-    m_InternalValue: 0
-  BlackboardTarget:
-    rid: -2
-  BlackboardIsDetected:
-    rid: -2
-  _playerVariableName: Player
-  _detectedVariableName: IsDetected
-  _rotationSpeed: 360
-  _targetLayer:
-    serializedVersion: 2
-    m_Bits: 8
-  _radius: 2.5
-  _damage: 20
-  _projectilePrefab: {fileID: 0}
-  _firePoint: {fileID: 0}
-  references:
-    version: 2
-    RefIds:
-    - rid: -2
-      type: {class: , ns: , asm: }
 --- !u!136 &1312711613
 CapsuleCollider:
   m_ObjectHideFlags: 0
@@ -3139,6 +3119,8 @@ MonoBehaviour:
   _groundLayer:
     serializedVersion: 2
     m_Bits: 0
+  _hurtSFX: {fileID: 0}
+  _deathSFX: {fileID: 0}
   CurrentHealth:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -3208,6 +3190,7 @@ MonoBehaviour:
   _walkSpeedScale: 1
   _runSpeedScale: 1
   _isRunning: 0
+  _footstepSFXs: []
 --- !u!195 &1312711618
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -4232,6 +4215,8 @@ MonoBehaviour:
   _groundLayer:
     serializedVersion: 2
     m_Bits: 0
+  _hurtSFX: {fileID: 0}
+  _deathSFX: {fileID: 0}
   CurrentHealth:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -4450,7 +4435,7 @@ MonoBehaviour:
   NetworkConfig:
     ProtocolVersion: 0
     NetworkTransport: {fileID: 1850854096}
-    PlayerPrefab: {fileID: 6331376093302597881, guid: 99e79403467bf1d40a5938ac30009c9f, type: 3}
+    PlayerPrefab: {fileID: 3481858189339974571, guid: 113ebdead3eb2d24194988783070d11b, type: 3}
     Prefabs:
       NetworkPrefabsLists:
       - {fileID: 11400000, guid: 2c05e841a4c859b49be9db4efea45bc7, type: 2}
@@ -11301,15 +11286,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7991794409516101263, guid: 317ed35333fc9654ab5e00d259a7c961, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: -111.603004
       objectReference: {fileID: 0}
     - target: {fileID: 7991794409516101263, guid: 317ed35333fc9654ab5e00d259a7c961, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 2.722
       objectReference: {fileID: 0}
     - target: {fileID: 7991794409516101263, guid: 317ed35333fc9654ab5e00d259a7c961, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 139.63
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
