@@ -13,6 +13,8 @@ public class RespawnManager : NetworkBehaviour
 
     [Header("Settings")]
     [SerializeField] private float _respawnDelay = 3f;
+    [SerializeField] private Transform _initialHostSpawnPoint;
+    [SerializeField] private Transform _initialClientSpawnPoint;
 
     // Sử dụng NetworkVariable để đồng bộ tọa độ hồi sinh từ Server xuống tất cả Client
     // Điều này đảm bảo khi Client hồi sinh, họ sẽ lấy đúng vị trí mới nhất mà Server đã lưu.
@@ -56,13 +58,23 @@ public class RespawnManager : NetworkBehaviour
     {
         if (!IsServer) return;
 
+        if (_initialHostSpawnPoint != null)
+        {
+            _currentHostSpawnPos.Value = _initialHostSpawnPoint.position;
+        }
+
+        if (_initialClientSpawnPoint != null)
+        {
+            _currentClientSpawnPos.Value = _initialClientSpawnPoint.position;
+        }
+
         foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
         {
             if (client.PlayerObject != null)
             {
-                if (client.ClientId == NetworkManager.ServerClientId)
+                if (client.ClientId == NetworkManager.ServerClientId && _initialHostSpawnPoint == null)
                     _currentHostSpawnPos.Value = client.PlayerObject.transform.position;
-                else
+                else if (client.ClientId != NetworkManager.ServerClientId && _initialClientSpawnPoint == null)
                     _currentClientSpawnPos.Value = client.PlayerObject.transform.position;
             }
         }
@@ -99,58 +111,52 @@ public class RespawnManager : NetworkBehaviour
 
         Debug.Log($"[RespawnManager] Đã ngâm xác đủ thời gian! Đang lôi {clientId} dậy...");
 
-        // 2. NGO Kiểm tra quyền Owner.
-        if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client))
+        // 2. Chỉ máy sở hữu nhân vật đã chết mới di chuyển nhân vật local.
+        if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != clientId)
         {
-            NetworkObject netObj = client.PlayerObject;
-            if (netObj != null)
-            {
-                // CHỈ OWNER MỚI ĐƯỢC PHÉP DI CHUYỂN TRANSFORM CỦA CHÍNH MÌNH 
-                // (Vì dự án đang dùng ClientNetworkTransform hoặc logic tương tự)
-                if (netObj.IsOwner)
-                {
-                    var fsm = netObj.GetComponent<PlayerStateMachine>();
-                    var health = netObj.GetComponent<PlayerHealth>();
-                    var rb = netObj.GetComponent<Rigidbody>();
+            yield break;
+        }
 
-                    // Chọn tọa độ Spawn theo chủ Owner từ NetworkVariable đã đồng bộ
-                    bool isHost = clientId == NetworkManager.ServerClientId;
-                    Vector3 spawnPos = isHost ? _currentHostSpawnPos.Value : _currentClientSpawnPos.Value;
+        NetworkObject netObj = NetworkManager.Singleton.LocalClient.PlayerObject;
+        if (netObj == null)
+        {
+            Debug.LogError($"[RespawnManager] Lỗi: PlayerObject của Client {clientId} bị rỗng!");
+            yield break;
+        }
 
-                    Debug.Log($"[RespawnManager] HỒI SINH OWNER {clientId}! Đẩy về vị trí Checkpoint: {spawnPos}");
+        var fsm = netObj.GetComponent<PlayerStateMachine>();
+        var health = netObj.GetComponent<PlayerHealth>();
+        var rb = netObj.GetComponent<Rigidbody>();
 
-                    // Tắt vật lý tạm -> Di chuyển tọa độ qua checkpoint
-                    if (rb != null)
-                    {
-                        rb.linearVelocity = Vector3.zero;
-                        rb.angularVelocity = Vector3.zero;
-                        rb.MovePosition(spawnPos);
-                        netObj.transform.position = spawnPos;
-                    }
-                    else
-                    {
-                        netObj.transform.position = spawnPos;
-                    }
+        bool isHost = clientId == NetworkManager.ServerClientId;
+        Vector3 spawnPos = isHost ? _currentHostSpawnPos.Value : _currentClientSpawnPos.Value;
 
-                    // Phát Event cục bộ để Camera hoặc UI xử lý
-                    EventBus.RaisePlayerRespawned(clientId, spawnPos);
-                    
-                    // Trả HP và Chuyển State
-                    health.RestoreFullHealth();
-                    fsm.TransitionTo(PlayerStateType.Respawning);
-                    
-                    yield return new WaitForSeconds(0.5f);
-                    fsm.TransitionTo(PlayerStateType.Idle);
-                }
-                else
-                {
-                    Debug.Log($"[RespawnManager] Bỏ qua vì máy này không phải là Owner của nhân vật {clientId}.");
-                }
-            }
-            else
-            {
-                Debug.LogError($"[RespawnManager] Lỗi: PlayerObject của Client {clientId} bị rỗng!");
-            }
+        Debug.Log($"[RespawnManager] HỒI SINH OWNER {clientId}! Đẩy về vị trí Checkpoint: {spawnPos}");
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            rb.MovePosition(spawnPos);
+            netObj.transform.position = spawnPos;
+        }
+        else
+        {
+            netObj.transform.position = spawnPos;
+        }
+
+        EventBus.RaisePlayerRespawned(clientId, spawnPos);
+
+        if (health != null)
+        {
+            health.RestoreFullHealth();
+        }
+
+        if (fsm != null)
+        {
+            fsm.TransitionTo(PlayerStateType.Respawning);
+            yield return new WaitForSeconds(0.5f);
+            fsm.TransitionTo(PlayerStateType.Idle);
         }
     }
 }
