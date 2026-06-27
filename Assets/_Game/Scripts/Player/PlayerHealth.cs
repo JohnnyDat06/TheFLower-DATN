@@ -98,7 +98,26 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     /// <summary>Hạ HP về 0 ngay lập tức. Dùng bởi DeathZone.</summary>
     public void InstantKill()
     {
-        if (!IsServer) return;
+        if (!IsServer)
+        {
+            if (IsOwner)
+            {
+                InstantKillServerRpc();
+            }
+            return;
+        }
+
+        ApplyInstantKill();
+    }
+
+    [ServerRpc]
+    private void InstantKillServerRpc()
+    {
+        ApplyInstantKill();
+    }
+
+    private void ApplyInstantKill()
+    {
         if (IsDead) return;
         NetworkHealth.Value = 0f;
         HandleDeath();

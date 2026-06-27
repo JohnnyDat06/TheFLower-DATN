@@ -20,17 +20,17 @@ public class RespawnManager : NetworkBehaviour
     // Điều này đảm bảo khi Client hồi sinh, họ sẽ lấy đúng vị trí mới nhất mà Server đã lưu.
     private readonly NetworkVariable<Vector3> _currentHostSpawnPos = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private readonly NetworkVariable<Vector3> _currentClientSpawnPos = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private bool _eventsSubscribed;
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (Instance != null && Instance != this && Instance.gameObject.scene == gameObject.scene)
         {
             Destroy(gameObject);
+            return;
         }
-        else
-        {
-            Instance = this;
-        }
+
+        Instance = this;
     }
 
     private void Start()
@@ -39,19 +39,57 @@ public class RespawnManager : NetworkBehaviour
         Invoke(nameof(SetInitialSpawnPoints), 2f);
     }
 
+    private void OnEnable()
+    {
+        if (IsSpawned)
+        {
+            SubscribeEvents();
+        }
+    }
+
+    private void OnDisable()
+    {
+        UnsubscribeEvents();
+    }
+
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-        // Lắng nghe sự kiện từ EventBus
+        SubscribeEvents();
+    }
+
+    private void SubscribeEvents()
+    {
+        if (_eventsSubscribed) return;
+
         EventBus.OnCheckpointReached += HandleCheckpointReached;
         EventBus.OnPlayerDied += HandlePlayerDied;
+        _eventsSubscribed = true;
     }
 
     public override void OnNetworkDespawn()
     {
+        UnsubscribeEvents();
         base.OnNetworkDespawn();
+    }
+
+    private void OnDestroy()
+    {
+        UnsubscribeEvents();
+
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+    }
+
+    private void UnsubscribeEvents()
+    {
+        if (!_eventsSubscribed) return;
+
         EventBus.OnCheckpointReached -= HandleCheckpointReached;
         EventBus.OnPlayerDied -= HandlePlayerDied;
+        _eventsSubscribed = false;
     }
 
     private void SetInitialSpawnPoints()
@@ -118,6 +156,19 @@ public class RespawnManager : NetworkBehaviour
         }
 
         NetworkObject netObj = NetworkManager.Singleton.LocalClient.PlayerObject;
+        if (netObj == null)
+        {
+            var allHealths = Object.FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None);
+            foreach (var playerHealth in allHealths)
+            {
+                if (playerHealth.OwnerClientId == clientId)
+                {
+                    netObj = playerHealth.NetworkObject;
+                    break;
+                }
+            }
+        }
+
         if (netObj == null)
         {
             Debug.LogError($"[RespawnManager] Lỗi: PlayerObject của Client {clientId} bị rỗng!");
