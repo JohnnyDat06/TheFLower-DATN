@@ -25,6 +25,27 @@ public class HealthDebugTool : NetworkBehaviour
             Debug.Log("[HealthDebugTool] Requesting damage for Client...");
             RequestDamageServerRpc(1); // Client đầu tiên thường là 1
         }
+
+        if (Input.GetKeyDown(KeyCode.O))
+        {
+            RequestRestoreFullHealthServerRpc();
+        }
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    private void RequestRestoreFullHealthServerRpc(ServerRpcParams rpcParams = default)
+    {
+        ulong senderClientId = rpcParams.Receive.SenderClientId;
+        var allHealths = Object.FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None);
+
+        foreach (var health in allHealths)
+        {
+            if (health.OwnerClientId == senderClientId)
+            {
+                health.RestoreFullHealth();
+                return;
+            }
+        }
     }
 
     /// <summary>
