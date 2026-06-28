@@ -244,6 +244,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   _respawnDelay: 3
+  _initialHostSpawnPoint: {fileID: 0}
+  _initialClientSpawnPoint: {fileID: 0}
 --- !u!4 &47846408
 Transform:
   m_ObjectHideFlags: 0
@@ -1096,15 +1098,15 @@ PrefabInstance:
       objectReference: {fileID: 1181247429}
     - target: {fileID: 6395574915334592930, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -0.0000019073486
+      value: 111.603004
       objectReference: {fileID: 0}
     - target: {fileID: 6395574915334592930, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: -2.722
       objectReference: {fileID: 0}
     - target: {fileID: 6395574915334592930, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -0.0000014305115
+      value: -139.63
       objectReference: {fileID: 0}
     - target: {fileID: 7801893651983491503, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: _hideIfFull
@@ -11286,15 +11288,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7991794409516101263, guid: 317ed35333fc9654ab5e00d259a7c961, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -111.603004
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7991794409516101263, guid: 317ed35333fc9654ab5e00d259a7c961, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 2.722
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7991794409516101263, guid: 317ed35333fc9654ab5e00d259a7c961, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 139.63
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

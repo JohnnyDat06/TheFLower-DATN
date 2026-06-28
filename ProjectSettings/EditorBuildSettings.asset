@@ -18,7 +18,7 @@ EditorBuildSettings:
     path: Assets/_Game/Scenes/ThuScense/Map1.unity
     guid: cd7b8fddc8425f64fb595c76ea8fc9a7
   - enabled: 0
-    path: Assets/_Game/Scenes/DatScense/Map1.unity
+    path: Assets/_Game/Scenes/DatScense/Map4_Flying.unity
     guid: 40cf1af273bb6eb4fa2bc5ae1436d303
   - enabled: 0
     path: Assets/_Game/Scenes/ThuanScense/ThuanSandbox.unity
