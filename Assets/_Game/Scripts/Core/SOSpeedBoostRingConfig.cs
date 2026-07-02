@@ -13,6 +13,12 @@ public class SOSpeedBoostRingConfig : ScriptableObject
     [Tooltip("Lực nâng lên (counter gravity tạm thời)")]
     public float LiftForce = 5f;
 
+    [Tooltip("Thời gian trước khi cùng player có thể kích hoạt lại ring")]
+    [Min(0f)] public float Cooldown = 1.5f;
+
+    [Tooltip("Ring chỉ kích hoạt một lần cho mỗi player")]
+    public bool OneShotPerPlayer = true;
+
     [Tooltip("Prefab VFX tia sáng khi bay qua")]
     public GameObject VFXPrefab;
 

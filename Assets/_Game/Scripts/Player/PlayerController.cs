@@ -46,6 +46,7 @@ public class PlayerController : NetworkBehaviour
 
     // Knockback state
     private float   _knockbackTimer;
+    private bool    _externalMovementOverride;
 
     // Capsule original values (để restore sau Crouch)
     private float   _originalCapsuleHeight;
@@ -97,6 +98,10 @@ public class PlayerController : NetworkBehaviour
 
         // Guard: skip khi Dead/Respawning
         if (_fsm.CurrentStateType is PlayerStateType.Dead or PlayerStateType.Respawning) return;
+
+        // Level-specific controllers (for example Level 04 flight) own the Rigidbody
+        // while this flag is enabled. This prevents two movement systems writing velocity.
+        if (IsOwner && _externalMovementOverride) return;
 
         // Cả Host và Client đều tính toán Ground và Wall để phục vụ Animation local được siêu mượt
         CheckGrounded();
@@ -623,6 +628,17 @@ public class PlayerController : NetworkBehaviour
 
     /// <summary>Expose IsGrounded cho các class khác (ví dụ PlayerAnimator).</summary>
     public bool IsGrounded => _isGrounded;
+
+    public void SetExternalMovementOverride(bool enabled)
+    {
+        if (!IsOwner) return;
+        _externalMovementOverride = enabled;
+
+        if (!enabled && _rb != null)
+        {
+            _rb.useGravity = true;
+        }
+    }
 
     [ClientRpc]
     public void ApplyKnockbackClientRpc(Vector3 force)

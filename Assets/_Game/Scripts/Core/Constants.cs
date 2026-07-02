@@ -13,7 +13,7 @@ public static class Constants
         public const string LEVEL_01  = "Level_01";
         public const string LEVEL_02  = "Level_02";
         public const string LEVEL_03  = "Level_03";
-        public const string LEVEL_04  = "Level_04";
+        public const string LEVEL_04  = "Map4_Flying";
     }
 
     /// <summary>Keys dùng với PlayerPrefs.</summary>

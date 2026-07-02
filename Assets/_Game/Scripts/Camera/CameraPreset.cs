@@ -3,11 +3,15 @@
 /// </summary>
 public enum CameraPreset
 {
-    ThirdPerson,
-    SandSlide,
-    Platformer,
-    FlyDown,
-    Cutscene,
-    TopDownController, // Thêm cho Minigame Eris
-    TopDownObserver    // Thêm cho Minigame Eris
+    ThirdPerson = 0,
+    SandSlide = 1,
+    Platformer = 2,
+    FlyDown = 3,
+    Cutscene = 4,
+    TopDownController = 5,
+    TopDownObserver = 6,
+    GateFocus = 7,
+    WarpAscent = 8,
+    StarfallSoft = 9,
+    TerrainRevealWide = 10
 }

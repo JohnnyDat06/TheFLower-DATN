@@ -14,6 +14,9 @@ public class CameraZoneTrigger : MonoBehaviour
     [Tooltip("Bat WallClimb khi vao zone nay (man Platformer)")]
     [SerializeField] private bool _enableWallClimb;
 
+    [Tooltip("Đổi về ThirdPerson khi rời trigger. Tắt cho chuỗi camera nối tiếp như Level 04.")]
+    [SerializeField] private bool _restoreThirdPersonOnExit = true;
+
     private void Awake()
     {
         if (_cameraManager == null)
@@ -57,7 +60,7 @@ public class CameraZoneTrigger : MonoBehaviour
             return;
         }
 
-        if (_cameraManager != null)
+        if (_restoreThirdPersonOnExit && _cameraManager != null)
         {
             _cameraManager.SwitchCamera(CameraPreset.ThirdPerson);
         }

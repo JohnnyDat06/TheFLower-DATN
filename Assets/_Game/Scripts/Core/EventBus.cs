@@ -1,6 +1,20 @@
 using System;
 using UnityEngine;
 
+public enum Level04Phase : byte
+{
+    IntroPeak,
+    WingUnlock,
+    TakeOff,
+    CloudDescent,
+    CloudCorridor,
+    GalaxyGate,
+    TimeWarpAscent,
+    StarfallReturn,
+    TerrainReveal,
+    EndTransition
+}
+
 /// <summary>
 /// EventBus — Static class chứa toàn bộ C# Action của dự án.
 /// Là trung tâm giao tiếp giữa mọi module.
@@ -32,6 +46,12 @@ public static class EventBus
     /// Publisher: CheckpointTrigger | Subscriber: CheckpointManager, CloudSaveManager
     /// </summary>
     public static event Action<string, Vector3, Vector3> OnCheckpointReached;
+
+    public static event Action<Level04Phase> OnLevel04PhaseChanged;
+
+    public static event Action<string, ulong, bool> OnLevel04RingActivated;
+
+    public static event Action<string, ulong> OnLevel04MemoryShardCollected;
 
     // ─── Interactable ─────────────────────────────────────────────────────────
 
@@ -146,6 +166,15 @@ public static class EventBus
     /// <summary>CheckpointTrigger raises this khi chạm checkpoint.</summary>
     public static void RaiseCheckpointReached(string checkpointId, Vector3 hostSpawnPos, Vector3 clientSpawnPos)
         => OnCheckpointReached?.Invoke(checkpointId, hostSpawnPos, clientSpawnPos);
+
+    public static void RaiseLevel04PhaseChanged(Level04Phase phase)
+        => OnLevel04PhaseChanged?.Invoke(phase);
+
+    public static void RaiseLevel04RingActivated(string ringId, ulong clientId, bool cooperative)
+        => OnLevel04RingActivated?.Invoke(ringId, clientId, cooperative);
+
+    public static void RaiseLevel04MemoryShardCollected(string shardId, ulong clientId)
+        => OnLevel04MemoryShardCollected?.Invoke(shardId, clientId);
 
     /// <summary>InteractableBase raises this khi được kích hoạt.</summary>
     public static void RaiseInteractableActivated(string interactableId)

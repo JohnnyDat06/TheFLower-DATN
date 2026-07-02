@@ -16,6 +16,10 @@ public class CameraManager : MonoBehaviour
     [SerializeField] private CinemachineCamera _vcamSandSlide;
     [SerializeField] private CinemachineCamera _vcamPlatformer;
     [SerializeField] private CinemachineCamera _vcamFlyDown;
+    [SerializeField] private CinemachineCamera _vcamGateFocus;
+    [SerializeField] private CinemachineCamera _vcamWarpAscent;
+    [SerializeField] private CinemachineCamera _vcamStarfallSoft;
+    [SerializeField] private CinemachineCamera _vcamTerrainRevealWide;
     [SerializeField] private CinemachineCamera _vcamTopDownController; // Mới
     [SerializeField] private CinemachineCamera _vcamTopDownObserver;   // Mới
 
@@ -24,6 +28,10 @@ public class CameraManager : MonoBehaviour
     [SerializeField] private SOCameraConfig _configSandSlide;
     [SerializeField] private SOCameraConfig _configPlatformer;
     [SerializeField] private SOCameraConfig _configFlyDown;
+    [SerializeField] private SOCameraConfig _configGateFocus;
+    [SerializeField] private SOCameraConfig _configWarpAscent;
+    [SerializeField] private SOCameraConfig _configStarfallSoft;
+    [SerializeField] private SOCameraConfig _configTerrainRevealWide;
     [SerializeField] private SOCameraConfig _configCutscene;
     [SerializeField] private SOCameraConfig _configTopDown; // Mới (Dùng chung)
 
@@ -32,6 +40,15 @@ public class CameraManager : MonoBehaviour
     
     private Dictionary<CameraPreset, CinemachineCamera> _vcamMap;
     private Dictionary<CameraPreset, SOCameraConfig> _configMap;
+    private Dictionary<CameraPreset, Vector3> _flightCameraBaseOffsets;
+
+    [Header("Flight Camera Orbit")]
+    [SerializeField, Min(0f)] private float _flightLookSensitivity = 0.15f;
+    [SerializeField] private float _flightMinimumPitch = -45f;
+    [SerializeField] private float _flightMaximumPitch = 65f;
+
+    private float _flightOrbitYaw;
+    private float _flightOrbitPitch;
 
     private const int PRIORITY_ACTIVE = 20;
     private const int PRIORITY_INACTIVE = 0;
@@ -56,6 +73,7 @@ public class CameraManager : MonoBehaviour
         }
 
         InitializeMaps();
+        CacheFlightCameraOffsets();
         SetAllPriorities(PRIORITY_INACTIVE);
 
         if (_vcamThirdPerson != null)
@@ -90,6 +108,10 @@ public class CameraManager : MonoBehaviour
             { CameraPreset.SandSlide, _vcamSandSlide },
             { CameraPreset.Platformer, _vcamPlatformer },
             { CameraPreset.FlyDown, _vcamFlyDown },
+            { CameraPreset.GateFocus, _vcamGateFocus },
+            { CameraPreset.WarpAscent, _vcamWarpAscent },
+            { CameraPreset.StarfallSoft, _vcamStarfallSoft },
+            { CameraPreset.TerrainRevealWide, _vcamTerrainRevealWide },
             { CameraPreset.TopDownController, _vcamTopDownController },
             { CameraPreset.TopDownObserver, _vcamTopDownObserver }
         };
@@ -100,10 +122,65 @@ public class CameraManager : MonoBehaviour
             { CameraPreset.SandSlide, _configSandSlide },
             { CameraPreset.Platformer, _configPlatformer },
             { CameraPreset.FlyDown, _configFlyDown },
+            { CameraPreset.GateFocus, _configGateFocus },
+            { CameraPreset.WarpAscent, _configWarpAscent },
+            { CameraPreset.StarfallSoft, _configStarfallSoft },
+            { CameraPreset.TerrainRevealWide, _configTerrainRevealWide },
             { CameraPreset.Cutscene, _configCutscene },
             { CameraPreset.TopDownController, _configTopDown },
             { CameraPreset.TopDownObserver, _configTopDown }
         };
+    }
+
+    private void CacheFlightCameraOffsets()
+    {
+        _flightCameraBaseOffsets = new Dictionary<CameraPreset, Vector3>();
+        foreach (var kvp in _vcamMap)
+        {
+            if (!IsFlightPreset(kvp.Key) || kvp.Value == null) continue;
+
+            CinemachineFollow follow = kvp.Value.GetComponent<CinemachineFollow>();
+            if (follow != null)
+            {
+                _flightCameraBaseOffsets[kvp.Key] = follow.FollowOffset;
+            }
+        }
+    }
+
+    private void Update()
+    {
+        if (!IsFlightPreset(_currentPreset)) return;
+
+        ResolvePlayerInputIfNeeded();
+        if (_inputHandler == null || !_inputHandler.CameraLookEnabled) return;
+
+        Vector2 lookDelta = _inputHandler.CameraLookDelta;
+        if (lookDelta.sqrMagnitude > 0f)
+        {
+            _flightOrbitYaw += lookDelta.x * _flightLookSensitivity;
+            _flightOrbitPitch = Mathf.Clamp(
+                _flightOrbitPitch - lookDelta.y * _flightLookSensitivity,
+                _flightMinimumPitch,
+                _flightMaximumPitch);
+        }
+
+        ApplyFlightCameraOrbit();
+    }
+
+    private void ApplyFlightCameraOrbit()
+    {
+        if (!_vcamMap.TryGetValue(_currentPreset, out CinemachineCamera camera)
+            || camera == null
+            || !_flightCameraBaseOffsets.TryGetValue(_currentPreset, out Vector3 baseOffset))
+        {
+            return;
+        }
+
+        CinemachineFollow follow = camera.GetComponent<CinemachineFollow>();
+        if (follow == null) return;
+
+        follow.FollowOffset =
+            Quaternion.Euler(_flightOrbitPitch, _flightOrbitYaw, 0f) * baseOffset;
     }
 
     public void SetTarget(Transform target)
@@ -142,12 +219,22 @@ public class CameraManager : MonoBehaviour
         // Cho phép Cutscene ngay cả khi không có trong Map (để khóa Input)
         if (!_vcamMap.ContainsKey(preset) && preset != CameraPreset.Cutscene) return;
 
+        bool enteringFlight = IsFlightPreset(preset) && !IsFlightPreset(_currentPreset);
         _currentPreset = preset;
+        if (enteringFlight)
+        {
+            _flightOrbitYaw = 0f;
+            _flightOrbitPitch = 0f;
+        }
         SetAllPriorities(PRIORITY_INACTIVE);
 
         if (_vcamMap.TryGetValue(preset, out CinemachineCamera target) && target != null)
         {
             target.Priority.Value = PRIORITY_ACTIVE;
+            if (IsFlightPreset(preset))
+            {
+                ApplyFlightCameraOrbit();
+            }
 
             // ÉP THÔNG SỐ TỰ ĐỘNG (Sửa lỗi cái to cái nhỏ)
             if (preset == CameraPreset.TopDownController || preset == CameraPreset.TopDownObserver)
@@ -199,7 +286,7 @@ public class CameraManager : MonoBehaviour
 
     private void UpdateInputState(CameraPreset preset)
     {
-        bool lockMouse = preset is CameraPreset.SandSlide or CameraPreset.Platformer or CameraPreset.FlyDown or CameraPreset.Cutscene or CameraPreset.TopDownController or CameraPreset.TopDownObserver;
+        bool lockMouse = ShouldLockCameraLook(preset);
         
         ResolvePlayerInputIfNeeded();
 
@@ -226,7 +313,7 @@ public class CameraManager : MonoBehaviour
 
     private void HandleGameResumed()
     {
-        if (_currentPreset == CameraPreset.ThirdPerson)
+        if (!ShouldLockCameraLook(_currentPreset))
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
@@ -260,5 +347,23 @@ public class CameraManager : MonoBehaviour
                 return;
             }
         }
+    }
+
+    private static bool IsFlightPreset(CameraPreset preset)
+    {
+        return preset is CameraPreset.FlyDown
+            or CameraPreset.GateFocus
+            or CameraPreset.WarpAscent
+            or CameraPreset.StarfallSoft
+            or CameraPreset.TerrainRevealWide;
+    }
+
+    private static bool ShouldLockCameraLook(CameraPreset preset)
+    {
+        return preset is CameraPreset.SandSlide
+            or CameraPreset.Platformer
+            or CameraPreset.Cutscene
+            or CameraPreset.TopDownController
+            or CameraPreset.TopDownObserver;
     }
 }
