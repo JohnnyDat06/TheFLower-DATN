@@ -149,6 +149,11 @@ public static class EventBus
     /// </summary>
     public static event Action OnInputBindingChanged;
 
+    /// <summary>
+    /// Publisher: InputDeviceDetector | Subscriber: InteractPromptHUD, InputSettingsPanelController, CameraManager
+    /// </summary>
+    public static event Action<InputDeviceType> OnInputDeviceChanged;
+
     // ─── Raise Methods ────────────────────────────────────────────────────────
 
     /// <summary>PlayerHealth raises this khi player chết.</summary>
@@ -239,4 +244,8 @@ public static class EventBus
     /// <summary>InputRebindService raises này khi input binding thay đổi.</summary>
     public static void RaiseInputBindingChanged()
         => OnInputBindingChanged?.Invoke();
+
+    /// <summary>InputDeviceDetector raises này khi device type thay đổi (KB ↔ Gamepad).</summary>
+    public static void RaiseInputDeviceChanged(InputDeviceType deviceType)
+        => OnInputDeviceChanged?.Invoke(deviceType);
 }

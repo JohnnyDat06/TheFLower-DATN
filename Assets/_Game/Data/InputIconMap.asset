@@ -1,0 +1,58 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3db3b3b04e4c2a44497ed37fb379a32f, type: 3}
+  m_Name: InputIconMap
+  m_EditorClassIdentifier: 
+  _keyboardMouseEntries:
+  - actionName: Jump
+    icon: {fileID: 0}
+    displayText: Space
+  - actionName: Dash
+    icon: {fileID: 0}
+    displayText: Q
+  - actionName: Crouch
+    icon: {fileID: 0}
+    displayText: L Ctrl
+  - actionName: Interact
+    icon: {fileID: 0}
+    displayText: E
+  - actionName: Attack
+    icon: {fileID: 0}
+    displayText: LMB
+  - actionName: Sprint
+    icon: {fileID: 0}
+    displayText: L Shift
+  - actionName: Pause
+    icon: {fileID: 0}
+    displayText: Esc
+  _gamepadEntries:
+  - actionName: Jump
+    icon: {fileID: 0}
+    displayText: A
+  - actionName: Dash
+    icon: {fileID: 0}
+    displayText: B
+  - actionName: Crouch
+    icon: {fileID: 0}
+    displayText: LS
+  - actionName: Interact
+    icon: {fileID: 0}
+    displayText: Y
+  - actionName: Attack
+    icon: {fileID: 0}
+    displayText: X
+  - actionName: Sprint
+    icon: {fileID: 0}
+    displayText: LT
+  - actionName: Pause
+    icon: {fileID: 0}
+    displayText: Back
