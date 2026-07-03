@@ -1,0 +1,304 @@
+/* ===== InputSettingsPanel.uss ===== */
+/* Variables */
+:root {
+    --color-bg: rgba(15, 15, 20, 0.95);
+    --color-panel: rgb(28, 28, 36);
+    --color-section: rgb(35, 35, 45);
+    --color-accent: rgb(80, 140, 255);
+    --color-accent-hover: rgb(100, 160, 255);
+    --color-text: rgb(220, 220, 230);
+    --color-text-dim: rgb(140, 140, 160);
+    --color-button: rgb(50, 50, 65);
+    --color-button-hover: rgb(65, 65, 80);
+    --color-button-active: rgb(80, 140, 255);
+    --color-danger: rgb(220, 60, 60);
+    --color-danger-hover: rgb(240, 80, 80);
+    --color-row-alt: rgba(255, 255, 255, 0.03);
+    --color-border: rgba(255, 255, 255, 0.08);
+    --radius: 8px;
+    --radius-sm: 4px;
+}
+
+/* Overlay */
+.panel-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--color-bg);
+    align-items: center;
+    justify-content: center;
+}
+
+/* Main Container */
+.panel-container {
+    width: 720px;
+    max-height: 85%;
+    background-color: var(--color-panel);
+    border-radius: 12px;
+    padding: 28px 32px;
+    border-width: 1px;
+    border-color: var(--color-border);
+}
+
+/* Title */
+.title {
+    font-size: 24px;
+    color: var(--color-text);
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-bottom: 20px;
+    letter-spacing: 3px;
+}
+
+/* Section */
+.section {
+    margin-bottom: 16px;
+}
+
+.section-label {
+    font-size: 13px;
+    color: var(--color-text-dim);
+    margin-bottom: 8px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+}
+
+/* Device Mode Buttons */
+.device-mode-buttons {
+    flex-direction: row;
+    justify-content: flex-start;
+}
+
+.mode-button {
+    min-width: 100px;
+    height: 34px;
+    margin-right: 8px;
+    background-color: var(--color-button);
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    border-width: 1px;
+    border-color: var(--color-border);
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.mode-button:hover {
+    background-color: var(--color-button-hover);
+}
+
+.mode-button:focus {
+    border-color: var(--color-accent);
+    border-width: 2px;
+}
+
+.mode-active {
+    background-color: var(--color-button-active);
+    border-color: var(--color-accent);
+}
+
+/* Rebind Table */
+.header-row {
+    background-color: var(--color-section);
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    padding: 10px 12px;
+    margin-bottom: 0;
+}
+
+.header-row > Label {
+    font-size: 12px;
+    color: var(--color-text-dim);
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+}
+
+.rebind-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom-width: 1px;
+    border-bottom-color: var(--color-border);
+}
+
+.rebind-row-alt {
+    background-color: var(--color-row-alt);
+}
+
+.col-action {
+    width: 30%;
+    font-size: 14px;
+    color: var(--color-text);
+    -unity-font-style: bold;
+}
+
+.col-binding {
+    width: 35%;
+    flex-direction: row;
+    align-items: center;
+}
+
+/* Rebind Buttons */
+.rebind-button {
+    min-width: 110px;
+    height: 32px;
+    background-color: var(--color-button);
+    color: var(--color-text);
+    border-radius: var(--radius-sm);
+    border-width: 1px;
+    border-color: var(--color-border);
+    font-size: 13px;
+    margin-right: 4px;
+}
+
+.rebind-button:hover {
+    background-color: var(--color-button-hover);
+    border-color: var(--color-accent);
+}
+
+.rebind-button:focus {
+    border-color: var(--color-accent);
+    border-width: 2px;
+}
+
+.rebinding {
+    background-color: var(--color-accent);
+    color: white;
+}
+
+/* Rebind List ScrollView */
+.rebind-list {
+    max-height: 340px;
+    border-width: 1px;
+    border-color: var(--color-border);
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    margin-bottom: 16px;
+}
+
+/* Slider */
+.slider-row {
+    flex-direction: row;
+    align-items: center;
+}
+
+.sensitivity-slider {
+    flex-grow: 1;
+    margin-right: 12px;
+}
+
+.sensitivity-slider #unity-tracker {
+    background-color: var(--color-section);
+    border-radius: 3px;
+    height: 6px;
+}
+
+.sensitivity-slider #unity-dragger {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--color-accent);
+    border-width: 0;
+    margin-top: -6px;
+}
+
+.sensitivity-slider:focus #unity-dragger {
+    background-color: var(--color-accent-hover);
+    border-width: 2px;
+    border-color: white;
+}
+
+.sensitivity-value-label {
+    width: 50px;
+    font-size: 14px;
+    color: var(--color-text);
+    -unity-text-align: middle-right;
+}
+
+/* Bottom Buttons */
+.button-row {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top-width: 1px;
+    border-top-color: var(--color-border);
+}
+
+.action-button {
+    min-width: 120px;
+    height: 38px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    -unity-font-style: bold;
+    border-width: 1px;
+    margin-left: 8px;
+}
+
+.reset-button {
+    background-color: var(--color-danger);
+    color: white;
+    border-color: var(--color-danger);
+}
+
+.reset-button:hover {
+    background-color: var(--color-danger-hover);
+}
+
+.reset-button:focus {
+    border-color: white;
+    border-width: 2px;
+}
+
+.back-button {
+    background-color: var(--color-button);
+    color: var(--color-text);
+    border-color: var(--color-border);
+}
+
+.back-button:hover {
+    background-color: var(--color-button-hover);
+}
+
+.back-button:focus {
+    border-color: var(--color-accent);
+    border-width: 2px;
+}
+
+/* Rebind Overlay */
+.rebind-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.8);
+    align-items: center;
+    justify-content: center;
+}
+
+.rebind-overlay-content {
+    background-color: var(--color-panel);
+    padding: 40px 60px;
+    border-radius: var(--radius);
+    align-items: center;
+    border-width: 1px;
+    border-color: var(--color-accent);
+}
+
+.rebind-prompt {
+    font-size: 22px;
+    color: var(--color-accent);
+    -unity-font-style: bold;
+    margin-bottom: 20px;
+}
+
+.cancel-button {
+    background-color: var(--color-button);
+    color: var(--color-text);
+    border-color: var(--color-border);
+}
+
+/* Utility */
+.hidden {
+    display: none;
+}

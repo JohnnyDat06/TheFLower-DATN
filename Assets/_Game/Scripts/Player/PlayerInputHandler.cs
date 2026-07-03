@@ -15,6 +15,9 @@ public class PlayerInputHandler : NetworkBehaviour
     [SerializeField, Min(0f)] private float _jumpBufferDuration = 0.12f;
     [SerializeField] private SOPlayerConfig _config;
 
+    [Header("Gamepad")]
+    [SerializeField, Range(0.1f, 3f)] private float _gamepadCameraSensitivity = 1f;
+
     // Cached InputActions
     private InputAction _moveAction;
     private InputAction _sprintAction;
@@ -191,10 +194,18 @@ public class PlayerInputHandler : NetworkBehaviour
         if (_attackAction != null && _attackAction.WasPressedThisFrame())
             AttackPressed = true;
 
-        // Camera
-        CameraLookDelta = CameraLookEnabled
-            ? (_cameraLookAction?.ReadValue<Vector2>() ?? Vector2.zero)
-            : Vector2.zero;
+        // Camera — scale gamepad stick input bằng sensitivity multiplier
+        var rawLook = _cameraLookAction?.ReadValue<Vector2>() ?? Vector2.zero;
+        if (CameraLookEnabled)
+        {
+            bool isGamepad = InputDeviceDetector.Instance != null
+                && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
+            CameraLookDelta = isGamepad ? rawLook * _gamepadCameraSensitivity : rawLook;
+        }
+        else
+        {
+            CameraLookDelta = Vector2.zero;
+        }
     }
 
     private void ClearAllInput()

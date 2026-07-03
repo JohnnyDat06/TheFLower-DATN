@@ -34,7 +34,10 @@ public static class Constants
         public const string ACCESSIBILITY_PROMPT_SIZE  = "accessibility_promptUISize";
 
         // Input
-        public const string INPUT_BINDINGS    = "inputBindings";
+        public const string INPUT_BINDINGS             = "inputBindings"; // Legacy — migrated automatically
+        public const string INPUT_BINDINGS_KEYBOARD    = "inputBindings_keyboard";
+        public const string INPUT_BINDINGS_GAMEPAD     = "inputBindings_gamepad";
+        public const string INPUT_PREFERRED_DEVICE     = "inputPreferredDevice";
 
         // Auth (T0-4)
         public const string PLAYER_ID         = "playerId";

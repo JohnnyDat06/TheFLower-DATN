@@ -40,6 +40,10 @@ public class InteractPromptHUD : MonoBehaviour
 
     // ─── Runtime ─────────────────────────────────────────────────────────────
 
+    [Header("Input Icon Provider")]
+    [Tooltip("ScriptableObject chứa mapping action → icon/text theo device.")]
+    [SerializeField] private InputIconMap _iconProvider;
+
     private IInteractable _currentTarget;
     private Transform     _currentTargetTransform;
     private Camera        _mainCamera;
@@ -61,6 +65,7 @@ public class InteractPromptHUD : MonoBehaviour
         PlayerInteractor.OnInteractableFound += HandleFound;
         PlayerInteractor.OnInteractableLost  += HandleLost;
         EventBus.OnInputBindingChanged       += RefreshKeyLabel;
+        EventBus.OnInputDeviceChanged        += OnDeviceChanged;
         EventBus.OnAccessibilityChanged      += RefreshFontSize;
 
         RefreshKeyLabel();
@@ -72,6 +77,7 @@ public class InteractPromptHUD : MonoBehaviour
         PlayerInteractor.OnInteractableFound -= HandleFound;
         PlayerInteractor.OnInteractableLost  -= HandleLost;
         EventBus.OnInputBindingChanged       -= RefreshKeyLabel;
+        EventBus.OnInputDeviceChanged        -= OnDeviceChanged;
         EventBus.OnAccessibilityChanged      -= RefreshFontSize;
 
         SetVisible(false);
@@ -166,11 +172,26 @@ public class InteractPromptHUD : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Callback khi device type thay đổi (KB ↔ Gamepad).
+    /// </summary>
+    private void OnDeviceChanged(InputDeviceType _) => RefreshKeyLabel();
+
     private void RefreshKeyLabel()
     {
-        // TODO: Khi InputRebindService xây xong, truy vấn binding thực tế.
-        if (_keyLabel != null)
-            _keyLabel.text = "[E]";
+        if (_keyLabel == null) return;
+
+        if (_iconProvider != null)
+        {
+            var deviceType = InputDeviceDetector.Instance != null
+                ? InputDeviceDetector.Instance.CurrentDeviceType
+                : InputDeviceType.KeyboardMouse;
+            _keyLabel.text = $"[{_iconProvider.GetDisplayText("Interact", deviceType)}]";
+        }
+        else
+        {
+            _keyLabel.text = "[E]"; // graceful fallback
+        }
     }
 
     private void RefreshFontSize()
