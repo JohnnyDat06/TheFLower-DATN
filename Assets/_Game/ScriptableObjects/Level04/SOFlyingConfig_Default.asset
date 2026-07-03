@@ -13,27 +13,48 @@ MonoBehaviour:
   m_Name: SOFlyingConfig_Default
   m_EditorClassIdentifier: 
   NormalFlySpeed: 16
-  BoostSpeed: 28
-  BrakeSpeed: 11
-  Acceleration: 12
+  BoostSpeed: 32
+  GlideSpeed: 12
+  BrakeSpeed: 6
+  Acceleration: 10
+  BrakeDeceleration: 16
+  VelocityResponsiveness: 4
+  GalaxyGateSpeedMultiplier: 1.35
   TurnSpeed: 75
   PitchSpeed: 45
   MaxPitch: 30
   MaxBankAngle: 35
+  LateralMoveSpeed: 4.5
+  IdleDecelerationMultiplier: 2
+  CameraSteeringWeight: 0.95
+  KeyboardTurnAngle: 28
+  BrakeDirectionHold: 0.7
+  DirectionResponsiveness: 3.8
+  DiveSteeringMultiplier: 1.5
+  ModelCameraTiltWeight: 0.85
+  ClimbSpeed: 10
+  DescendSpeed: 9
   GlideGravityScale: 0.3
-  MaxFallSpeed: 9
-  DiveSpeedBonus: 5
+  MaxFallSpeed: 18
+  DiveSpeedBonus: 7
+  ClimbSpeedPenalty: 7
+  GlideSinkSpeed: 0.65
   WindAssistStrength: 6
+  FlapInterval: 0.75
+  FlapLiftVelocity: 2.2
+  FlapLiftDecay: 5.5
+  MaxFlapLiftVelocity: 2.8
   PathAssistWeight: 0.82
   PlayerSteeringInfluence: 0.5
   WaypointReachDistance: 24
   MaximumSteeringOffset: 28
-  RotationResponsiveness: 5
+  RotationResponsiveness: 9
   TakeoffDuration: 1.35
   TakeoffForwardSpeed: 20
   TakeoffLiftSpeed: 7
-  BoostDuration: 1.2
+  BoostDuration: 1.5
   BoostDecay: 5
+  RingGuidanceWeight: 0.65
   RecoveryHeightOffset: 25
   MaximumPathDeviation: 180
   RecoveryRequestCooldown: 2

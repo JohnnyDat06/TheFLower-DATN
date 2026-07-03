@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Unity.Cinemachine;
+using Unity.Cinemachine.TargetTracking;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -42,13 +43,28 @@ public class CameraManager : MonoBehaviour
     private Dictionary<CameraPreset, SOCameraConfig> _configMap;
     private Dictionary<CameraPreset, Vector3> _flightCameraBaseOffsets;
 
-    [Header("Flight Camera Orbit")]
-    [SerializeField, Min(0f)] private float _flightLookSensitivity = 0.15f;
-    [SerializeField] private float _flightMinimumPitch = -45f;
-    [SerializeField] private float _flightMaximumPitch = 65f;
+    [Header("Flight Camera Chase")]
+    [SerializeField, Min(0f)] private float _flightLookSensitivity = 0.08f;
+    [SerializeField] private float _flightMinimumSteeringPitch = -50f;
+    [SerializeField] private float _flightMaximumSteeringPitch = 50f;
+    [SerializeField, Min(0f)] private float _flightCameraPositionDamping = 0.05f;
+    [SerializeField, Min(0f)] private float _flightCameraAimDamping = 0.03f;
 
+    [Header("Level 04 Single Camera States")]
+    [SerializeField] private Vector3 _gateFocusOffset = new(0f, -5f, -16f);
+    [SerializeField] private Vector3 _warpAscentOffset = new(0f, -8f, -20f);
+    [SerializeField] private Vector3 _starfallOffset = new(0f, 8f, -15f);
+    [SerializeField] private Vector3 _terrainRevealOffset = new(0f, 10f, -18f);
+    [SerializeField, Range(30f, 100f)] private float _normalFlightFov = 60f;
+    [SerializeField, Range(30f, 100f)] private float _gateFocusFov = 65f;
+    [SerializeField, Range(30f, 100f)] private float _warpAscentFov = 70f;
+    [SerializeField, Range(30f, 100f)] private float _starfallFov = 62f;
+    [SerializeField, Range(30f, 100f)] private float _terrainRevealFov = 72f;
+
+    private float _flightHeadingYaw;
     private float _flightOrbitYaw;
     private float _flightOrbitPitch;
+    private Camera _renderCamera;
 
     private const int PRIORITY_ACTIVE = 20;
     private const int PRIORITY_INACTIVE = 0;
@@ -56,6 +72,26 @@ public class CameraManager : MonoBehaviour
     public CameraPreset CurrentPreset => _currentPreset;
 
     public CinemachineCamera VcamThirdPerson => _vcamThirdPerson;
+
+    public Vector3 FlightSteeringDirection
+    {
+        get
+        {
+            if (_renderCamera == null || !_renderCamera.isActiveAndEnabled)
+            {
+                _renderCamera = Camera.main;
+            }
+
+            if (_renderCamera != null)
+            {
+                return _renderCamera.ViewportPointToRay(
+                    new Vector3(0.5f, 0.5f, 0f)).direction.normalized;
+            }
+
+            float yaw = _flightHeadingYaw + _flightOrbitYaw;
+            return Quaternion.Euler(_flightOrbitPitch, yaw, 0f) * Vector3.forward;
+        }
+    }
 
     private void Awake()
     {
@@ -65,6 +101,7 @@ public class CameraManager : MonoBehaviour
             return;
         }
         Instance = this;
+        _renderCamera = Camera.main;
 
         // Auto-add để tránh trường hợp quên gắn service trong scene.
         if (GetComponent<CameraSettingsService>() == null)
@@ -108,10 +145,10 @@ public class CameraManager : MonoBehaviour
             { CameraPreset.SandSlide, _vcamSandSlide },
             { CameraPreset.Platformer, _vcamPlatformer },
             { CameraPreset.FlyDown, _vcamFlyDown },
-            { CameraPreset.GateFocus, _vcamGateFocus },
-            { CameraPreset.WarpAscent, _vcamWarpAscent },
-            { CameraPreset.StarfallSoft, _vcamStarfallSoft },
-            { CameraPreset.TerrainRevealWide, _vcamTerrainRevealWide },
+            { CameraPreset.GateFocus, _vcamFlyDown },
+            { CameraPreset.WarpAscent, _vcamFlyDown },
+            { CameraPreset.StarfallSoft, _vcamFlyDown },
+            { CameraPreset.TerrainRevealWide, _vcamFlyDown },
             { CameraPreset.TopDownController, _vcamTopDownController },
             { CameraPreset.TopDownObserver, _vcamTopDownObserver }
         };
@@ -135,16 +172,30 @@ public class CameraManager : MonoBehaviour
     private void CacheFlightCameraOffsets()
     {
         _flightCameraBaseOffsets = new Dictionary<CameraPreset, Vector3>();
-        foreach (var kvp in _vcamMap)
-        {
-            if (!IsFlightPreset(kvp.Key) || kvp.Value == null) continue;
+        if (_vcamFlyDown == null) return;
 
-            CinemachineFollow follow = kvp.Value.GetComponent<CinemachineFollow>();
-            if (follow != null)
-            {
-                _flightCameraBaseOffsets[kvp.Key] = follow.FollowOffset;
-            }
+        CinemachineFollow follow = _vcamFlyDown.GetComponent<CinemachineFollow>();
+        if (follow == null) return;
+
+        _flightCameraBaseOffsets[CameraPreset.FlyDown] = follow.FollowOffset;
+        _flightCameraBaseOffsets[CameraPreset.GateFocus] = _gateFocusOffset;
+        _flightCameraBaseOffsets[CameraPreset.WarpAscent] = _warpAscentOffset;
+        _flightCameraBaseOffsets[CameraPreset.StarfallSoft] = _starfallOffset;
+        _flightCameraBaseOffsets[CameraPreset.TerrainRevealWide] = _terrainRevealOffset;
+
+        TrackerSettings settings = follow.TrackerSettings;
+        settings.BindingMode = BindingMode.WorldSpace;
+        settings.PositionDamping = Vector3.one * _flightCameraPositionDamping;
+        follow.TrackerSettings = settings;
+
+        CinemachineRotationComposer composer =
+            _vcamFlyDown.GetComponent<CinemachineRotationComposer>();
+        if (composer != null)
+        {
+            composer.Damping = Vector2.one * _flightCameraAimDamping;
         }
+
+        DisableLegacyLevel04Cameras();
     }
 
     private void Update()
@@ -160,8 +211,8 @@ public class CameraManager : MonoBehaviour
             _flightOrbitYaw += lookDelta.x * _flightLookSensitivity;
             _flightOrbitPitch = Mathf.Clamp(
                 _flightOrbitPitch - lookDelta.y * _flightLookSensitivity,
-                _flightMinimumPitch,
-                _flightMaximumPitch);
+                -_flightMaximumSteeringPitch,
+                -_flightMinimumSteeringPitch);
         }
 
         ApplyFlightCameraOrbit();
@@ -179,8 +230,13 @@ public class CameraManager : MonoBehaviour
         CinemachineFollow follow = camera.GetComponent<CinemachineFollow>();
         if (follow == null) return;
 
+        float yaw = _flightHeadingYaw + _flightOrbitYaw;
+
+        // Rotate the original camera rig around the player. The resulting view
+        // direction is also exposed to flight movement, so the player gradually
+        // follows the direction selected by the camera.
         follow.FollowOffset =
-            Quaternion.Euler(_flightOrbitPitch, _flightOrbitYaw, 0f) * baseOffset;
+            Quaternion.Euler(_flightOrbitPitch, yaw, 0f) * baseOffset;
     }
 
     public void SetTarget(Transform target)
@@ -223,6 +279,8 @@ public class CameraManager : MonoBehaviour
         _currentPreset = preset;
         if (enteringFlight)
         {
+            _vcamMap.TryGetValue(preset, out CinemachineCamera flightCamera);
+            _flightHeadingYaw = ResolveFlightHeading(flightCamera);
             _flightOrbitYaw = 0f;
             _flightOrbitPitch = 0f;
         }
@@ -233,6 +291,7 @@ public class CameraManager : MonoBehaviour
             target.Priority.Value = PRIORITY_ACTIVE;
             if (IsFlightPreset(preset))
             {
+                ApplyFlightCameraState(preset);
                 ApplyFlightCameraOrbit();
             }
 
@@ -358,6 +417,44 @@ public class CameraManager : MonoBehaviour
             or CameraPreset.TerrainRevealWide;
     }
 
+    private void ApplyFlightCameraState(CameraPreset preset)
+    {
+        if (_vcamFlyDown == null) return;
+
+        float fieldOfView = preset switch
+        {
+            CameraPreset.GateFocus => _gateFocusFov,
+            CameraPreset.WarpAscent => _warpAscentFov,
+            CameraPreset.StarfallSoft => _starfallFov,
+            CameraPreset.TerrainRevealWide => _terrainRevealFov,
+            _ => _normalFlightFov
+        };
+
+        LensSettings lens = _vcamFlyDown.Lens;
+        lens.FieldOfView = fieldOfView;
+        _vcamFlyDown.Lens = lens;
+    }
+
+    private void DisableLegacyLevel04Cameras()
+    {
+        CinemachineCamera[] legacyCameras =
+        {
+            _vcamGateFocus,
+            _vcamWarpAscent,
+            _vcamStarfallSoft,
+            _vcamTerrainRevealWide
+        };
+
+        foreach (CinemachineCamera legacyCamera in legacyCameras)
+        {
+            if (legacyCamera != null && legacyCamera != _vcamFlyDown)
+            {
+                legacyCamera.Priority.Value = PRIORITY_INACTIVE;
+                legacyCamera.enabled = false;
+            }
+        }
+    }
+
     private static bool ShouldLockCameraLook(CameraPreset preset)
     {
         return preset is CameraPreset.SandSlide
@@ -366,4 +463,27 @@ public class CameraManager : MonoBehaviour
             or CameraPreset.TopDownController
             or CameraPreset.TopDownObserver;
     }
+
+    private static float ResolveFlightHeading(CinemachineCamera camera)
+    {
+        Transform target = camera != null ? camera.Target.TrackingTarget : null;
+        if (target == null) return 0f;
+
+        Vector3 forward = Vector3.ProjectOnPlane(target.forward, Vector3.up);
+        return forward.sqrMagnitude > 0.001f
+            ? Quaternion.LookRotation(forward.normalized, Vector3.up).eulerAngles.y
+            : target.eulerAngles.y;
+    }
+
+#if UNITY_EDITOR
+    public void SetDebugFlightView(float yawOffset, float pitch)
+    {
+        _flightOrbitYaw = yawOffset;
+        _flightOrbitPitch = Mathf.Clamp(
+            pitch,
+            -_flightMaximumSteeringPitch,
+            -_flightMinimumSteeringPitch);
+        ApplyFlightCameraOrbit();
+    }
+#endif
 }

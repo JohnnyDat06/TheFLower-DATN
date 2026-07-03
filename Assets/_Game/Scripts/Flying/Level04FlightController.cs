@@ -13,7 +13,6 @@ public class Level04FlightController : NetworkBehaviour
     private PlayerStateMachine _stateMachine;
     private PlayerWingController _wingController;
     private NGOPlayerSync _playerSync;
-    private Level04FlightPath _flightPath;
 
     private readonly NetworkVariable<bool> _flightEnabled = new(
         false,
@@ -21,21 +20,30 @@ public class Level04FlightController : NetworkBehaviour
         NetworkVariableWritePermission.Server);
 
     private Vector3 _windAcceleration;
+    private Vector3 _activeBoostDirection;
+    private Vector3 _smoothedFlightDirection;
     private float _currentSpeed;
     private float _boostTimer;
+    private float _flapTimer;
+    private float _flapLiftVelocity;
     private Vector3 _checkpointPosition;
     private Quaternion _checkpointRotation = Quaternion.identity;
     private bool _hasCheckpoint;
-    private int _pathWaypointIndex = -1;
     private float _takeoffTimer;
-    private bool _recoveryRequested;
     private float _lastRecoveryServerTime = float.NegativeInfinity;
 
+#if UNITY_EDITOR
+    private bool _debugInputOverride;
+    private Vector2 _debugMoveInput;
+    private bool _debugClimbInput;
+    private bool _debugDescendInput;
+#endif
+
     public bool FlightEnabled => _flightEnabled.Value;
-    public int CurrentWaypointIndex => _pathWaypointIndex;
-    public Vector3 CurrentWaypointPosition => _flightPath != null && _pathWaypointIndex >= 0
-        ? _flightPath.GetWaypointPosition(_pathWaypointIndex)
-        : transform.position;
+    public int CurrentWaypointIndex => -1;
+    public Vector3 CurrentWaypointPosition => transform.position;
+    public float CurrentSpeed => _currentSpeed;
+    public Vector3 CurrentFlightDirection => _smoothedFlightDirection;
 
     private void Awake()
     {
@@ -71,42 +79,94 @@ public class Level04FlightController : NetworkBehaviour
         _rigidbody.useGravity = false;
 
         float dt = Time.fixedDeltaTime;
-        Vector2 moveInput = _input != null ? _input.MoveInput : Vector2.zero;
+        Vector2 moveInput = ReadMoveInput();
         bool wantsForward = moveInput.y > 0.1f;
+        bool wantsBrake = moveInput.y < -0.1f;
+        bool wantsDescend = ReadDescendInput();
+        bool wantsClimb = ReadClimbInput();
         float lateralInput = moveInput.x;
 
-        Vector3 pathDirection = GetPathDirection();
-        if (pathDirection.sqrMagnitude < 0.01f)
+        Vector3 cameraDirection = CameraManager.Instance != null
+            ? CameraManager.Instance.FlightSteeringDirection
+            : transform.forward;
+        if (cameraDirection.sqrMagnitude < 0.01f)
         {
-            pathDirection = transform.forward;
+            cameraDirection = transform.forward;
+        }
+        cameraDirection.Normalize();
+
+        Vector3 currentDirection = ResolveCurrentFlightDirection();
+        Vector3 cameraGuidedDirection = Vector3.Slerp(
+            currentDirection,
+            cameraDirection,
+            _config.CameraSteeringWeight).normalized;
+        Vector3 requestedDirection =
+            Quaternion.AngleAxis(
+                lateralInput * _config.KeyboardTurnAngle,
+                Vector3.up)
+            * cameraGuidedDirection;
+
+        if (wantsBrake)
+        {
+            requestedDirection = Vector3.Slerp(
+                requestedDirection,
+                currentDirection,
+                _config.BrakeDirectionHold).normalized;
         }
 
-        Vector3 pathRight = Vector3.Cross(Vector3.up, pathDirection).normalized;
-        if (pathRight.sqrMagnitude < 0.01f) pathRight = transform.right;
-        Quaternion steeringRotation =
-            Quaternion.AngleAxis(lateralInput * _config.MaximumSteeringOffset, Vector3.up);
-        Vector3 playerDirection = (steeringRotation * pathDirection).normalized;
-        float steeringInfluence = _config.PlayerSteeringInfluence
-            * (1f - _config.PathAssistWeight * 0.5f);
-        Vector3 guidedDirection = Vector3.Slerp(
-            pathDirection,
-            playerDirection,
-            Mathf.Clamp01(steeringInfluence)).normalized;
+        if (_boostTimer > 0f && _activeBoostDirection.sqrMagnitude > 0.01f)
+        {
+            requestedDirection = Vector3.Slerp(
+                requestedDirection,
+                _activeBoostDirection,
+                _config.RingGuidanceWeight).normalized;
+        }
+
+        float steeringResponsiveness = _config.DirectionResponsiveness;
+        if (requestedDirection.y < currentDirection.y)
+        {
+            steeringResponsiveness *= _config.DiveSteeringMultiplier;
+        }
+
+        float directionBlend = 1f - Mathf.Exp(-steeringResponsiveness * dt);
+        _smoothedFlightDirection = Vector3.Slerp(
+            currentDirection,
+            requestedDirection,
+            directionBlend).normalized;
+
+        Vector3 flightRight =
+            Vector3.Cross(Vector3.up, _smoothedFlightDirection).normalized;
+        if (flightRight.sqrMagnitude < 0.01f) flightRight = transform.right;
 
         float bank = -lateralInput * _config.MaxBankAngle;
-        Quaternion targetRotation = Quaternion.LookRotation(guidedDirection, Vector3.up)
+        Vector3 modelDirection = Vector3.Slerp(
+            _smoothedFlightDirection,
+            requestedDirection,
+            _config.ModelCameraTiltWeight).normalized;
+        Quaternion targetRotation =
+            Quaternion.LookRotation(modelDirection, Vector3.up)
             * Quaternion.Euler(0f, 0f, bank);
         transform.rotation = Quaternion.Slerp(
             transform.rotation,
             targetRotation,
             Mathf.Clamp01(_config.RotationResponsiveness * dt));
 
-        float targetSpeed = 0f;
+        float targetSpeed;
         if (wantsForward)
         {
             targetSpeed = _input != null && _input.IsSprinting
                 ? _config.BoostSpeed
                 : _config.NormalFlySpeed;
+        }
+        else if (wantsBrake)
+        {
+            targetSpeed = _config.BrakeSpeed;
+        }
+        else
+        {
+            targetSpeed = _currentSpeed > 0.1f
+                ? _config.GlideSpeed
+                : 0f;
         }
 
         if (_boostTimer > 0f)
@@ -116,40 +176,67 @@ public class Level04FlightController : NetworkBehaviour
             {
                 targetSpeed = Mathf.Max(targetSpeed, _config.BoostSpeed);
             }
+            if (_boostTimer <= 0f)
+            {
+                _activeBoostDirection = Vector3.zero;
+            }
         }
 
-        float acceleration = wantsForward
-            ? _config.Acceleration
-            : _config.Acceleration * _config.IdleDecelerationMultiplier;
+        if (IsGalaxyGateSpeedState())
+        {
+            targetSpeed *= _config.GalaxyGateSpeedMultiplier;
+        }
+
+        float diveAmount = Mathf.Clamp01(-_smoothedFlightDirection.y);
+        float climbAmount = Mathf.Clamp01(_smoothedFlightDirection.y);
+        targetSpeed += diveAmount * _config.DiveSpeedBonus;
+        targetSpeed -= climbAmount * _config.ClimbSpeedPenalty;
+        targetSpeed = Mathf.Max(targetSpeed, 0f);
+
+        float acceleration = wantsBrake
+            ? _config.BrakeDeceleration
+            : _config.Acceleration;
         _currentSpeed = Mathf.MoveTowards(_currentSpeed, targetSpeed, acceleration * dt);
-        Vector3 desiredVelocity = guidedDirection * _currentSpeed;
-        desiredVelocity += pathRight * (lateralInput * _config.LateralMoveSpeed);
+        Vector3 desiredVelocity = _smoothedFlightDirection * _currentSpeed;
+        desiredVelocity += flightRight
+            * (lateralInput * _config.LateralMoveSpeed);
         if (wantsForward)
         {
             desiredVelocity += Vector3.ClampMagnitude(
                 _windAcceleration,
                 _config.WindAssistStrength);
         }
-        desiredVelocity.y = Mathf.Max(desiredVelocity.y, -_config.MaxFallSpeed);
 
         if (_takeoffTimer > 0f && wantsForward)
         {
             _takeoffTimer -= dt;
-            desiredVelocity = Vector3.ProjectOnPlane(guidedDirection, Vector3.up).normalized
-                * Mathf.Max(_currentSpeed, _config.TakeoffForwardSpeed);
-            desiredVelocity += pathRight * (lateralInput * _config.LateralMoveSpeed);
-            desiredVelocity.y = Mathf.Max(
-                guidedDirection.y * _currentSpeed,
-                _config.TakeoffLiftSpeed);
+            _currentSpeed = Mathf.Max(_currentSpeed, _config.TakeoffForwardSpeed);
+            desiredVelocity = _smoothedFlightDirection * _currentSpeed;
         }
 
+        UpdateWingBeat(wantsForward, dt);
+        float levelFlightAmount = 1f - Mathf.Abs(_smoothedFlightDirection.y);
+        desiredVelocity.y -= _config.GlideSinkSpeed * levelFlightAmount;
+        desiredVelocity.y += _flapLiftVelocity;
+
+        if (wantsClimb)
+        {
+            desiredVelocity.y += _config.ClimbSpeed;
+        }
+        if (wantsDescend)
+        {
+            desiredVelocity.y -= _config.DescendSpeed;
+        }
+        desiredVelocity.y = Mathf.Max(desiredVelocity.y, -_config.MaxFallSpeed);
+
+        float velocityBlend = 1f - Mathf.Exp(
+            -_config.VelocityResponsiveness * dt);
         _rigidbody.linearVelocity = Vector3.Lerp(
             _rigidbody.linearVelocity,
             desiredVelocity,
-            Mathf.Clamp01(_config.Acceleration * dt));
+            velocityBlend);
 
         _windAcceleration = Vector3.zero;
-        CheckPathRecovery();
     }
 
     public void SetFlightEnabledServer(bool enabled)
@@ -178,7 +265,6 @@ public class Level04FlightController : NetworkBehaviour
         if (Time.time - _lastRecoveryServerTime
             < (_config != null ? _config.RecoveryRequestCooldown : 2f))
         {
-            ClearRecoveryRequestClientRpc(TargetOwner());
             return;
         }
         _lastRecoveryServerTime = Time.time;
@@ -201,14 +287,6 @@ public class Level04FlightController : NetworkBehaviour
         StartCoroutine(RestoreWingAfterRecovery());
     }
 
-    [ServerRpc]
-    private void RequestPathRecoveryServerRpc(ServerRpcParams rpcParams = default)
-    {
-        if (rpcParams.Receive.SenderClientId != OwnerClientId) return;
-        if (!_flightEnabled.Value) return;
-        RecoverToCheckpointServer();
-    }
-
     public void ApplyBoostServer(Vector3 direction, float force, float lift)
     {
         if (!IsServer) return;
@@ -227,6 +305,7 @@ public class Level04FlightController : NetworkBehaviour
     {
         if (!IsOwner || !_flightEnabled.Value) return;
         _rigidbody.linearVelocity += impulse;
+        _activeBoostDirection = impulse.normalized;
         _boostTimer = _config != null ? _config.BoostDuration : 1f;
         _wingController?.PlayBoostLocal(_boostTimer);
     }
@@ -248,18 +327,7 @@ public class Level04FlightController : NetworkBehaviour
         ClientRpcParams rpcParams = default)
     {
         if (!IsOwner) return;
-        ResolveFlightPath();
-        _pathWaypointIndex = _flightPath != null
-            ? _flightPath.FindClosestWaypointIndex(position)
-            : -1;
         _takeoffTimer = 0.35f;
-        _recoveryRequested = false;
-    }
-
-    [ClientRpc]
-    private void ClearRecoveryRequestClientRpc(ClientRpcParams rpcParams = default)
-    {
-        if (IsOwner) _recoveryRequested = false;
     }
 
     private void HandleFlightEnabledChanged(bool previous, bool current)
@@ -286,12 +354,11 @@ public class Level04FlightController : NetworkBehaviour
             _rigidbody.useGravity = !enabled;
             if (enabled)
             {
-                ResolveFlightPath();
-                _pathWaypointIndex = _flightPath != null
-                    ? _flightPath.FindClosestWaypointIndex(transform.position)
-                    : -1;
                 _takeoffTimer = _config != null ? _config.TakeoffDuration : 1f;
                 _currentSpeed = 0f;
+                _smoothedFlightDirection = transform.forward;
+                _flapTimer = 0f;
+                _flapLiftVelocity = 0f;
                 _rigidbody.linearVelocity = Vector3.zero;
                 _rigidbody.angularVelocity = Vector3.zero;
                 _rigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
@@ -301,6 +368,12 @@ public class Level04FlightController : NetworkBehaviour
         if (_stateMachine != null)
         {
             _stateMachine.TransitionTo(enabled ? PlayerStateType.AirGlide : PlayerStateType.Jump);
+        }
+
+        if (CameraManager.Instance != null)
+        {
+            CameraManager.Instance.SwitchCamera(
+                enabled ? CameraPreset.FlyDown : CameraPreset.ThirdPerson);
         }
     }
 
@@ -312,35 +385,99 @@ public class Level04FlightController : NetworkBehaviour
         };
     }
 
-    private Vector3 GetPathDirection()
+    private Vector3 ResolveCurrentFlightDirection()
     {
-        ResolveFlightPath();
-        if (_flightPath == null || _pathWaypointIndex < 0) return transform.forward;
-
-        return _flightPath.GetGuidanceDirection(
-            transform.position,
-            ref _pathWaypointIndex,
-            _config.WaypointReachDistance);
-    }
-
-    private void ResolveFlightPath()
-    {
-        if (_flightPath == null)
+        if (_smoothedFlightDirection.sqrMagnitude > 0.01f)
         {
-            _flightPath = FindFirstObjectByType<Level04FlightPath>();
+            return _smoothedFlightDirection.normalized;
         }
+
+        if (_rigidbody != null && _rigidbody.linearVelocity.sqrMagnitude > 0.25f)
+        {
+            return _rigidbody.linearVelocity.normalized;
+        }
+
+        return transform.forward.sqrMagnitude > 0.01f
+            ? transform.forward.normalized
+            : Vector3.forward;
     }
 
-    private void CheckPathRecovery()
+    private void UpdateWingBeat(bool wantsForward, float dt)
     {
-        if (_recoveryRequested || _flightPath == null || _pathWaypointIndex < 0) return;
-        if (_flightPath.GetDistanceToPath(transform.position, _pathWaypointIndex)
-            <= _config.MaximumPathDeviation)
+        _flapLiftVelocity = Mathf.MoveTowards(
+            _flapLiftVelocity,
+            0f,
+            _config.FlapLiftDecay * dt);
+
+        if (!wantsForward)
         {
+            _flapTimer = Mathf.Min(
+                _flapTimer,
+                _config.FlapInterval * 0.35f);
             return;
         }
 
-        _recoveryRequested = true;
-        RequestPathRecoveryServerRpc();
+        _flapTimer -= dt;
+        if (_flapTimer > 0f) return;
+
+        _flapTimer = _config.FlapInterval;
+        _flapLiftVelocity = Mathf.Min(
+            _flapLiftVelocity + _config.FlapLiftVelocity,
+            _config.MaxFlapLiftVelocity);
     }
+
+    private static bool IsGalaxyGateSpeedState()
+    {
+        if (Level04FlowManager.Instance == null) return false;
+
+        Level04Phase phase = Level04FlowManager.Instance.Phase;
+        return phase is Level04Phase.GalaxyGate
+            or Level04Phase.TimeWarpAscent;
+    }
+
+    private Vector2 ReadMoveInput()
+    {
+#if UNITY_EDITOR
+        if (_debugInputOverride) return _debugMoveInput;
+#endif
+        return _input != null ? _input.MoveInput : Vector2.zero;
+    }
+
+    private bool ReadClimbInput()
+    {
+#if UNITY_EDITOR
+        if (_debugInputOverride) return _debugClimbInput;
+#endif
+        return _input != null && _input.JumpHeld;
+    }
+
+    private bool ReadDescendInput()
+    {
+#if UNITY_EDITOR
+        if (_debugInputOverride) return _debugDescendInput;
+#endif
+        return _input != null && _input.IsCrouching;
+    }
+
+#if UNITY_EDITOR
+    public void SetDebugFlightInput(
+        Vector2 moveInput,
+        bool climb = false,
+        bool descend = false)
+    {
+        _debugInputOverride = true;
+        _debugMoveInput = Vector2.ClampMagnitude(moveInput, 1f);
+        _debugClimbInput = climb;
+        _debugDescendInput = descend;
+    }
+
+    public void ClearDebugFlightInput()
+    {
+        _debugInputOverride = false;
+        _debugMoveInput = Vector2.zero;
+        _debugClimbInput = false;
+        _debugDescendInput = false;
+    }
+#endif
+
 }

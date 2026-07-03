@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 230c3aefe67f3ce4a8e327d8a0fd226e, type: 3}
   m_Name: SOSpeedBoostRingConfig_Default
   m_EditorClassIdentifier: 
-  BoostForce: 10
-  LiftForce: 5
+  BoostForce: 14
+  LiftForce: 6
   Cooldown: 1.5
   OneShotPerPlayer: 1
   VFXPrefab: {fileID: 0}

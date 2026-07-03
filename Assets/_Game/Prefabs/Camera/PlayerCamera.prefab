@@ -138,6 +138,20 @@ MonoBehaviour:
   _configFlyDown: {fileID: 11400000, guid: dfce47a34ccb90b46b2d1a196536ad3b, type: 2}
   _configCutscene: {fileID: 11400000, guid: 0ceffa9ba732a954192317726a9032db, type: 2}
   _configTopDown: {fileID: 0}
+  _flightLookSensitivity: 0.08
+  _flightMinimumSteeringPitch: -50
+  _flightMaximumSteeringPitch: 50
+  _flightCameraPositionDamping: 0.05
+  _flightCameraAimDamping: 0.03
+  _gateFocusOffset: {x: 0, y: -5, z: -16}
+  _warpAscentOffset: {x: 0, y: -8, z: -20}
+  _starfallOffset: {x: 0, y: 8, z: -15}
+  _terrainRevealOffset: {x: 0, y: 10, z: -18}
+  _normalFlightFov: 60
+  _gateFocusFov: 65
+  _warpAscentFov: 70
+  _starfallFov: 62
+  _terrainRevealFov: 72
 --- !u!114 &2909863037195422926
 MonoBehaviour:
   m_ObjectHideFlags: 0
