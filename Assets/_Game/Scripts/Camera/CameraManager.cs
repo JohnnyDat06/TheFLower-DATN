@@ -46,9 +46,11 @@ public class CameraManager : MonoBehaviour
     [Header("Flight Camera Chase")]
     [SerializeField, Min(0f)] private float _flightLookSensitivity = 0.08f;
     [SerializeField] private float _flightMinimumSteeringPitch = -50f;
-    [SerializeField] private float _flightMaximumSteeringPitch = 50f;
+    [SerializeField] private float _flightMaximumSteeringPitch = 75f;
     [SerializeField, Min(0f)] private float _flightCameraPositionDamping = 0.05f;
     [SerializeField, Min(0f)] private float _flightCameraAimDamping = 0.03f;
+    [SerializeField, Range(0f, 20f)] private float _flightBoostFovIncrease = 5f;
+    [SerializeField, Min(0.01f)] private float _flightFovSmoothTime = 0.35f;
 
     [Header("Level 04 Single Camera States")]
     [SerializeField] private Vector3 _gateFocusOffset = new(0f, -5f, -16f);
@@ -64,6 +66,8 @@ public class CameraManager : MonoBehaviour
     private float _flightHeadingYaw;
     private float _flightOrbitYaw;
     private float _flightOrbitPitch;
+    private float _flightTargetFov;
+    private float _flightFovVelocity;
     private Camera _renderCamera;
 
     private const int PRIORITY_ACTIVE = 20;
@@ -111,6 +115,7 @@ public class CameraManager : MonoBehaviour
 
         InitializeMaps();
         CacheFlightCameraOffsets();
+        InitializeFlightFieldOfView();
         SetAllPriorities(PRIORITY_INACTIVE);
 
         if (_vcamThirdPerson != null)
@@ -203,6 +208,7 @@ public class CameraManager : MonoBehaviour
         if (!IsFlightPreset(_currentPreset)) return;
 
         ResolvePlayerInputIfNeeded();
+        UpdateFlightFieldOfView();
         if (_inputHandler == null || !_inputHandler.CameraLookEnabled) return;
 
         Vector2 lookDelta = _inputHandler.CameraLookDelta;
@@ -421,7 +427,12 @@ public class CameraManager : MonoBehaviour
     {
         if (_vcamFlyDown == null) return;
 
-        float fieldOfView = preset switch
+        _flightTargetFov = GetFlightBaseFov(preset);
+    }
+
+    private float GetFlightBaseFov(CameraPreset preset)
+    {
+        return preset switch
         {
             CameraPreset.GateFocus => _gateFocusFov,
             CameraPreset.WarpAscent => _warpAscentFov,
@@ -429,9 +440,37 @@ public class CameraManager : MonoBehaviour
             CameraPreset.TerrainRevealWide => _terrainRevealFov,
             _ => _normalFlightFov
         };
+    }
+
+    private void InitializeFlightFieldOfView()
+    {
+        if (_vcamFlyDown == null) return;
+
+        _flightTargetFov = _normalFlightFov;
+        LensSettings lens = _vcamFlyDown.Lens;
+        lens.FieldOfView = _flightTargetFov;
+        _vcamFlyDown.Lens = lens;
+    }
+
+    private void UpdateFlightFieldOfView()
+    {
+        if (_vcamFlyDown == null) return;
+
+        float baseFov = GetFlightBaseFov(_currentPreset);
+        bool isBoosting = _currentPreset == CameraPreset.FlyDown
+            && _inputHandler != null
+            && _inputHandler.IsSprinting
+            && _inputHandler.MoveInput.y > 0.1f;
+        _flightTargetFov = baseFov + (isBoosting ? _flightBoostFovIncrease : 0f);
 
         LensSettings lens = _vcamFlyDown.Lens;
-        lens.FieldOfView = fieldOfView;
+        lens.FieldOfView = Mathf.SmoothDamp(
+            lens.FieldOfView,
+            _flightTargetFov,
+            ref _flightFovVelocity,
+            _flightFovSmoothTime,
+            Mathf.Infinity,
+            Time.deltaTime);
         _vcamFlyDown.Lens = lens;
     }
 
