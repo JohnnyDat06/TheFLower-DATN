@@ -219,7 +219,7 @@ Material:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _Color0: {r: 0, g: 0.5987654, b: 1, a: 0}
     - _Color1: {r: 1, g: 0.76618373, b: 0, a: 1}
-    - _DepthColor: {r: 0.15141805, g: 0.26604196, b: 0.2735849, a: 0.7411765}
+    - _DepthColor: {r: 0.033983618, g: 0.16226411, b: 0.16226411, a: 0.7411765}
     - _DepthColor1: {r: 0, g: 0.60118407, b: 0.6132076, a: 1}
     - _Direction: {r: 1, g: 0, b: -1, a: 0.2}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
@@ -227,7 +227,7 @@ Material:
     - _MainColor: {r: 0, g: 0.6810271, b: 0.6886792, a: 1}
     - _NormalDirection: {r: -1, g: 2.3, b: 1.7, a: -0.2}
     - _SecondColor: {r: 0.5404058, g: 0.8679245, b: 0.8414827, a: 0}
-    - _ShallowColor: {r: 0.1936632, g: 0.34798387, b: 0.4811321, a: 1}
+    - _ShallowColor: {r: 0.2929939, g: 0.4867924, b: 0.30626777, a: 1}
     - _WaterDeepColor: {r: 1, g: 1, b: 1, a: 0}
     - _WaterShallowColor: {r: 0, g: 0, b: 0, a: 0}
     - _WavesColor: {r: 0.27874687, g: 0.646538, b: 0.8207547, a: 0}
