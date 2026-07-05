@@ -96,7 +96,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2722460109745320420}
   - component: {fileID: 7174797856287803029}
-  - component: {fileID: 4777586685024545523}
   m_Layer: 0
   m_Name: TFD_Water_Lily_04A
   m_TagString: Untagged
@@ -149,22 +148,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 4492472690440619158}
   m_Enabled: 1
---- !u!114 &4777586685024545523
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3351750864770050910}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0bdc79c95fee58d49a21878e56e1f24a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  targetPointB: {fileID: 0}
-  travelTime: 4
-  bobSpeed: 3
-  bobHeight: 0.02
 --- !u!1 &4556674403167459200
 GameObject:
   m_ObjectHideFlags: 0
