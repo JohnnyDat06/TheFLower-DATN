@@ -140,11 +140,9 @@ MonoBehaviour:
   _configTopDown: {fileID: 0}
   _flightLookSensitivity: 0.08
   _flightMinimumSteeringPitch: -50
-  _flightMaximumSteeringPitch: 75
+  _flightMaximumSteeringPitch: 50
   _flightCameraPositionDamping: 0.05
   _flightCameraAimDamping: 0.03
-  _flightBoostFovIncrease: 5
-  _flightFovSmoothTime: 0.35
   _gateFocusOffset: {x: 0, y: -5, z: -16}
   _warpAscentOffset: {x: 0, y: -8, z: -20}
   _starfallOffset: {x: 0, y: 8, z: -15}

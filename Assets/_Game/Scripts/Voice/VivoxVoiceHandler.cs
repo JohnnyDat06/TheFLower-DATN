@@ -81,7 +81,7 @@ public class VivoxVoiceHandler : NetworkBehaviour
     {
         if (VivoxManager.Instance == null)
         {
-            Debug.LogError("[VivoxVoiceHandler] VivoxManager instance is null!");
+            Debug.LogWarning("[VivoxVoiceHandler] VivoxManager instance is null; voice chat will be skipped for this player.");
             return;
         }
 

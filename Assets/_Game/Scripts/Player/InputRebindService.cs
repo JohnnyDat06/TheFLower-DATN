@@ -48,8 +48,11 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
 
         if (_persistence == null)
         {
-            Debug.LogError("[InputRebindService] PlayerPrefsBindingPersistence chưa được gán trong Inspector!");
-            return;
+            _persistence = GetComponent<PlayerPrefsBindingPersistence>();
+            if (_persistence == null)
+            {
+                _persistence = gameObject.AddComponent<PlayerPrefsBindingPersistence>();
+            }
         }
 
         // Load bindings cho cả 2 device types — phải chạy trước PlayerInputHandler.Awake()
