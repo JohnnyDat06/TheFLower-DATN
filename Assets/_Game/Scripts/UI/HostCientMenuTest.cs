@@ -1,5 +1,6 @@
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class HostCientMenuTest : MonoBehaviour
@@ -13,6 +14,16 @@ public class HostCientMenuTest : MonoBehaviour
     {
         hostButton.onClick.AddListener(OnHostClicked);
         clientButton.onClick.AddListener(OnClientClicked);
+    }
+
+    private void OnEnable()
+    {
+        SelectDefaultButton();
+    }
+
+    private void Start()
+    {
+        SelectDefaultButton();
     }
 
     private void OnHostClicked()
@@ -30,5 +41,15 @@ public class HostCientMenuTest : MonoBehaviour
     private void Hide()
     {
         menu.SetActive(false);
+        if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null)
+            EventSystem.current.SetSelectedGameObject(null);
+    }
+
+    private void SelectDefaultButton()
+    {
+        if (menu != null && !menu.activeInHierarchy) return;
+        if (EventSystem.current == null || hostButton == null || !hostButton.interactable) return;
+
+        EventSystem.current.SetSelectedGameObject(hostButton.gameObject);
     }
 }

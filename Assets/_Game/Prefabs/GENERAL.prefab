@@ -229,6 +229,7 @@ MonoBehaviour:
   _inputHandler: {fileID: 0}
   _enableKeyboardToggle: 1
   _keyboardToggleKey: 103
+  _enableGamepadToggle: 1
 --- !u!1 &5364213849478849585
 GameObject:
   m_ObjectHideFlags: 0
