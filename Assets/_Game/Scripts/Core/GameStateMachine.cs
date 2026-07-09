@@ -40,7 +40,7 @@ public class GameStateMachine : MonoBehaviour
 
     private void Awake()
     {
-        DontDestroyOnLoad(gameObject);
+        DontDestroyOnLoad(transform.root.gameObject);
     }
 
     /// <summary>

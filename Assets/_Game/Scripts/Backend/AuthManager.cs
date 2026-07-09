@@ -32,7 +32,7 @@ public class AuthManager : MonoBehaviour
 
     private void Awake()
     {
-        DontDestroyOnLoad(gameObject);
+        DontDestroyOnLoad(transform.root.gameObject);
     }
 
     // ─── Public API ───────────────────────────────────────────────────────────

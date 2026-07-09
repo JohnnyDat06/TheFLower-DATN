@@ -75,6 +75,12 @@ public class PlayerInputHandler : NetworkBehaviour
     /// <summary>Tắt khi camera đặc biệt.</summary>
     public bool CameraLookEnabled { get; private set; } = true;
 
+    public float GamepadCameraSensitivity
+    {
+        get => _gamepadCameraSensitivity;
+        set => _gamepadCameraSensitivity = Mathf.Clamp(value, 0.1f, 3f);
+    }
+
     // ─── Lifecycle ───────────────────────────────────────────────────────────
 
     private void Awake()

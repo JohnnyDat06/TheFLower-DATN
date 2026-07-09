@@ -26,6 +26,7 @@
     top: 0;
     right: 0;
     bottom: 0;
+    padding: 24px;
     background-color: var(--color-bg);
     align-items: center;
     justify-content: center;
@@ -34,27 +35,28 @@
 /* Main Container */
 .panel-container {
     width: 720px;
-    max-height: 85%;
+    max-width: 92%;
+    height: 86%;
+    max-height: 760px;
     background-color: var(--color-panel);
-    border-radius: 12px;
-    padding: 28px 32px;
+    border-radius: 8px;
+    padding: 20px 24px;
     border-width: 1px;
     border-color: var(--color-border);
 }
 
 /* Title */
 .title {
-    font-size: 24px;
+    font-size: 22px;
     color: var(--color-text);
     -unity-font-style: bold;
     -unity-text-align: middle-center;
-    margin-bottom: 20px;
-    letter-spacing: 3px;
+    margin-bottom: 14px;
 }
 
 /* Section */
 .section {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .section-label {
@@ -62,7 +64,6 @@
     color: var(--color-text-dim);
     margin-bottom: 8px;
     -unity-font-style: bold;
-    letter-spacing: 1px;
 }
 
 /* Device Mode Buttons */
@@ -110,7 +111,6 @@
     font-size: 12px;
     color: var(--color-text-dim);
     -unity-font-style: bold;
-    letter-spacing: 1px;
 }
 
 .rebind-row {
@@ -126,21 +126,21 @@
 }
 
 .col-action {
-    width: 30%;
+    width: 32%;
     font-size: 14px;
     color: var(--color-text);
     -unity-font-style: bold;
 }
 
 .col-binding {
-    width: 35%;
+    width: 34%;
     flex-direction: row;
     align-items: center;
 }
 
 /* Rebind Buttons */
 .rebind-button {
-    min-width: 110px;
+    min-width: 96px;
     height: 32px;
     background-color: var(--color-button);
     color: var(--color-text);
@@ -149,6 +149,7 @@
     border-color: var(--color-border);
     font-size: 13px;
     margin-right: 4px;
+    flex-grow: 1;
 }
 
 .rebind-button:hover {
@@ -168,7 +169,9 @@
 
 /* Rebind List ScrollView */
 .rebind-list {
-    max-height: 340px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 150px;
     border-width: 1px;
     border-color: var(--color-border);
     border-radius: 0 0 var(--radius-sm) var(--radius-sm);
