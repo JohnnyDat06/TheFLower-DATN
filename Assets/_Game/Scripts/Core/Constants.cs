@@ -41,6 +41,7 @@ public static class Constants
 
         // Auth (T0-4)
         public const string PLAYER_ID         = "playerId";
+        public const string PLAYER_NAME       = "playerName";
     }
 
     /// <summary>Keys dùng với Unity Cloud Save.</summary>

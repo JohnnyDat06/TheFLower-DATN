@@ -32,6 +32,7 @@ namespace Game.Testing
         [SerializeField] private TextMeshProUGUI _pointsListText;
 
         private bool _isUIVisible = false;
+        private int _selectedPointIndex;
 
         private void Awake()
         {
@@ -56,10 +57,20 @@ namespace Game.Testing
                 ToggleUI();
             }
 
+            if (Gamepad.current != null && Gamepad.current.selectButton.wasPressedThisFrame)
+            {
+                ToggleUI();
+            }
+
             // Nếu UI đang hiện và nhấn Enter
             if (_isUIVisible && Keyboard.current != null && Keyboard.current.enterKey.wasPressedThisFrame)
             {
                 OnTeleportRequested();
+            }
+
+            if (_isUIVisible)
+            {
+                HandleGamepadUIInput();
             }
         }
 
@@ -72,8 +83,9 @@ namespace Game.Testing
 
             if (_isUIVisible)
             {
+                _selectedPointIndex = Mathf.Clamp(_selectedPointIndex, 0, Mathf.Max(0, _teleportPoints.Count - 1));
                 UpdatePointsListUI();
-                _idInputField.text = "";
+                SyncSelectedPointToInputField();
                 _idInputField.ActivateInputField();
                 LockPlayerInput(true);
                 
@@ -98,9 +110,45 @@ namespace Game.Testing
             string listStr = "<b>Teleport Points:</b>\n";
             for (int i = 0; i < _teleportPoints.Count; i++)
             {
-                listStr += $"[{i}] {_teleportPoints[i].Name}\n";
+                string marker = i == _selectedPointIndex ? ">" : " ";
+                listStr += $"{marker} [{i}] {_teleportPoints[i].Name}\n";
             }
             _pointsListText.text = listStr;
+        }
+
+        private void HandleGamepadUIInput()
+        {
+            var gamepad = Gamepad.current;
+            if (gamepad == null) return;
+
+            if (gamepad.dpad.up.wasPressedThisFrame || gamepad.leftStick.up.wasPressedThisFrame)
+            {
+                MoveSelection(-1);
+            }
+            else if (gamepad.dpad.down.wasPressedThisFrame || gamepad.leftStick.down.wasPressedThisFrame)
+            {
+                MoveSelection(1);
+            }
+
+            if (gamepad.buttonSouth.wasPressedThisFrame)
+                OnTeleportRequested();
+            else if (gamepad.buttonEast.wasPressedThisFrame)
+                ToggleUI();
+        }
+
+        private void MoveSelection(int direction)
+        {
+            if (_teleportPoints.Count == 0) return;
+
+            _selectedPointIndex = (_selectedPointIndex + direction + _teleportPoints.Count) % _teleportPoints.Count;
+            SyncSelectedPointToInputField();
+            UpdatePointsListUI();
+        }
+
+        private void SyncSelectedPointToInputField()
+        {
+            if (_idInputField == null) return;
+            _idInputField.SetTextWithoutNotify(_selectedPointIndex.ToString());
         }
 
         public void OnTeleportRequested()

@@ -1,4 +1,6 @@
+using System.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using TMPro;
 using System.Threading.Tasks;
@@ -40,6 +42,7 @@ namespace Networking.LobbySystem
         {
             // Tự động gắn Juice cho tất cả các nút để đỡ phải kéo tay
             AddJuiceToAllButtons();
+            EnsureDefaultPlayerName();
 
             // Initial state
             ShowMainMenu();
@@ -76,6 +79,9 @@ namespace Networking.LobbySystem
 
         private void OnPlayerNameChanged(string newName)
         {
+            if (!string.IsNullOrEmpty(newName))
+                PlayerPrefs.SetString(Constants.PlayerPrefsKeys.PLAYER_NAME, newName);
+
             UpdateMainMenuButtonsState();
         }
 
@@ -87,6 +93,9 @@ namespace Networking.LobbySystem
             createRoomButton.interactable = hasName;
             if (joinRoomButton != null) joinRoomButton.interactable = hasName;
             if (quickJoinButton != null) quickJoinButton.interactable = hasName;
+
+            if (mainMenuPanel != null && mainMenuPanel.activeInHierarchy)
+                SelectFirstAvailable(createRoomButton, joinRoomButton, quickJoinButton, playerNameInputField);
         }
 
         private void ShowMainMenu()
@@ -94,6 +103,9 @@ namespace Networking.LobbySystem
             if (mainMenuPanel != null) mainMenuPanel.SetActive(true);
             if (joinRoomPanel != null) joinRoomPanel.SetActive(false);
             if (roomPanel != null) roomPanel.SetActive(false);
+
+            UpdateMainMenuButtonsState();
+            SelectFirstAvailable(createRoomButton, joinRoomButton, quickJoinButton, playerNameInputField);
         }
 
         private async Task<bool> EnsureAuthenticated()
@@ -117,6 +129,7 @@ namespace Networking.LobbySystem
         {
             mainMenuPanel.SetActive(false);
             joinRoomPanel.SetActive(true);
+            SelectFirstAvailable(roomCodeInputField, confirmJoinButton, backFromJoinButton);
         }
 
         private async void OnQuickJoinClicked()
@@ -154,6 +167,7 @@ namespace Networking.LobbySystem
 
             // Only host can start
             startButton.gameObject.SetActive(lobby.HostId == LobbyManager.Instance.GetPlayerId());
+            SelectFirstAvailable(readyButton, startButton, leaveButton);
             
             // Character visualization would go here
             Debug.Log($"Players in lobby: {lobby.Players.Count}");
@@ -250,6 +264,44 @@ namespace Networking.LobbySystem
         private async void OnLeaveClicked()
         {
             await LobbyManager.Instance.LeaveLobby();
+        }
+
+        private void EnsureDefaultPlayerName()
+        {
+            if (playerNameInputField == null || !string.IsNullOrWhiteSpace(playerNameInputField.text)) return;
+
+            string savedName = PlayerPrefs.GetString(Constants.PlayerPrefsKeys.PLAYER_NAME, string.Empty);
+            if (string.IsNullOrWhiteSpace(savedName))
+                savedName = $"Player{Random.Range(1000, 9999)}";
+
+            playerNameInputField.SetTextWithoutNotify(savedName);
+            PlayerPrefs.SetString(Constants.PlayerPrefsKeys.PLAYER_NAME, savedName);
+        }
+
+        private void SelectFirstAvailable(params Selectable[] candidates)
+        {
+            if (!isActiveAndEnabled || EventSystem.current == null) return;
+            StartCoroutine(SelectFirstAvailableNextFrame(candidates));
+        }
+
+        private IEnumerator SelectFirstAvailableNextFrame(Selectable[] candidates)
+        {
+            yield return null;
+
+            if (EventSystem.current == null) yield break;
+
+            foreach (var candidate in candidates)
+            {
+                if (candidate == null || !candidate.gameObject.activeInHierarchy || !candidate.interactable)
+                    continue;
+
+                EventSystem.current.SetSelectedGameObject(candidate.gameObject);
+
+                if (candidate is TMP_InputField inputField)
+                    inputField.ActivateInputField();
+
+                yield break;
+            }
         }
 
         private void AddJuiceToAllButtons()

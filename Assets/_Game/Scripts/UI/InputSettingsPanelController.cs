@@ -24,6 +24,7 @@ public class InputSettingsPanelController : MonoBehaviour
     [Header("Fallback Toggle")]
     [SerializeField] private bool _enableKeyboardToggle = true;
     [SerializeField] private Key _keyboardToggleKey = Key.F10;
+    [SerializeField] private bool _enableGamepadToggle = true;
 
     // Cached UI elements
     private VisualElement _root;
@@ -104,9 +105,13 @@ public class InputSettingsPanelController : MonoBehaviour
 
     private void Update()
     {
-        if (!_enableKeyboardToggle || Keyboard.current == null) return;
+        if (_enableKeyboardToggle && Keyboard.current != null && Keyboard.current[_keyboardToggleKey].wasPressedThisFrame)
+        {
+            Toggle();
+            return;
+        }
 
-        if (Keyboard.current[_keyboardToggleKey].wasPressedThisFrame)
+        if (_enableGamepadToggle && Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame)
             Toggle();
     }
 
@@ -131,7 +136,7 @@ public class InputSettingsPanelController : MonoBehaviour
         if (_rows.Count > 0)
         {
             // Delay 1 frame để UI Toolkit build xong
-            _root.schedule.Execute(() => _rows[0].Focus()).ExecuteLater(50);
+            _root.schedule.Execute(() => _btnModeAuto?.Focus()).ExecuteLater(50);
         }
     }
 
@@ -344,6 +349,7 @@ public class InputSettingsPanelController : MonoBehaviour
             _rebindPrompt.text = $"Press any {deviceLabel} for '{actionName}'...";
 
         _rebindOverlay.RemoveFromClassList("hidden");
+        _root.schedule.Execute(() => _btnCancelRebind?.Focus()).ExecuteLater(50);
     }
 
     private void HideRebindOverlay()
