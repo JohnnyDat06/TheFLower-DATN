@@ -207,7 +207,7 @@ namespace Networking.LobbySystem
             if (TryGetComponent<PlayerStateMachine>(out var psm)) psm.enabled = false;
         }
 
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void AssignSlotServerRpc()
         {
             var clientIds = NetworkManager.Singleton.ConnectedClientsIds.ToList();

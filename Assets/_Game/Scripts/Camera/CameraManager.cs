@@ -101,6 +101,7 @@ public class CameraManager : MonoBehaviour
             return;
         }
         Instance = this;
+        PersistentSceneRoot.MarkDontDestroyOnLoad(transform);
         _renderCamera = Camera.main;
 
         // Auto-add để tránh trường hợp quên gắn service trong scene.

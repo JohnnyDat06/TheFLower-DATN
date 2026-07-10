@@ -73,7 +73,7 @@ public class RespawnManager : NetworkBehaviour
         base.OnNetworkDespawn();
     }
 
-    private void OnDestroy()
+    public override void OnDestroy()
     {
         UnsubscribeEvents();
 
@@ -81,6 +81,8 @@ public class RespawnManager : NetworkBehaviour
         {
             Instance = null;
         }
+
+        base.OnDestroy();
     }
 
     private void UnsubscribeEvents()

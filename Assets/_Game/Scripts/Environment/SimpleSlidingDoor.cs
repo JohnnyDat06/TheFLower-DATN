@@ -28,8 +28,6 @@ namespace Environment
 
         private Vector3 _startPosition;
         private Vector3 _targetPosition;
-        private bool _isMoving = false;
-
         private void Awake()
         {
             _startPosition = transform.position;
@@ -85,7 +83,6 @@ namespace Environment
 
         private IEnumerator OpenDoorRoutine()
         {
-            _isMoving = true;
             
             // Phát âm thanh
             PlaySound(_openSound);
@@ -101,7 +98,6 @@ namespace Environment
             }
 
             transform.position = _targetPosition;
-            _isMoving = false;
 
             // Tắt active nếu được cấu hình
             if (_deactivateAfterOpen)

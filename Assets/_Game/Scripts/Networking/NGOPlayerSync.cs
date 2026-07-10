@@ -24,10 +24,8 @@ public class NGOPlayerSync : NetworkBehaviour
     [Header("Optional Owner-Only Behaviours")]
     [SerializeField] private Behaviour[] _ownerOnlyBehaviours;
 
-    private bool _hasAppliedSpawnState;
     private bool _isTeleporting; 
     private bool _isFrozenBySystem = true; // Trạng thái đóng băng hệ thống khi đổi màn
-    private bool _hasReceivedInitialTeleport = false;
 
     public bool IsTeleporting => _isTeleporting || _isFrozenBySystem;
 
@@ -52,8 +50,6 @@ public class NGOPlayerSync : NetworkBehaviour
 
         // Mặc định đóng băng khi mới sinh ra (trừ khi đang test map trực tiếp)
         _isFrozenBySystem = !IsTestMode();
-        _hasReceivedInitialTeleport = false;
-
         if (_rigidbody != null)
         {
             _rigidbody.linearVelocity = Vector3.zero;
@@ -61,8 +57,6 @@ public class NGOPlayerSync : NetworkBehaviour
         }
 
         ApplyAuthorityState();
-        _hasAppliedSpawnState = true;
-
         // Nếu là Owner, hãy báo cáo cho Server ngay khi Spawn
         if (IsOwner && !IsTestMode())
         {
@@ -91,8 +85,6 @@ public class NGOPlayerSync : NetworkBehaviour
 
         // Khi nạp cảnh mới, đóng băng ngay lập tức (trừ khi test map)
         _isFrozenBySystem = !IsTestMode();
-        _hasReceivedInitialTeleport = false;
-        
         ApplyAuthorityState();
 
         // Báo cho Server biết tôi đã nạp xong Map
@@ -138,8 +130,6 @@ public class NGOPlayerSync : NetworkBehaviour
 
     public void Teleport(Vector3 position, Quaternion rotation)
     {
-        _hasReceivedInitialTeleport = true; 
-
         if (IsServer)
         {
             if (IsOwner) StartCoroutine(PerformTeleportCoroutine(position, rotation));
@@ -152,7 +142,6 @@ public class NGOPlayerSync : NetworkBehaviour
     {
         if (IsServer && IsOwner) return;
 
-        _hasReceivedInitialTeleport = true; 
         if (IsOwner)
         {
             StartCoroutine(PerformTeleportCoroutine(position, rotation));
@@ -169,8 +158,7 @@ public class NGOPlayerSync : NetworkBehaviour
 
         if (_rigidbody != null)
         {
-            _rigidbody.linearVelocity = Vector3.zero;
-            _rigidbody.angularVelocity = Vector3.zero;
+            ResetRigidbodyMotion();
             _rigidbody.isKinematic = true; 
         }
 
@@ -196,9 +184,9 @@ public class NGOPlayerSync : NetworkBehaviour
 
         if (_rigidbody != null)
         {
+            if (isLocked) ResetRigidbodyMotion();
             _rigidbody.isKinematic = isLocked || !IsOwner;
             _rigidbody.useGravity = !isLocked && IsOwner;
-            if (isLocked) _rigidbody.linearVelocity = Vector3.zero;
         }
 
         if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby"))
@@ -208,6 +196,14 @@ public class NGOPlayerSync : NetworkBehaviour
         }
 
         SetLocalSimulationEnabled(IsOwner && !isLocked);
+    }
+
+    private void ResetRigidbodyMotion()
+    {
+        if (_rigidbody == null || _rigidbody.isKinematic) return;
+
+        _rigidbody.linearVelocity = Vector3.zero;
+        _rigidbody.angularVelocity = Vector3.zero;
     }
 
     private void SetLocalSimulationEnabled(bool enabled)

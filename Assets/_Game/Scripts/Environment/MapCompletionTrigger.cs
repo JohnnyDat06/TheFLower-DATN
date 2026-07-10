@@ -35,7 +35,7 @@ public class MapCompletionTrigger : NetworkBehaviour
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void StartCompletionSequenceServerRpc()
     {
         StartCompletionSequence();
@@ -72,7 +72,8 @@ public class MapCompletionTrigger : NetworkBehaviour
         }
         else
         {
-            NetworkManager.SceneManager.LoadScene(_lobbySceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+            if (SceneLoader.CanLoadScene(_lobbySceneName))
+                NetworkManager.SceneManager.LoadScene(_lobbySceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
 
         // 4. (Tùy chọn) Ẩn chữ "To Be Continued" sau khi load xong (thường thì scene mới sẽ reset UI này)

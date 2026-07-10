@@ -14,10 +14,10 @@ public class FinalWingAltar : CoopInteractable
         base.Interact(playerId);
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void ActivateSoloServerRpc(
         ulong playerId,
-        ServerRpcParams rpcParams = default)
+        RpcParams rpcParams = default)
     {
         if (rpcParams.Receive.SenderClientId != playerId) return;
         if (Level04FlowManager.Instance == null

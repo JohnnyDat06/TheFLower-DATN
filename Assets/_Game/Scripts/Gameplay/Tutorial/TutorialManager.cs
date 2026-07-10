@@ -79,7 +79,7 @@ public class TutorialManager : NetworkBehaviour
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void ReportPointReachedServerRpc(int pointIndex, ulong clientId)
     {
         if (_currentStepIndex.Value < 0 || _currentStepIndex.Value >= _steps.Count) return;

@@ -72,9 +72,10 @@ public class Level04FlowManager : NetworkBehaviour
         base.OnNetworkDespawn();
     }
 
-    private void OnDestroy()
+    public override void OnDestroy()
     {
         if (Instance == this) Instance = null;
+        base.OnDestroy();
     }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -155,9 +156,12 @@ public class Level04FlowManager : NetworkBehaviour
         }
         else if (NetworkManager.Singleton != null)
         {
-            NetworkManager.Singleton.SceneManager.LoadScene(
-                _endSceneName,
-                UnityEngine.SceneManagement.LoadSceneMode.Single);
+            if (SceneLoader.CanLoadScene(_endSceneName))
+            {
+                NetworkManager.Singleton.SceneManager.LoadScene(
+                    _endSceneName,
+                    UnityEngine.SceneManagement.LoadSceneMode.Single);
+            }
         }
     }
 

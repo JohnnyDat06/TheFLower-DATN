@@ -313,7 +313,7 @@ namespace Networking.LobbySystem
             if (LoadingSyncManager.Instance != null) LoadingSyncManager.Instance.StartLoadingFadeClientRpc();
             yield return new WaitForSecondsRealtime(0.8f);
             if (SceneLoader.Instance != null) SceneLoader.Instance.LoadScene(sceneName);
-            else NetworkManager.Singleton.SceneManager.LoadScene(sceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+            else if (NetworkManager.Singleton != null && SceneLoader.CanLoadScene(sceneName)) NetworkManager.Singleton.SceneManager.LoadScene(sceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
 
         public string GetPlayerId() => _playerId;

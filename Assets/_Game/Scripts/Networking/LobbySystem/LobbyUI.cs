@@ -251,8 +251,8 @@ namespace Networking.LobbySystem
 
                 if (allReady && players.Length > 0)
                 {
-                    Debug.Log("[LobbyUI] SUCCESS: All players ready. Loading scene Map1_Main...");
-                    LobbyManager.Instance.StartGame("Map1_Main");
+                    Debug.Log($"[LobbyUI] SUCCESS: All players ready. Loading scene {Constants.Scenes.LEVEL_01}...");
+                    LobbyManager.Instance.StartGame(Constants.Scenes.LEVEL_01);
                 }
                 else
                 {

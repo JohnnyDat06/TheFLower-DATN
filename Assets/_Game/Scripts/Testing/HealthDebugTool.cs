@@ -32,8 +32,8 @@ public class HealthDebugTool : NetworkBehaviour
         }
     }
 
-    [ServerRpc(RequireOwnership = false)]
-    private void RequestRestoreFullHealthServerRpc(ServerRpcParams rpcParams = default)
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestRestoreFullHealthServerRpc(RpcParams rpcParams = default)
     {
         ulong senderClientId = rpcParams.Receive.SenderClientId;
         var allHealths = Object.FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None);
@@ -52,7 +52,7 @@ public class HealthDebugTool : NetworkBehaviour
     /// Gửi yêu cầu trừ máu lên Server.
     /// ServerRpc cho phép Client ra lệnh cho Server thực thi logic quan trọng.
     /// </summary>
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestDamageServerRpc(ulong targetClientId)
     {
         // Server tìm tất cả PlayerHealth trong scene

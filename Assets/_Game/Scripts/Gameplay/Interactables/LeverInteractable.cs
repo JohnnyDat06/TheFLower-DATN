@@ -5,7 +5,7 @@ using UnityEngine.Events;
 public class LeverInteractable : InteractableBase
 {
     [Header("Lever Settings")]
-    public UnityEvent OnDeactivated;
+    public new UnityEvent OnDeactivated;
 
     public override void OnNetworkSpawn()
     {
@@ -18,7 +18,7 @@ public class LeverInteractable : InteractableBase
         ToggleServerRpc(playerId);
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void ToggleServerRpc(ulong playerId)
     {
         if (!CanPlayerInteract(playerId)) return;
