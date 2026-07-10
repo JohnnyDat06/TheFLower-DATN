@@ -25,14 +25,51 @@ namespace Game.Network
         private void Awake()
         {
             Instance = this;
+            var activeNM = NetworkManager.Singleton;
+            var isNoAttached = TryGetComponent<Unity.Netcode.NetworkObject>(out var no);
+            Debug.Log($"[PlayerSpawner] Awake called. Instance set to {this.gameObject.name}. Active={gameObject.activeInHierarchy}. HasNetworkObject={isNoAttached}");
+            if (isNoAttached)
+            {
+                string path = gameObject.name;
+                Transform t = transform.parent;
+                while (t != null)
+                {
+                    path = t.name + "/" + path;
+                    t = t.parent;
+                }
+                Debug.Log($"[PlayerSpawner] NetworkObject diagnostics: Path={path}, IsSceneObject={no.IsSceneObject}, no.NetworkManager={no.NetworkManager}, activeNetworkManager={activeNM}, Scene={gameObject.scene.name} (handle={gameObject.scene.handle})");
+            }
         }
 
         public override void OnNetworkSpawn()
         {
             if (!IsServer) return;
+            Debug.Log($"[PlayerSpawner] OnNetworkSpawn called on Server. Connected clients count: {NetworkManager.Singleton.ConnectedClientsList.Count}");
             _readyPlayers.Clear();
             _spawnedPlayers.Clear();
             _isSpawningFinished = false;
+
+            // Nhập những client đã báo cáo sẵn sàng trước đó từ LoadingSyncManager
+            if (LoadingSyncManager.Instance != null)
+            {
+                foreach (var id in NetworkManager.Singleton.ConnectedClientsIds)
+                {
+                    if (LoadingSyncManager.Instance.IsClientReady(id))
+                    {
+                        Debug.Log($"[PlayerSpawner] Importing early ready client {id}");
+                        _readyPlayers.Add(id);
+                    }
+                }
+            }
+
+            Debug.Log($"[PlayerSpawner] OnNetworkSpawn initial ready players count: {_readyPlayers.Count}");
+
+            // Kiểm tra xem đã đủ tất cả người chơi trong session hiện tại chưa
+            if (_readyPlayers.Count >= NetworkManager.Singleton.ConnectedClientsList.Count)
+            {
+                Debug.Log("[PlayerSpawner] All players ready during OnNetworkSpawn, launching ExecuteSynchronizedSpawn.");
+                StartCoroutine(ExecuteSynchronizedSpawn());
+            }
         }
 
         /// <summary>

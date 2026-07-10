@@ -17,7 +17,13 @@ public class SceneLoader : MonoBehaviour
     {
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
-        DontDestroyOnLoad(transform.root.gameObject);
+        
+        Transform root = transform;
+        while (root.parent != null && !root.parent.name.Contains("SYSTEM & MANAGERS"))
+        {
+            root = root.parent;
+        }
+        DontDestroyOnLoad(root.gameObject);
     }
 
     /// <summary>
