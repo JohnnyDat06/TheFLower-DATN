@@ -8,10 +8,10 @@ public static class Constants
     /// <summary>Tên các scene trong Build Settings.</summary>
     public static class Scenes
     {
-        public const string MAIN_MENU = "MainMenu";
+        public const string MAIN_MENU = "Lobby";
         public const string LOBBY     = "Lobby";
-        public const string LEVEL_01  = "Level_01";
-        public const string LEVEL_02  = "Level_02";
+        public const string LEVEL_01  = "Map1_Main";
+        public const string LEVEL_02  = "Map2_Main";
         public const string LEVEL_03  = "Level_03";
         public const string LEVEL_04  = "Map4_Flying";
     }

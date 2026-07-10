@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.IO;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -10,7 +11,6 @@ using UnityEngine.SceneManagement;
 public class SceneLoader : MonoBehaviour
 {
     public static SceneLoader Instance { get; private set; }
-    public event Action<float> OnLoadProgress;
     [SerializeField] private GameStateMachine _gameStateMachine;
 
     private void Awake()
@@ -18,12 +18,7 @@ public class SceneLoader : MonoBehaviour
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         
-        Transform root = transform;
-        while (root.parent != null && !root.parent.name.Contains("SYSTEM & MANAGERS"))
-        {
-            root = root.parent;
-        }
-        DontDestroyOnLoad(root.gameObject);
+        PersistentSceneRoot.MarkDontDestroyOnLoad(transform);
     }
 
     /// <summary>
@@ -31,6 +26,8 @@ public class SceneLoader : MonoBehaviour
     /// </summary>
     public void LoadScene(string sceneName)
     {
+        if (!CanLoadScene(sceneName)) return;
+
         StartCoroutine(LoadSceneCoroutine(sceneName));
     }
 
@@ -111,6 +108,30 @@ public class SceneLoader : MonoBehaviour
     public void LoadMainMenu()
     {
         try { if (NetworkManager.Singleton != null) NetworkManager.Singleton.Shutdown(); } catch { }
+
+        if (!CanLoadScene(Constants.Scenes.MAIN_MENU)) return;
+
         SceneManager.LoadScene(Constants.Scenes.MAIN_MENU);
+    }
+
+    public static bool CanLoadScene(string sceneName)
+    {
+        if (string.IsNullOrWhiteSpace(sceneName))
+        {
+            Debug.LogError("[SceneLoader] Cannot load scene because the scene name is empty.");
+            return false;
+        }
+
+        for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+        {
+            string scenePath = SceneUtility.GetScenePathByBuildIndex(i);
+            string buildSceneName = Path.GetFileNameWithoutExtension(scenePath);
+
+            if (string.Equals(buildSceneName, sceneName, StringComparison.Ordinal))
+                return true;
+        }
+
+        Debug.LogError($"[SceneLoader] Cannot load scene '{sceneName}' because it is not enabled in Build Settings.");
+        return false;
     }
 }

@@ -71,12 +71,7 @@ public class InputDeviceDetector : MonoBehaviour, IInputDeviceDetector
 
         Instance = this;
         
-        Transform root = transform;
-        while (root.parent != null && !root.parent.name.Contains("SYSTEM & MANAGERS"))
-        {
-            root = root.parent;
-        }
-        DontDestroyOnLoad(root.gameObject);
+        PersistentSceneRoot.MarkDontDestroyOnLoad(transform);
 
         // Load preferred device setting
         _preferredDevice = PlayerPrefs.GetInt(Constants.PlayerPrefsKeys.INPUT_PREFERRED_DEVICE, PREFERRED_AUTO);

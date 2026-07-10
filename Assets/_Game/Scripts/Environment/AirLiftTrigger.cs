@@ -26,6 +26,8 @@ namespace Game.Environment
 
         private void OnTriggerStay(Collider other)
         {
+            if (!_isContinuous) return;
+
             if (other.TryGetComponent<PlayerController>(out var playerController) && playerController.IsOwner)
             {
                 if (other.TryGetComponent<Rigidbody>(out var rb))

@@ -32,12 +32,7 @@ public class AuthManager : MonoBehaviour
 
     private void Awake()
     {
-        Transform root = transform;
-        while (root.parent != null && !root.parent.name.Contains("SYSTEM & MANAGERS"))
-        {
-            root = root.parent;
-        }
-        DontDestroyOnLoad(root.gameObject);
+        PersistentSceneRoot.MarkDontDestroyOnLoad(transform);
     }
 
     // ─── Public API ───────────────────────────────────────────────────────────

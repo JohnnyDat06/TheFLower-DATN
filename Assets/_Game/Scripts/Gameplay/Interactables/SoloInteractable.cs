@@ -23,7 +23,7 @@ public class SoloInteractable : InteractableBase
         ActivateServerRpc(playerId);
     }
 
-    [ServerRpc(RequireOwnership = false)]
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void ActivateServerRpc(ulong playerId)
     {
         if (!CanInteract) return;

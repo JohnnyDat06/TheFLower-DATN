@@ -81,8 +81,6 @@ public class VisionSensor : MonoBehaviour
         
         GameObject bestCandidate = null;
         float minDistance = float.MaxValue;
-        bool isCurrentTargetStillVisible = false;
-
         for (int i = 0; i < count; i++)
         {
             Collider col = _overlapResults[i];
@@ -90,11 +88,6 @@ public class VisionSensor : MonoBehaviour
 
             if (IsTargetVisible(col, out float distance))
             {
-                if (col.gameObject == _currentTarget)
-                {
-                    isCurrentTargetStillVisible = true;
-                }
-
                 if (distance < minDistance)
                 {
                     minDistance = distance;

@@ -135,8 +135,8 @@ namespace Game.Core
             ReportTrailerFinishedServerRpc();
         }
 
-        [ServerRpc(RequireOwnership = false)]
-        private void ReportTrailerFinishedServerRpc(ServerRpcParams rpcParams = default)
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+        private void ReportTrailerFinishedServerRpc(RpcParams rpcParams = default)
         {
             ulong clientId = rpcParams.Receive.SenderClientId;
             if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client))

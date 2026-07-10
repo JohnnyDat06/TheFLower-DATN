@@ -22,7 +22,7 @@ namespace Gameplay.Interactables
             TriggerTrapServerRpc(playerId);
         }
 
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void TriggerTrapServerRpc(ulong playerId)
         {
             // Kiểm tra điều kiện trên Server

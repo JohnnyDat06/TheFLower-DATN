@@ -121,7 +121,8 @@ public class CoopSceneTeleporter : NetworkBehaviour
         else
         {
             Debug.LogWarning("[CoopSceneTeleporter] Không thấy SceneLoader, gọi trực tiếp NetworkSceneManager.");
-            NetworkManager.SceneManager.LoadScene(_nextSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+            if (SceneLoader.CanLoadScene(_nextSceneName))
+                NetworkManager.SceneManager.LoadScene(_nextSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
     }
 

@@ -20,7 +20,6 @@ public class MagicMirrorController : NetworkBehaviour
     // Network variable to sync state across all clients
     private NetworkVariable<bool> isMirrorActive = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-    private bool inTransition;
     private float transitionF, lightF;
     private Material mirrorMat, mirrorEffectMat;
     private Vector3 symbolStartPos;
@@ -132,8 +131,6 @@ public class MagicMirrorController : NetworkBehaviour
 
     IEnumerator MirrorTransition(bool _active, bool immediate)
     {
-        inTransition = true;
-
         if (immediate)
         {
             transitionF = _active ? 1f : 0f;
@@ -163,7 +160,6 @@ public class MagicMirrorController : NetworkBehaviour
             }
         }
 
-        inTransition = false;
     }
 
     private void UpdateVisuals(float value)

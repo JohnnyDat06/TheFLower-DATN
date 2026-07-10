@@ -39,7 +39,7 @@ namespace Game.Parkour
             }
         }
 
-        [ServerRpc(RequireOwnership = false)]
+        [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
         private void PlayBounceVisualServerRpc()
         {
             // Kiểm tra cooldown thực tế trên Server

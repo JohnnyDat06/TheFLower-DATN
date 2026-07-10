@@ -1,6 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 using System.Collections;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Gắn trên Player prefab. Thiết lập camera cho local player khi spawn.
@@ -25,6 +26,11 @@ public class PlayerCameraInitializer : NetworkBehaviour
     private IEnumerator InitializeCameraRoutine()
     {
         // Chờ tối đa 5 giây để CameraManager xuất hiện (tăng từ 2s)
+        while (CameraManager.Instance == null && IsLobbyScene())
+        {
+            yield return new WaitForSeconds(0.1f);
+        }
+
         float timeout = 5.0f;
         while (CameraManager.Instance == null && timeout > 0)
         {
@@ -55,6 +61,11 @@ public class PlayerCameraInitializer : NetworkBehaviour
         Cursor.visible = false;
 
         Debug.Log($"[PlayerCameraInitializer] Camera targets initialized for {(IsHost ? "Host" : "Client")} player.");
+    }
+
+    private bool IsLobbyScene()
+    {
+        return SceneManager.GetActiveScene().name == Constants.Scenes.LOBBY;
     }
 
     private void InitializeCamera() { }
