@@ -19,8 +19,8 @@ MonoBehaviour:
   WallLayerMask:
     serializedVersion: 2
     m_Bits: 0
-  MoveSpeed: 4
-  SprintMultiplier: 2
+  MoveSpeed: 2
+  SprintMultiplier: 4
   CrouchSpeedMultiplier: 0.3
   JumpForce: 14
   DoubleJumpForce: 14
