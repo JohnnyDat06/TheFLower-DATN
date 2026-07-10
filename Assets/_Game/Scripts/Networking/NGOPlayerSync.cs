@@ -107,10 +107,21 @@ public class NGOPlayerSync : NetworkBehaviour
     {
         var senderId = rpcParams.Receive.SenderClientId;
         Debug.Log($"[NGOPlayerSync] Server received Ready from client: {senderId}");
-        // Gửi tín hiệu cho PlayerSpawner
+        
+        // Lưu trạng thái sẵn sàng vào LoadingSyncManager trước
+        if (LoadingSyncManager.Instance != null)
+        {
+            LoadingSyncManager.Instance.MarkClientReady(senderId);
+        }
+
+        // Gửi tín hiệu cho PlayerSpawner (nếu có sẵn)
         if (Game.Network.PlayerSpawner.Instance != null)
         {
             Game.Network.PlayerSpawner.Instance.ReportPlayerReady(senderId);
+        }
+        else
+        {
+            Debug.LogWarning($"[NGOPlayerSync] PlayerSpawner.Instance is NULL on Server! senderId={senderId}");
         }
     }
 

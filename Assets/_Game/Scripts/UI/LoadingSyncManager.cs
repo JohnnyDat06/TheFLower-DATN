@@ -16,9 +16,36 @@ public class LoadingSyncManager : NetworkBehaviour
         DontDestroyOnLoad(gameObject);
     }
 
+    private readonly System.Collections.Generic.HashSet<ulong> _readyClients = new System.Collections.Generic.HashSet<ulong>();
+
+    public void ClearReadyClients()
+    {
+        if (!IsServer) return;
+        _readyClients.Clear();
+        Debug.Log("[LoadingSyncManager] Cleared ready clients list on Server.");
+    }
+
+    public void MarkClientReady(ulong clientId)
+    {
+        if (!IsServer) return;
+        _readyClients.Add(clientId);
+        Debug.Log($"[LoadingSyncManager] Client {clientId} marked ready. Total ready: {_readyClients.Count}");
+    }
+
+    public bool IsClientReady(ulong clientId)
+    {
+        if (!IsServer) return false;
+        return _readyClients.Contains(clientId);
+    }
+
     [Rpc(SendTo.Everyone)]
     public void StartLoadingFadeClientRpc()
     {
+        if (IsServer)
+        {
+            ClearReadyClients();
+        }
+
         if (SeamlessLoadingOverlay.Instance != null)
         {
             SeamlessLoadingOverlay.Instance.ShowProgressBar(true); // Reset về mặc định
