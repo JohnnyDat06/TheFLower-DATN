@@ -51,7 +51,6 @@ public class InputSettingsPanelController : MonoBehaviour
     private EventCallback<ClickEvent> _backClicked;
     private EventCallback<ClickEvent> _cancelRebindClicked;
     private EventCallback<NavigationCancelEvent> _navigationCancel;
-
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     private void Awake()
@@ -119,6 +118,7 @@ public class InputSettingsPanelController : MonoBehaviour
     // ─── Public API ───────────────────────────────────────────────────────────
 
     public bool IsVisible => _isVisible;
+    public bool IsRebinding => _rebindService != null && _rebindService.IsRebinding;
 
     /// <summary>Mở InputSettings panel.</summary>
     public void Show()

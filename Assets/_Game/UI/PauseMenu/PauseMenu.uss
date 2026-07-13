@@ -1,0 +1,124 @@
+.pause-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(8, 10, 13, 0.72);
+    align-items: center;
+    justify-content: center;
+    padding: 28px;
+}
+
+.hidden {
+    display: none;
+}
+
+.pause-panel {
+    width: 760px;
+    max-width: 94%;
+    max-height: 92%;
+    background-color: rgba(22, 27, 31, 0.96);
+    border-width: 1px;
+    border-color: rgba(190, 210, 205, 0.28);
+    border-radius: 8px;
+    padding: 24px;
+}
+
+.pause-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+}
+
+.pause-title {
+    font-size: 34px;
+    unity-font-style: bold;
+    color: rgb(240, 245, 242);
+}
+
+.pause-hint {
+    font-size: 14px;
+    color: rgba(220, 230, 226, 0.72);
+}
+
+.pause-body {
+    flex-direction: row;
+}
+
+.pause-actions {
+    width: 300px;
+    margin-right: 22px;
+}
+
+.menu-button {
+    height: 46px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(205, 220, 215, 0.24);
+    background-color: rgba(49, 59, 64, 0.96);
+    color: rgb(239, 244, 241);
+    font-size: 16px;
+    unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.menu-button:hover,
+.menu-button:focus {
+    background-color: rgb(72, 96, 94);
+    border-color: rgb(138, 205, 190);
+}
+
+.primary {
+    background-color: rgb(60, 111, 96);
+}
+
+.danger {
+    background-color: rgb(104, 57, 57);
+}
+
+.compact {
+    width: 150px;
+    margin-top: 8px;
+}
+
+.settings-panel {
+    flex-grow: 1;
+    min-width: 330px;
+    padding: 16px;
+    background-color: rgba(12, 15, 18, 0.48);
+    border-width: 1px;
+    border-color: rgba(200, 218, 211, 0.16);
+    border-radius: 6px;
+}
+
+.section-title {
+    font-size: 20px;
+    unity-font-style: bold;
+    color: rgb(236, 242, 239);
+    margin-bottom: 10px;
+}
+
+.setting-row {
+    flex-direction: row;
+    align-items: center;
+    min-height: 42px;
+}
+
+.setting-label {
+    width: 84px;
+    color: rgba(236, 242, 239, 0.9);
+    font-size: 14px;
+}
+
+.setting-slider {
+    flex-grow: 1;
+}
+
+.setting-toggle {
+    margin-top: 6px;
+    margin-bottom: 10px;
+    color: rgb(236, 242, 239);
+}

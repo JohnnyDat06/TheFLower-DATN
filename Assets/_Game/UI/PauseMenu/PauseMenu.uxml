@@ -1,0 +1,37 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Style src="PauseMenu.uss" />
+    <ui:VisualElement name="pause-overlay" class="pause-overlay hidden">
+        <ui:VisualElement name="pause-panel" class="pause-panel">
+            <ui:VisualElement class="pause-header">
+                <ui:Label text="PAUSE" class="pause-title" />
+                <ui:Label text="Esc / Menu" class="pause-hint" />
+            </ui:VisualElement>
+            <ui:VisualElement class="pause-body">
+                <ui:VisualElement class="pause-actions">
+                    <ui:Button name="btn-continue" text="Continue" class="menu-button primary" focusable="true" tabindex="1" />
+                    <ui:Button name="btn-teleport" text="Teleport Checkpoint" class="menu-button" focusable="true" tabindex="2" />
+                    <ui:Button name="btn-settings" text="Settings" class="menu-button" focusable="true" tabindex="3" />
+                    <ui:Button name="btn-controls" text="Controls" class="menu-button" focusable="true" tabindex="4" />
+                    <ui:Button name="btn-quit" text="Quit Game" class="menu-button danger" focusable="true" tabindex="5" />
+                </ui:VisualElement>
+                <ui:VisualElement name="settings-panel" class="settings-panel hidden">
+                    <ui:Label text="Settings" class="section-title" />
+                    <ui:VisualElement class="setting-row">
+                        <ui:Label text="Master" class="setting-label" />
+                        <ui:Slider name="slider-master-volume" low-value="0" high-value="1" value="1" class="setting-slider" focusable="true" tabindex="10" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="setting-row">
+                        <ui:Label text="Music" class="setting-label" />
+                        <ui:Slider name="slider-music-volume" low-value="0" high-value="1" value="1" class="setting-slider" focusable="true" tabindex="11" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="setting-row">
+                        <ui:Label text="SFX" class="setting-label" />
+                        <ui:Slider name="slider-sfx-volume" low-value="0" high-value="1" value="1" class="setting-slider" focusable="true" tabindex="12" />
+                    </ui:VisualElement>
+                    <ui:Toggle name="toggle-camera-shake" text="Camera Shake" class="setting-toggle" focusable="true" tabindex="13" />
+                    <ui:Button name="btn-settings-back" text="Back" class="menu-button compact" focusable="true" tabindex="14" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
