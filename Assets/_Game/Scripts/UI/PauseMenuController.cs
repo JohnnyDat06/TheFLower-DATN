@@ -137,14 +137,14 @@ public class PauseMenuController : MonoBehaviour
 
     private void BindSettingsControls()
     {
-        SetSliderValue(_masterVolumeSlider, "pause_master_volume", 1f);
+        SetSliderValue(_masterVolumeSlider, Constants.PlayerPrefsKeys.MASTER_VOLUME, 1f);
         SetSliderValue(_musicVolumeSlider, Constants.PlayerPrefsKeys.BGM_VOLUME, 1f);
         SetSliderValue(_sfxVolumeSlider, Constants.PlayerPrefsKeys.SFX_VOLUME, 1f);
 
         bool cameraShake = PlayerPrefs.GetInt(Constants.PlayerPrefsKeys.ACCESSIBILITY_CAMERA_SHAKE, 1) == 1;
         _cameraShakeToggle?.SetValueWithoutNotify(cameraShake);
 
-        _masterVolumeSlider?.RegisterValueChangedCallback(evt => SaveFloatSetting("pause_master_volume", evt.newValue));
+        _masterVolumeSlider?.RegisterValueChangedCallback(evt => SaveFloatSetting(Constants.PlayerPrefsKeys.MASTER_VOLUME, evt.newValue));
         _musicVolumeSlider?.RegisterValueChangedCallback(evt => SaveFloatSetting(Constants.PlayerPrefsKeys.BGM_VOLUME, evt.newValue));
         _sfxVolumeSlider?.RegisterValueChangedCallback(evt => SaveFloatSetting(Constants.PlayerPrefsKeys.SFX_VOLUME, evt.newValue));
         _cameraShakeToggle?.RegisterValueChangedCallback(evt =>

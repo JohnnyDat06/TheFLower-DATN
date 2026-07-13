@@ -29,9 +29,13 @@ public class AudioManager : MonoBehaviour
     public AudioMixer MainMixer;
 
     private List<AudioSource> _sfxSources = new List<AudioSource>();
+    private readonly HashSet<AudioSource> _musicSources = new();
     private AudioSource _uiSource; // Nguồn âm thanh riêng cho UI để không bị chồng lấp
     private const int INITIAL_POOL_SIZE = 10;
     private Dictionary<string, float> _lastPlayTimes = new Dictionary<string, float>();
+    private float _masterVolume = 1f;
+    private float _musicVolume = 1f;
+    private float _sfxVolume = 1f;
 
     private void Awake()
     {
@@ -42,8 +46,19 @@ public class AudioManager : MonoBehaviour
         }
         _instance = this;
         DontDestroyOnLoad(gameObject);
+        LoadVolumeSettings();
         InitializePool();
         _uiSource = CreateNewSFXSource("UISource");
+    }
+
+    private void OnEnable()
+    {
+        EventBus.OnSettingsChanged += ApplyVolumeSettings;
+    }
+
+    private void OnDisable()
+    {
+        EventBus.OnSettingsChanged -= ApplyVolumeSettings;
     }
 
     private void InitializePool()
@@ -90,9 +105,10 @@ public class AudioManager : MonoBehaviour
         AudioSource source = GetAvailableSource();
         source.spatialBlend = 0f;
         source.clip = config.Clip;
-        source.volume = config.Volume;
+        source.volume = GetMusicVolume(config.Volume);
         source.pitch = Random.Range(config.PitchMin, config.PitchMax);
         source.loop = false; // QUAN TRỌNG: Tắt lặp cho trailer
+        _musicSources.Add(source);
         source.Play();
         return source;
     }
@@ -104,9 +120,10 @@ public class AudioManager : MonoBehaviour
         AudioSource source = GetAvailableSource();
         source.spatialBlend = 0f; // Luôn là 2D cho âm thanh lặp
         source.clip = config.Clip;
-        source.volume = config.Volume;
+        source.volume = GetSfxVolume(config.Volume);
         source.pitch = Random.Range(config.PitchMin, config.PitchMax);
         source.loop = true;
+        _musicSources.Remove(source);
         source.Play();
         return source;
     }
@@ -118,6 +135,7 @@ public class AudioManager : MonoBehaviour
             source.Stop();
             source.clip = null; // Giải phóng clip
             source.loop = false;
+            _musicSources.Remove(source);
         }
     }
 
@@ -139,9 +157,10 @@ public class AudioManager : MonoBehaviour
         if (position.HasValue) source.transform.position = position.Value;
 
         source.clip = config.Clip;
-        source.volume = config.Volume;
+        source.volume = GetSfxVolume(config.Volume);
         source.pitch = Random.Range(config.PitchMin, config.PitchMax);
         source.loop = false; 
+        _musicSources.Remove(source);
         source.Play();
     }
 
@@ -154,7 +173,7 @@ public class AudioManager : MonoBehaviour
 
         _uiSource.Stop();
         _uiSource.clip = config.Clip;
-        _uiSource.volume = config.Volume;
+        _uiSource.volume = GetSfxVolume(config.Volume);
         _uiSource.pitch = Random.Range(config.PitchMin, config.PitchMax);
         _uiSource.spatialBlend = 0f; 
         _uiSource.Play();
@@ -170,4 +189,38 @@ public class AudioManager : MonoBehaviour
             _uiSource.Stop();
         }
     }
+
+    private void ApplyVolumeSettings()
+    {
+        float oldMusicScale = Mathf.Max(0.0001f, _masterVolume * _musicVolume);
+        float oldSfxScale = Mathf.Max(0.0001f, _masterVolume * _sfxVolume);
+
+        LoadVolumeSettings();
+
+        float newMusicScale = _masterVolume * _musicVolume;
+        float newSfxScale = _masterVolume * _sfxVolume;
+
+        foreach (var source in _sfxSources)
+        {
+            if (source == null) continue;
+
+            float ratio = _musicSources.Contains(source)
+                ? newMusicScale / oldMusicScale
+                : newSfxScale / oldSfxScale;
+            source.volume = Mathf.Clamp01(source.volume * ratio);
+        }
+
+        if (_uiSource != null)
+            _uiSource.volume = Mathf.Clamp01(_uiSource.volume * (newSfxScale / oldSfxScale));
+    }
+
+    private void LoadVolumeSettings()
+    {
+        _masterVolume = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.MASTER_VOLUME, 1f);
+        _musicVolume = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.BGM_VOLUME, 1f);
+        _sfxVolume = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.SFX_VOLUME, 1f);
+    }
+
+    private float GetMusicVolume(float baseVolume) => Mathf.Clamp01(baseVolume * _masterVolume * _musicVolume);
+    private float GetSfxVolume(float baseVolume) => Mathf.Clamp01(baseVolume * _masterVolume * _sfxVolume);
 }

@@ -26,6 +26,7 @@ public static class Constants
         public const string CAM_DISTANCE      = "cam_distance";
 
         // Audio
+        public const string MASTER_VOLUME     = "master_volume";
         public const string BGM_VOLUME        = "bgm_volume";
         public const string SFX_VOLUME        = "sfx_volume";
 
