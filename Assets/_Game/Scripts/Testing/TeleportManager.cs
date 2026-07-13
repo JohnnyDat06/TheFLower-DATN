@@ -34,6 +34,8 @@ namespace Game.Testing
         private bool _isUIVisible = false;
         private int _selectedPointIndex;
 
+        public bool IsUIVisible => _isUIVisible;
+
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -76,8 +78,25 @@ namespace Game.Testing
 
         public void ToggleUI()
         {
-            _isUIVisible = !_isUIVisible;
-            
+            SetUIVisible(!_isUIVisible);
+        }
+
+        public void ShowUI()
+        {
+            SetUIVisible(true);
+        }
+
+        public void HideUI()
+        {
+            SetUIVisible(false);
+        }
+
+        private void SetUIVisible(bool visible)
+        {
+            if (_isUIVisible == visible) return;
+
+            _isUIVisible = visible;
+
             if (_uiRoot != null)
                 _uiRoot.SetActive(_isUIVisible);
 
@@ -86,20 +105,16 @@ namespace Game.Testing
                 _selectedPointIndex = Mathf.Clamp(_selectedPointIndex, 0, Mathf.Max(0, _teleportPoints.Count - 1));
                 UpdatePointsListUI();
                 SyncSelectedPointToInputField();
-                _idInputField.ActivateInputField();
+                _idInputField?.ActivateInputField();
                 LockPlayerInput(true);
                 
-                // Giải phóng chuột
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                UICursorLockService.Request(this);
             }
             else
             {
                 LockPlayerInput(false);
                 
-                // Khóa lại chuột (giả định game góc nhìn thứ 3)
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
+                UICursorLockService.Release(this);
             }
         }
 
@@ -157,7 +172,7 @@ namespace Game.Testing
             {
                 TeleportToPoint(id);
             }
-            ToggleUI();
+            HideUI();
         }
 
         private void TeleportToPoint(int id)
@@ -194,14 +209,19 @@ namespace Game.Testing
             // 1. Tạm thời tắt Rigidbody Interpolation để tránh rubber banding
             bool hasRigidbody = playerObject.TryGetComponent<Rigidbody>(out var rb);
             RigidbodyInterpolation originalInterpolation = RigidbodyInterpolation.None;
+            bool originalIsKinematic = false;
             if (hasRigidbody)
             {
                 originalInterpolation = rb.interpolation;
+                originalIsKinematic = rb.isKinematic;
                 rb.interpolation = RigidbodyInterpolation.None;
-                
-                // Đưa Rigidbody về trạng thái tĩnh ngay lập tức
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+
                 rb.isKinematic = true; // Tạm khóa vật lý
             }
 
@@ -224,23 +244,27 @@ namespace Game.Testing
             // 4. Khôi phục Rigidbody (Dùng Coroutine để đảm bảo frame tiếp theo mới bật lại)
             if (hasRigidbody)
             {
-                StartCoroutine(RestoreRigidbodyState(rb, originalInterpolation));
+                StartCoroutine(RestoreRigidbodyState(rb, originalInterpolation, originalIsKinematic));
             }
 
             Debug.Log($"[TeleportManager] Đã dịch chuyển đến: {_teleportPoints[id].Name}");
         }
 
-        private IEnumerator RestoreRigidbodyState(Rigidbody rb, RigidbodyInterpolation original)
+        private IEnumerator RestoreRigidbodyState(Rigidbody rb, RigidbodyInterpolation originalInterpolation, bool originalIsKinematic)
         {
             // Chờ 1 frame để Engine vật lý và NetworkTransform ghi nhận vị trí mới
             yield return new WaitForFixedUpdate();
             
             if (rb != null)
             {
-                rb.isKinematic = false;
-                rb.interpolation = original;
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
+                rb.isKinematic = originalIsKinematic;
+                rb.interpolation = originalInterpolation;
+
+                if (!rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
             }
         }
 

@@ -22,9 +22,10 @@ public class InputSettingsPanelController : MonoBehaviour
     [SerializeField] private PlayerInputHandler _inputHandler;
 
     [Header("Fallback Toggle")]
-    [SerializeField] private bool _enableKeyboardToggle = true;
+    [SerializeField] private bool _enableKeyboardToggle = false;
     [SerializeField] private Key _keyboardToggleKey = Key.F10;
-    [SerializeField] private bool _enableGamepadToggle = true;
+    [SerializeField] private bool _enableGamepadToggle = false;
+    [SerializeField] private bool _lockPlayerInputWhileOpen = true;
 
     // Cached UI elements
     private VisualElement _root;
@@ -50,7 +51,6 @@ public class InputSettingsPanelController : MonoBehaviour
     private EventCallback<ClickEvent> _backClicked;
     private EventCallback<ClickEvent> _cancelRebindClicked;
     private EventCallback<NavigationCancelEvent> _navigationCancel;
-
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     private void Awake()
@@ -118,6 +118,7 @@ public class InputSettingsPanelController : MonoBehaviour
     // ─── Public API ───────────────────────────────────────────────────────────
 
     public bool IsVisible => _isVisible;
+    public bool IsRebinding => _rebindService != null && _rebindService.IsRebinding;
 
     /// <summary>Mở InputSettings panel.</summary>
     public void Show()
@@ -125,7 +126,10 @@ public class InputSettingsPanelController : MonoBehaviour
         if (_panelOverlay == null) return;
 
         _isVisible = true;
+        _panelOverlay.RemoveFromClassList("hidden");
         _panelOverlay.style.display = DisplayStyle.Flex;
+        UICursorLockService.Request(this);
+        SetPlayerInputLocked(true);
 
         BuildRebindRows();
         RefreshAllBindings();
@@ -145,8 +149,13 @@ public class InputSettingsPanelController : MonoBehaviour
     {
         _isVisible = false;
         if (_panelOverlay != null)
+        {
             _panelOverlay.style.display = DisplayStyle.None;
+            _panelOverlay.AddToClassList("hidden");
+        }
         HideRebindOverlay();
+        UICursorLockService.Release(this);
+        SetPlayerInputLocked(false);
 
         // Cancel rebind nếu đang chờ
         if (_rebindService != null && _rebindService.IsRebinding)
@@ -274,6 +283,7 @@ public class InputSettingsPanelController : MonoBehaviour
     {
         _rebindService?.CancelRebind();
         HideRebindOverlay();
+        _btnBack?.Focus();
     }
 
     private void OnDeviceModeClicked(int mode)
@@ -355,5 +365,18 @@ public class InputSettingsPanelController : MonoBehaviour
     private void HideRebindOverlay()
     {
         _rebindOverlay?.AddToClassList("hidden");
+    }
+
+    private void SetPlayerInputLocked(bool locked)
+    {
+        if (!_lockPlayerInputWhileOpen) return;
+
+        _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
+        if (_inputHandler == null) return;
+
+        if (locked)
+            _inputHandler.LockAllInput();
+        else
+            _inputHandler.UnlockAllInput();
     }
 }
