@@ -47,7 +47,7 @@ public class InputIconMap : ScriptableObject, IInputIconProvider
         new() { actionName = "Interact", displayText = "Y" },
         new() { actionName = "Attack",   displayText = "X" },
         new() { actionName = "Sprint",   displayText = "LT" },
-        new() { actionName = "Pause",    displayText = "Back" },
+        new() { actionName = "Pause",    displayText = "Menu" },
     };
 
     // ─── IInputIconProvider Implementation ────────────────────────────────────

@@ -29,7 +29,7 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
     // - SkipCutScene: system action
     private static readonly HashSet<string> NON_REBINDABLE = new()
     {
-        "Move", "CameraLook", "SkipCutScene"
+        "Move", "CameraLook", "Pause", "SkipCutScene"
     };
 
     // ─── IInputRebindService Properties ──────────────────────────────────────
@@ -96,6 +96,7 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
         }
 
         // Disable action trước khi rebind (yêu cầu bắt buộc của InputSystem)
+        string previousOverridePath = action.bindings[bindingIndex].overridePath;
         action.Disable();
 
         var rebindBuilder = action.PerformInteractiveRebinding(bindingIndex)
@@ -109,6 +110,7 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
                 .WithControlsExcluding("<Mouse>/position")
                 .WithControlsExcluding("<Mouse>/delta")
                 .WithControlsExcluding("<Gamepad>") // Chỉ lắng nghe KB+Mouse
+                .WithControlsExcluding("<Keyboard>/escape")
                 .WithCancelingThrough("<Keyboard>/escape");
         }
         else
@@ -117,7 +119,8 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
             rebindBuilder
                 .WithControlsExcluding("<Keyboard>")
                 .WithControlsExcluding("<Mouse>")
-                .WithCancelingThrough("<Gamepad>/buttonEast"); // B = cancel
+                .WithControlsExcluding("<Gamepad>/start")
+                .WithCancelingThrough("<Gamepad>/start");
         }
 
         rebindBuilder
@@ -130,7 +133,7 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
                 if (conflict != null)
                 {
                     // Revert binding — để caller xử lý Overwrite/Cancel dialog
-                    action.RemoveBindingOverride(bindingIndex);
+                    RestoreBindingOverride(action, bindingIndex, previousOverridePath);
                     op.Dispose();
                     _rebindOp = null;
                     action.Enable();
@@ -285,6 +288,17 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
         }
 
         return null;
+    }
+
+    private static void RestoreBindingOverride(InputAction action, int bindingIndex, string previousOverridePath)
+    {
+        if (string.IsNullOrEmpty(previousOverridePath))
+        {
+            action.RemoveBindingOverride(bindingIndex);
+            return;
+        }
+
+        action.ApplyBindingOverride(bindingIndex, previousOverridePath);
     }
 
     /// <summary>Load binding overrides cho tất cả device types.</summary>
