@@ -34,8 +34,8 @@
 
 /* Main Container */
 .panel-container {
-    width: 720px;
-    max-width: 92%;
+    width: 860px;
+    max-width: 96%;
     height: 86%;
     max-height: 760px;
     background-color: var(--color-panel);
@@ -126,30 +126,31 @@
 }
 
 .col-action {
-    width: 32%;
+    width: 26%;
     font-size: 14px;
     color: var(--color-text);
     -unity-font-style: bold;
 }
 
 .col-binding {
-    width: 34%;
+    width: 37%;
     flex-direction: row;
     align-items: center;
 }
 
 /* Rebind Buttons */
 .rebind-button {
-    min-width: 96px;
+    min-width: 0;
     height: 32px;
     background-color: var(--color-button);
     color: var(--color-text);
     border-radius: var(--radius-sm);
     border-width: 1px;
     border-color: var(--color-border);
-    font-size: 13px;
+    font-size: 12px;
     margin-right: 4px;
     flex-grow: 1;
+    -unity-text-align: middle-center;
 }
 
 .rebind-button:hover {

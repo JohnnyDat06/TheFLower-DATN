@@ -86,20 +86,16 @@ namespace Game.Testing
                 _selectedPointIndex = Mathf.Clamp(_selectedPointIndex, 0, Mathf.Max(0, _teleportPoints.Count - 1));
                 UpdatePointsListUI();
                 SyncSelectedPointToInputField();
-                _idInputField.ActivateInputField();
+                _idInputField?.ActivateInputField();
                 LockPlayerInput(true);
                 
-                // Giải phóng chuột
-                Cursor.lockState = CursorLockMode.None;
-                Cursor.visible = true;
+                UICursorLockService.Request(this);
             }
             else
             {
                 LockPlayerInput(false);
                 
-                // Khóa lại chuột (giả định game góc nhìn thứ 3)
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
+                UICursorLockService.Release(this);
             }
         }
 
