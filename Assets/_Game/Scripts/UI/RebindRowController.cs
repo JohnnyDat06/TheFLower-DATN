@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine.UIElements;
 
 /// <summary>
@@ -13,15 +14,19 @@ public class RebindRowController
     private readonly Button _keyboardButton;
     private readonly Button _mouseButton;
     private readonly Button _gamepadButton;
+    private readonly List<InputBindingTarget> _visibleTargets = new();
     private readonly Action<string, InputBindingTarget> _onRebindClicked;
 
     private static int _tabIndexCounter = 10;
 
     public RebindRowController(string actionName, ScrollView parent,
-                               Action<string, InputBindingTarget> onRebindClicked, bool isAlt)
+                               Action<string, InputBindingTarget> onRebindClicked,
+                               IReadOnlyList<InputBindingTarget> visibleTargets,
+                               bool isAlt)
     {
         ActionName = actionName;
         _onRebindClicked = onRebindClicked;
+        _visibleTargets.AddRange(visibleTargets);
 
         var row = new VisualElement();
         row.AddToClassList("rebind-row");
@@ -31,14 +36,23 @@ public class RebindRowController
         _actionLabel.AddToClassList("col-action");
         row.Add(_actionLabel);
 
-        _keyboardButton = CreateBindingButton(InputBindingTarget.Keyboard);
-        row.Add(WrapBindingButton(_keyboardButton));
+        if (_visibleTargets.Contains(InputBindingTarget.Keyboard))
+        {
+            _keyboardButton = CreateBindingButton(InputBindingTarget.Keyboard);
+            row.Add(WrapBindingButton(_keyboardButton));
+        }
 
-        _mouseButton = CreateBindingButton(InputBindingTarget.Mouse);
-        row.Add(WrapBindingButton(_mouseButton));
+        if (_visibleTargets.Contains(InputBindingTarget.Mouse))
+        {
+            _mouseButton = CreateBindingButton(InputBindingTarget.Mouse);
+            row.Add(WrapBindingButton(_mouseButton));
+        }
 
-        _gamepadButton = CreateBindingButton(InputBindingTarget.Gamepad);
-        row.Add(WrapBindingButton(_gamepadButton));
+        if (_visibleTargets.Contains(InputBindingTarget.Gamepad))
+        {
+            _gamepadButton = CreateBindingButton(InputBindingTarget.Gamepad);
+            row.Add(WrapBindingButton(_gamepadButton));
+        }
 
         parent.Add(row);
     }
@@ -53,6 +67,7 @@ public class RebindRowController
     public void SetRebindingState(InputBindingTarget target, bool isRebinding)
     {
         var button = GetButton(target);
+        if (button == null) return;
 
         if (isRebinding)
         {
@@ -67,7 +82,7 @@ public class RebindRowController
 
     public void Focus(InputBindingTarget target = InputBindingTarget.Keyboard)
     {
-        GetButton(target)?.Focus();
+        (GetButton(target) ?? GetFirstButton())?.Focus();
     }
 
     public static void ResetTabIndex()
@@ -99,8 +114,16 @@ public class RebindRowController
         _ => _keyboardButton
     };
 
+    private Button GetFirstButton()
+    {
+        if (_keyboardButton != null) return _keyboardButton;
+        if (_mouseButton != null) return _mouseButton;
+        return _gamepadButton;
+    }
+
     private static void SetButtonText(Button button, string displayName)
     {
+        if (button == null) return;
         button.text = string.IsNullOrWhiteSpace(displayName) ? "----" : displayName;
     }
 

@@ -1,6 +1,6 @@
 :root {
     --er-bg: rgba(5, 6, 5, 0.76);
-    --er-panel: rgba(17, 17, 14, 0.72);
+    --er-panel: rgba(17, 17, 14, 0.82);
     --er-row: rgba(33, 31, 24, 0.58);
     --er-row-alt: rgba(42, 39, 30, 0.46);
     --er-line: rgba(201, 191, 150, 0.24);
@@ -9,7 +9,6 @@
     --er-muted: rgba(218, 210, 184, 0.68);
     --er-highlight: rgba(209, 202, 161, 0.28);
     --er-highlight-border: rgb(232, 226, 188);
-    --er-danger: rgb(119, 62, 55);
 }
 
 .panel-overlay {
@@ -18,33 +17,34 @@
     top: 0;
     right: 0;
     bottom: 0;
-    padding: 30px 42px;
+    padding: 28px;
     background-color: var(--er-bg);
-    align-items: stretch;
+    align-items: center;
     justify-content: center;
 }
 
 .panel-container {
-    width: 1240px;
-    max-width: 98%;
-    height: 92%;
+    width: 1080px;
+    max-width: 94%;
+    height: 86%;
     max-height: 820px;
+    min-height: 640px;
     background-color: var(--er-panel);
     border-width: 1px;
-    border-color: rgba(203, 193, 155, 0.16);
-    padding: 24px 34px 18px 34px;
+    border-color: rgba(203, 193, 155, 0.18);
+    padding: 22px 30px 16px 30px;
 }
 
 .title-row {
     flex-direction: row;
     align-items: center;
-    height: 64px;
-    margin-bottom: 16px;
+    height: 58px;
+    margin-bottom: 12px;
 }
 
 .title-emblem {
-    width: 46px;
-    height: 46px;
+    width: 44px;
+    height: 44px;
     margin-right: 14px;
     background-color: rgba(194, 178, 126, 0.22);
     border-width: 1px;
@@ -58,9 +58,9 @@
 }
 
 .device-mode-section {
-    margin-left: 255px;
-    margin-right: 255px;
-    margin-bottom: 16px;
+    width: 520px;
+    align-self: center;
+    margin-bottom: 12px;
 }
 
 .section-label {
@@ -97,8 +97,122 @@
     border-color: var(--er-highlight-border);
 }
 
+.gamepad-map {
+    height: 172px;
+    margin-bottom: 10px;
+    align-items: center;
+    justify-content: center;
+}
+
+.gamepad-shell {
+    width: 520px;
+    height: 160px;
+    background-color: rgba(20, 21, 20, 0.86);
+    border-width: 2px;
+    border-color: rgba(224, 217, 178, 0.35);
+    border-radius: 58px;
+    align-self: center;
+}
+
+.gamepad-left-grip,
+.gamepad-right-grip {
+    position: absolute;
+    width: 150px;
+    height: 116px;
+    top: 42px;
+    background-color: rgba(15, 15, 15, 0.92);
+    border-width: 1px;
+    border-color: rgba(224, 217, 178, 0.22);
+    border-radius: 58px;
+}
+
+.gamepad-left-grip {
+    left: 18px;
+}
+
+.gamepad-right-grip {
+    right: 18px;
+}
+
+.pad-label,
+.pad-note {
+    position: absolute;
+    color: var(--er-text);
+    font-size: 12px;
+    -unity-text-align: middle-center;
+}
+
+.pad-label {
+    width: 54px;
+    height: 22px;
+    background-color: rgba(40, 39, 33, 0.88);
+    border-width: 1px;
+    border-color: rgba(232, 226, 188, 0.48);
+    border-radius: 8px;
+}
+
+.pad-lb { left: 78px; top: 10px; }
+.pad-rb { right: 78px; top: 10px; }
+.pad-lt { left: 16px; top: 34px; width: 120px; }
+.pad-rt { right: 16px; top: 34px; width: 132px; }
+.pad-menu { left: 275px; top: 62px; width: 70px; }
+.pad-view { left: 176px; top: 62px; width: 70px; }
+.pad-left-stick { left: 64px; top: 86px; width: 116px; }
+.pad-right-stick { right: 78px; top: 98px; width: 116px; }
+.pad-dpad { left: 166px; top: 122px; width: 142px; }
+
+.pad-stick {
+    position: absolute;
+    width: 42px;
+    height: 42px;
+    background-color: rgba(78, 78, 72, 0.92);
+    border-width: 2px;
+    border-color: rgba(230, 226, 200, 0.36);
+    border-radius: 22px;
+}
+
+.pad-stick-left { left: 84px; top: 76px; }
+.pad-stick-right { right: 126px; top: 76px; }
+
+.pad-dpad-cross {
+    position: absolute;
+    left: 194px;
+    top: 84px;
+    width: 52px;
+    height: 52px;
+    background-color: rgba(86, 84, 76, 0.82);
+    border-width: 1px;
+    border-color: rgba(230, 226, 200, 0.28);
+}
+
+.pad-face-grid {
+    position: absolute;
+    right: 64px;
+    top: 58px;
+    width: 96px;
+    height: 88px;
+}
+
+.face-button {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    color: rgb(235, 232, 210);
+    background-color: rgba(74, 74, 66, 0.9);
+    border-width: 1px;
+    border-color: rgba(232, 226, 188, 0.45);
+    border-radius: 14px;
+    -unity-text-align: middle-center;
+    font-size: 13px;
+}
+
+.face-y { left: 34px; top: 0; color: rgb(230, 210, 90); }
+.face-x { left: 0; top: 30px; color: rgb(120, 165, 235); }
+.face-b { right: 0; top: 30px; color: rgb(235, 105, 95); }
+.face-a { left: 34px; bottom: 0; color: rgb(112, 210, 110); }
+
 .header-row {
-    height: 36px;
+    height: 34px;
     border-bottom-width: 1px;
     border-color: var(--er-line);
 }
@@ -112,7 +226,7 @@
 .rebind-row {
     flex-direction: row;
     align-items: center;
-    min-height: 48px;
+    min-height: 46px;
     padding: 3px 10px;
     border-bottom-width: 1px;
     border-bottom-color: rgba(210, 200, 160, 0.12);
@@ -124,14 +238,14 @@
 }
 
 .col-action {
-    width: 41%;
+    width: 44%;
     color: var(--er-text);
     font-size: 18px;
     -unity-text-align: middle-left;
 }
 
 .col-binding {
-    width: 19.666%;
+    width: 28%;
     flex-direction: row;
     align-items: center;
     justify-content: center;
@@ -162,20 +276,18 @@
 
 .rebind-list {
     flex-grow: 1;
-    min-height: 260px;
-    border-left-width: 0;
-    border-right-width: 0;
+    min-height: 220px;
     border-top-width: 1px;
     border-bottom-width: 1px;
     border-color: var(--er-line);
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .sensitivity-section {
     flex-direction: row;
     align-items: center;
-    min-height: 42px;
-    margin-bottom: 10px;
+    min-height: 40px;
+    margin-bottom: 8px;
 }
 
 .setting-label {
@@ -196,14 +308,14 @@
 }
 
 .description-panel {
-    height: 68px;
+    height: 58px;
     background-color: rgba(9, 9, 7, 0.42);
     border-top-width: 1px;
     border-bottom-width: 1px;
     border-color: rgba(210, 200, 160, 0.14);
     justify-content: center;
     padding-left: 16px;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .description-text {
@@ -227,7 +339,7 @@
 .footer-hint {
     color: var(--er-muted);
     font-size: 15px;
-    margin-right: 14px;
+    margin-right: 12px;
 }
 
 .ok-hint {

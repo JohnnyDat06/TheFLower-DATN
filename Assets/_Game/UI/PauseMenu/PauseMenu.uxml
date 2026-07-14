@@ -1,13 +1,13 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEditor.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <ui:Style src="PauseMenu.uss" />
     <ui:VisualElement name="pause-overlay" class="pause-overlay hidden">
         <ui:VisualElement name="pause-panel" class="pause-panel">
             <ui:VisualElement class="pause-header">
                 <ui:Label text="PAUSE" class="pause-title" />
-                <ui:Label text="Esc / Menu" class="pause-hint" />
+                <ui:Label name="pause-hint" text="Esc" class="pause-hint" />
             </ui:VisualElement>
             <ui:VisualElement class="pause-body">
-                <ui:VisualElement class="pause-actions">
+                <ui:VisualElement name="pause-actions" class="pause-actions">
                     <ui:Button name="btn-continue" text="Continue" class="menu-button primary" focusable="true" tabindex="1" />
                     <ui:Button name="btn-teleport" text="Teleport Checkpoint" class="menu-button" focusable="true" tabindex="2" />
                     <ui:Button name="btn-settings" text="Settings" class="menu-button" focusable="true" tabindex="3" />

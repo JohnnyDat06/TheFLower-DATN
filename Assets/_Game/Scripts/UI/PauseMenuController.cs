@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Game.Testing;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -20,6 +22,7 @@ public class PauseMenuController : MonoBehaviour
     [SerializeField] private string _lobbySceneName = Constants.Scenes.LOBBY;
 
     private VisualElement _overlay;
+    private VisualElement _actionsPanel;
     private VisualElement _settingsPanel;
     private Button _continueButton;
     private Button _teleportButton;
@@ -27,12 +30,16 @@ public class PauseMenuController : MonoBehaviour
     private Button _controlsButton;
     private Button _quitButton;
     private Button _settingsBackButton;
+    private Label _pauseHint;
     private Slider _masterVolumeSlider;
     private Slider _musicVolumeSlider;
     private Slider _sfxVolumeSlider;
     private Toggle _cameraShakeToggle;
 
     private bool _isOpen;
+    private bool _childMenuOpen;
+    private Button _lastFocusedButton;
+    private static readonly Dictionary<PlayerInputHandler, bool> CameraLookStates = new();
 
     public bool IsOpen => _isOpen;
 
@@ -55,6 +62,8 @@ public class PauseMenuController : MonoBehaviour
 
     private void OnDestroy()
     {
+        EventBus.OnInputDeviceChanged -= OnInputDeviceChanged;
+
         if (_continueButton != null) _continueButton.clicked -= Resume;
         if (_teleportButton != null) _teleportButton.clicked -= OpenTeleportUI;
         if (_settingsButton != null) _settingsButton.clicked -= ShowSettingsPanel;
@@ -65,10 +74,30 @@ public class PauseMenuController : MonoBehaviour
 
     private void Update()
     {
-        if (IsBlockedByScene() || IsInputSettingsTakingFocus()) return;
+        if (IsBlockedByScene() || IsInputSettingsTakingFocus() || _childMenuOpen) return;
+
+        if (_isOpen && WasBackPressed())
+        {
+            if (IsSettingsPanelVisible())
+            {
+                HideSettingsPanel();
+                return;
+            }
+
+            Resume();
+            return;
+        }
 
         if (WasPausePressed())
+        {
+            if (_isOpen && IsSettingsPanelVisible())
+            {
+                HideSettingsPanel();
+                return;
+            }
+
             Toggle();
+        }
     }
 
     public void Toggle()
@@ -82,8 +111,10 @@ public class PauseMenuController : MonoBehaviour
         if (_isOpen || IsBlockedByScene()) return;
 
         _isOpen = true;
+        _childMenuOpen = false;
         _overlay?.RemoveFromClassList("hidden");
         HideSettingsPanel();
+        RefreshInputHints();
         LockPlayerInput(true);
         UICursorLockService.Request(this);
         TransitionToPauseState();
@@ -97,11 +128,16 @@ public class PauseMenuController : MonoBehaviour
 
     private void Hide(bool resumeGame)
     {
-        if (!_isOpen && resumeGame) return;
+        bool wasOpen = _isOpen;
+        if (!wasOpen && resumeGame) return;
 
         _isOpen = false;
+        _childMenuOpen = false;
         _overlay?.AddToClassList("hidden");
         HideSettingsPanel();
+
+        if (!wasOpen) return;
+
         UICursorLockService.Release(this);
         LockPlayerInput(false);
 
@@ -113,6 +149,7 @@ public class PauseMenuController : MonoBehaviour
     {
         var root = _uiDocument.rootVisualElement;
         _overlay = root.Q<VisualElement>("pause-overlay");
+        _actionsPanel = root.Q<VisualElement>("pause-actions");
         _settingsPanel = root.Q<VisualElement>("settings-panel");
         _continueButton = root.Q<Button>("btn-continue");
         _teleportButton = root.Q<Button>("btn-teleport");
@@ -120,6 +157,7 @@ public class PauseMenuController : MonoBehaviour
         _controlsButton = root.Q<Button>("btn-controls");
         _quitButton = root.Q<Button>("btn-quit");
         _settingsBackButton = root.Q<Button>("btn-settings-back");
+        _pauseHint = root.Q<Label>("pause-hint");
         _masterVolumeSlider = root.Q<Slider>("slider-master-volume");
         _musicVolumeSlider = root.Q<Slider>("slider-music-volume");
         _sfxVolumeSlider = root.Q<Slider>("slider-sfx-volume");
@@ -131,8 +169,10 @@ public class PauseMenuController : MonoBehaviour
         _controlsButton.clicked += OpenInputSettings;
         _quitButton.clicked += QuitToMainMenu;
         _settingsBackButton.clicked += HideSettingsPanel;
+        EventBus.OnInputDeviceChanged += OnInputDeviceChanged;
 
         BindSettingsControls();
+        RefreshInputHints();
     }
 
     private void BindSettingsControls()
@@ -169,6 +209,7 @@ public class PauseMenuController : MonoBehaviour
 
     private void ShowSettingsPanel()
     {
+        _actionsPanel?.AddToClassList("hidden");
         _settingsPanel?.RemoveFromClassList("hidden");
         _masterVolumeSlider?.Focus();
     }
@@ -176,14 +217,22 @@ public class PauseMenuController : MonoBehaviour
     private void HideSettingsPanel()
     {
         _settingsPanel?.AddToClassList("hidden");
+        _actionsPanel?.RemoveFromClassList("hidden");
         if (_isOpen)
             _continueButton?.Focus();
+    }
+
+    private bool IsSettingsPanelVisible()
+    {
+        return _settingsPanel != null && !_settingsPanel.ClassListContains("hidden");
     }
 
     private void OpenInputSettings()
     {
         _inputSettingsPanel ??= FindFirstObjectByType<InputSettingsPanelController>();
-        _inputSettingsPanel?.Show();
+        if (_inputSettingsPanel == null) return;
+
+        OpenChildMenu(_controlsButton, () => _inputSettingsPanel.Show(ReturnFromChildMenu, managePlayerInput: false));
     }
 
     private void OpenTeleportUI()
@@ -194,7 +243,28 @@ public class PauseMenuController : MonoBehaviour
             return;
         }
 
-        TeleportManager.Instance.ShowUI();
+        OpenChildMenu(_teleportButton, () => TeleportManager.Instance.ShowUI(ReturnFromChildMenu, managePlayerInput: false));
+    }
+
+    private void OpenChildMenu(Button sourceButton, Action openChild)
+    {
+        if (!_isOpen || openChild == null) return;
+
+        _lastFocusedButton = sourceButton;
+        _childMenuOpen = true;
+        HideSettingsPanel();
+        _overlay?.AddToClassList("hidden");
+        openChild.Invoke();
+    }
+
+    private void ReturnFromChildMenu()
+    {
+        if (!_isOpen) return;
+
+        _childMenuOpen = false;
+        RefreshInputHints();
+        _overlay?.RemoveFromClassList("hidden");
+        (_lastFocusedButton ?? _continueButton)?.Focus();
     }
 
     private void QuitToMainMenu()
@@ -214,9 +284,28 @@ public class PauseMenuController : MonoBehaviour
         return keyboard || gamepad;
     }
 
+    private bool WasBackPressed()
+    {
+        return Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame;
+    }
+
     private bool IsInputSettingsTakingFocus()
     {
         return _inputSettingsPanel != null && (_inputSettingsPanel.IsVisible || _inputSettingsPanel.IsRebinding);
+    }
+
+    private void OnInputDeviceChanged(InputDeviceType _)
+    {
+        RefreshInputHints();
+    }
+
+    private void RefreshInputHints()
+    {
+        if (_pauseHint == null) return;
+
+        bool gamepad = InputDeviceDetector.Instance != null
+            && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
+        _pauseHint.text = gamepad ? "Menu / B" : "Esc";
     }
 
     private bool IsBlockedByScene()
@@ -251,9 +340,22 @@ public class PauseMenuController : MonoBehaviour
             if (!handler.IsOwner) continue;
 
             if (locked)
+            {
+                if (!CameraLookStates.ContainsKey(handler))
+                    CameraLookStates.Add(handler, handler.CameraLookEnabled);
                 handler.LockAllInput();
+                handler.DisableCameraLook();
+            }
             else
+            {
                 handler.UnlockAllInput();
+                if (CameraLookStates.TryGetValue(handler, out bool wasEnabled) && wasEnabled)
+                    handler.EnableCameraLook();
+                else
+                    handler.DisableCameraLook();
+
+                CameraLookStates.Remove(handler);
+            }
         }
     }
 }

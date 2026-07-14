@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -32,7 +33,10 @@ namespace Game.Testing
         [SerializeField] private TextMeshProUGUI _pointsListText;
 
         private bool _isUIVisible = false;
+        private bool _managesPlayerInput = true;
         private int _selectedPointIndex;
+        private Action _onClosed;
+        private readonly Dictionary<PlayerInputHandler, bool> _cameraLookStates = new Dictionary<PlayerInputHandler, bool>();
 
         public bool IsUIVisible => _isUIVisible;
 
@@ -70,6 +74,11 @@ namespace Game.Testing
                 OnTeleportRequested();
             }
 
+            if (_isUIVisible && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            {
+                HideUI();
+            }
+
             if (_isUIVisible)
             {
                 HandleGamepadUIInput();
@@ -81,8 +90,10 @@ namespace Game.Testing
             SetUIVisible(!_isUIVisible);
         }
 
-        public void ShowUI()
+        public void ShowUI(Action onClosed = null, bool managePlayerInput = true)
         {
+            _onClosed = onClosed;
+            _managesPlayerInput = managePlayerInput;
             SetUIVisible(true);
         }
 
@@ -105,16 +116,26 @@ namespace Game.Testing
                 _selectedPointIndex = Mathf.Clamp(_selectedPointIndex, 0, Mathf.Max(0, _teleportPoints.Count - 1));
                 UpdatePointsListUI();
                 SyncSelectedPointToInputField();
-                _idInputField?.ActivateInputField();
-                LockPlayerInput(true);
+                if (IsCurrentDeviceGamepad())
+                    _idInputField?.DeactivateInputField();
+                else
+                    _idInputField?.ActivateInputField();
+                if (_managesPlayerInput)
+                    LockPlayerInput(true);
                 
                 UICursorLockService.Request(this);
             }
             else
             {
-                LockPlayerInput(false);
+                if (_managesPlayerInput)
+                    LockPlayerInput(false);
+                _managesPlayerInput = true;
                 
                 UICursorLockService.Release(this);
+
+                var onClosed = _onClosed;
+                _onClosed = null;
+                onClosed?.Invoke();
             }
         }
 
@@ -125,9 +146,16 @@ namespace Game.Testing
             string listStr = "<b>Teleport Points:</b>\n";
             for (int i = 0; i < _teleportPoints.Count; i++)
             {
-                string marker = i == _selectedPointIndex ? ">" : " ";
-                listStr += $"{marker} [{i}] {_teleportPoints[i].Name}\n";
+                bool selected = i == _selectedPointIndex;
+                string marker = selected ? ">" : " ";
+                string colorOpen = selected ? "<color=#f2e2a8>" : "<color=#d0c7aa>";
+                listStr += $"{colorOpen}{marker} [{i}] {_teleportPoints[i].Name}</color>\n";
             }
+
+            listStr += IsCurrentDeviceGamepad()
+                ? "\n<size=80%><color=#9fd58b>A : Teleport</color>   <color=#e48a7e>B : Back</color>   D-Pad/L-Stick : Select</size>"
+                : "\n<size=80%>Enter : Teleport   Esc/Tab : Back</size>";
+
             _pointsListText.text = listStr;
         }
 
@@ -148,7 +176,7 @@ namespace Game.Testing
             if (gamepad.buttonSouth.wasPressedThisFrame)
                 OnTeleportRequested();
             else if (gamepad.buttonEast.wasPressedThisFrame)
-                ToggleUI();
+                HideUI();
         }
 
         private void MoveSelection(int direction)
@@ -276,10 +304,29 @@ namespace Game.Testing
             if (playerObject != null && playerObject.TryGetComponent<PlayerInputHandler>(out var handler))
             {
                 if (isLocked)
+                {
+                    if (!_cameraLookStates.ContainsKey(handler))
+                        _cameraLookStates.Add(handler, handler.CameraLookEnabled);
                     handler.LockAllInput();
+                    handler.DisableCameraLook();
+                }
                 else
+                {
                     handler.UnlockAllInput();
+                    if (_cameraLookStates.TryGetValue(handler, out bool wasEnabled) && wasEnabled)
+                        handler.EnableCameraLook();
+                    else
+                        handler.DisableCameraLook();
+
+                    _cameraLookStates.Remove(handler);
+                }
             }
+        }
+
+        private static bool IsCurrentDeviceGamepad()
+        {
+            return InputDeviceDetector.Instance != null
+                && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
         }
     }
 }
