@@ -32,7 +32,9 @@ public class InputSettingsPanelController : MonoBehaviour
     private VisualElement _panelOverlay;
     private ScrollView _rebindList;
     private VisualElement _rebindOverlay;
+    private VisualElement _conflictOverlay;
     private Label _rebindPrompt;
+    private Label _conflictPrompt;
     private Slider _sensitivitySlider;
     private Label _sensitivityValueLabel;
     private Button _btnModeAuto;
@@ -41,6 +43,8 @@ public class InputSettingsPanelController : MonoBehaviour
     private Button _btnResetAll;
     private Button _btnBack;
     private Button _btnCancelRebind;
+    private Button _btnConfirmConflict;
+    private Button _btnCancelConflict;
 
     private readonly List<RebindRowController> _rows = new();
     private bool _isVisible;
@@ -50,7 +54,11 @@ public class InputSettingsPanelController : MonoBehaviour
     private EventCallback<ClickEvent> _resetAllClicked;
     private EventCallback<ClickEvent> _backClicked;
     private EventCallback<ClickEvent> _cancelRebindClicked;
+    private EventCallback<ClickEvent> _confirmConflictClicked;
+    private EventCallback<ClickEvent> _cancelConflictClicked;
     private EventCallback<NavigationCancelEvent> _navigationCancel;
+    private RebindRowController _activeRow;
+    private InputBindingTarget _activeTarget;
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     private void Awake()
@@ -77,7 +85,9 @@ public class InputSettingsPanelController : MonoBehaviour
         _resetAllClicked = _ => OnResetAllClicked();
         _backClicked = _ => Hide();
         _cancelRebindClicked = _ => OnCancelRebindClicked();
-        _navigationCancel = _ => Hide();
+        _confirmConflictClicked = _ => OnConfirmConflictClicked();
+        _cancelConflictClicked = _ => OnCancelConflictClicked();
+        _navigationCancel = _ => OnNavigationCancel();
     }
 
     private void OnEnable()
@@ -154,12 +164,15 @@ public class InputSettingsPanelController : MonoBehaviour
             _panelOverlay.AddToClassList("hidden");
         }
         HideRebindOverlay();
+        HideConflictOverlay();
         UICursorLockService.Release(this);
         SetPlayerInputLocked(false);
 
         // Cancel rebind nếu đang chờ
         if (_rebindService != null && _rebindService.IsRebinding)
             _rebindService.CancelRebind();
+
+        _rebindService?.DiscardPendingConflict();
     }
 
     /// <summary>Toggle panel visibility.</summary>
@@ -176,7 +189,9 @@ public class InputSettingsPanelController : MonoBehaviour
         _panelOverlay = _root.Q<VisualElement>("panel-overlay");
         _rebindList = _root.Q<ScrollView>("rebind-list");
         _rebindOverlay = _root.Q<VisualElement>("rebind-overlay");
+        _conflictOverlay = _root.Q<VisualElement>("conflict-overlay");
         _rebindPrompt = _root.Q<Label>("rebind-prompt");
+        _conflictPrompt = _root.Q<Label>("conflict-prompt");
         _sensitivitySlider = _root.Q<Slider>("gamepad-sensitivity");
         _sensitivityValueLabel = _root.Q<Label>("sensitivity-value");
         _btnModeAuto = _root.Q<Button>("btn-mode-auto");
@@ -185,6 +200,8 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnResetAll = _root.Q<Button>("btn-reset-all");
         _btnBack = _root.Q<Button>("btn-back");
         _btnCancelRebind = _root.Q<Button>("btn-cancel-rebind");
+        _btnConfirmConflict = _root.Q<Button>("btn-confirm-conflict");
+        _btnCancelConflict = _root.Q<Button>("btn-cancel-conflict");
     }
 
     private void BindCallbacks()
@@ -195,6 +212,8 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnResetAll?.RegisterCallback(_resetAllClicked);
         _btnBack?.RegisterCallback(_backClicked);
         _btnCancelRebind?.RegisterCallback(_cancelRebindClicked);
+        _btnConfirmConflict?.RegisterCallback(_confirmConflictClicked);
+        _btnCancelConflict?.RegisterCallback(_cancelConflictClicked);
 
         if (_sensitivitySlider != null)
             _sensitivitySlider.RegisterValueChangedCallback(OnSensitivityChanged);
@@ -211,6 +230,8 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnResetAll?.UnregisterCallback(_resetAllClicked);
         _btnBack?.UnregisterCallback(_backClicked);
         _btnCancelRebind?.UnregisterCallback(_cancelRebindClicked);
+        _btnConfirmConflict?.UnregisterCallback(_confirmConflictClicked);
+        _btnCancelConflict?.UnregisterCallback(_cancelConflictClicked);
 
         if (_sensitivitySlider != null)
             _sensitivitySlider.UnregisterValueChangedCallback(OnSensitivityChanged);
@@ -243,33 +264,30 @@ public class InputSettingsPanelController : MonoBehaviour
 
     // ─── Event Handlers ───────────────────────────────────────────────────────
 
-    private void OnRebindClicked(string actionName, InputDeviceType deviceType)
+    private void OnRebindClicked(string actionName, InputBindingTarget target)
     {
         if (_rebindService == null || _rebindService.IsRebinding) return;
 
-        // Show rebind overlay
-        ShowRebindOverlay(actionName, deviceType);
+        _activeRow = _rows.Find(r => r.ActionName == actionName);
+        _activeTarget = target;
 
-        // Tìm row và set rebinding state
-        var row = _rows.Find(r => r.ActionName == actionName);
-        row?.SetRebindingState(deviceType, true);
+        ShowRebindOverlay(actionName, target);
+        _activeRow?.SetRebindingState(target, true);
 
-        _rebindService.StartRebind(actionName, deviceType,
+        _rebindService.StartRebind(actionName, target,
             onComplete: (success, newKey) =>
             {
                 HideRebindOverlay();
-                row?.SetRebindingState(deviceType, false);
+                _activeRow?.SetRebindingState(target, false);
                 RefreshAllBindings();
+                _activeRow?.Focus(target);
             },
-            onConflict: (conflictAction) =>
+            onConflict: (conflict) =>
             {
-                // Hiện warning trong prompt
-                if (_rebindPrompt != null)
-                    _rebindPrompt.text = $"Conflict with '{conflictAction}'!\nPress another key...";
-
-                row?.SetRebindingState(deviceType, false);
+                _activeRow?.SetRebindingState(target, false);
                 HideRebindOverlay();
                 RefreshAllBindings();
+                ShowConflictOverlay(conflict);
             });
     }
 
@@ -283,7 +301,24 @@ public class InputSettingsPanelController : MonoBehaviour
     {
         _rebindService?.CancelRebind();
         HideRebindOverlay();
-        _btnBack?.Focus();
+        _activeRow?.SetRebindingState(_activeTarget, false);
+        _activeRow?.Focus(_activeTarget);
+    }
+
+    private void OnConfirmConflictClicked()
+    {
+        _rebindService?.ApplyPendingConflict();
+        HideConflictOverlay();
+        RefreshAllBindings();
+        _activeRow?.Focus(_activeTarget);
+    }
+
+    private void OnCancelConflictClicked()
+    {
+        _rebindService?.DiscardPendingConflict();
+        HideConflictOverlay();
+        RefreshAllBindings();
+        _activeRow?.Focus(_activeTarget);
     }
 
     private void OnDeviceModeClicked(int mode)
@@ -314,7 +349,7 @@ public class InputSettingsPanelController : MonoBehaviour
         if (_rebindService == null) return;
 
         foreach (var row in _rows)
-            row.Refresh(_rebindService, _iconProvider);
+            row.Refresh(_rebindService);
     }
 
     private void RefreshDeviceModeButtons()
@@ -350,13 +385,18 @@ public class InputSettingsPanelController : MonoBehaviour
 
     // ─── Rebind Overlay ───────────────────────────────────────────────────────
 
-    private void ShowRebindOverlay(string actionName, InputDeviceType deviceType)
+    private void ShowRebindOverlay(string actionName, InputBindingTarget target)
     {
         if (_rebindOverlay == null) return;
 
-        string deviceLabel = deviceType == InputDeviceType.Gamepad ? "gamepad button" : "key";
+        string deviceLabel = target switch
+        {
+            InputBindingTarget.Gamepad => "gamepad button",
+            InputBindingTarget.Mouse => "mouse button",
+            _ => "keyboard key"
+        };
         if (_rebindPrompt != null)
-            _rebindPrompt.text = $"Press any {deviceLabel} for '{actionName}'...";
+            _rebindPrompt.text = $"Press any {deviceLabel} for '{actionName}'\nEsc / Menu: Cancel";
 
         _rebindOverlay.RemoveFromClassList("hidden");
         _root.schedule.Execute(() => _btnCancelRebind?.Focus()).ExecuteLater(50);
@@ -367,16 +407,55 @@ public class InputSettingsPanelController : MonoBehaviour
         _rebindOverlay?.AddToClassList("hidden");
     }
 
+    private void ShowConflictOverlay(InputRebindConflict conflict)
+    {
+        if (_conflictOverlay == null) return;
+
+        if (_conflictPrompt != null)
+        {
+            _conflictPrompt.text =
+                $"'{conflict.BindingDisplayName}' is already assigned to '{conflict.ConflictActionName}'.\n" +
+                $"Swap it with '{conflict.ActionName}'?";
+        }
+
+        _conflictOverlay.RemoveFromClassList("hidden");
+        _root.schedule.Execute(() => _btnConfirmConflict?.Focus()).ExecuteLater(50);
+    }
+
+    private void HideConflictOverlay()
+    {
+        _conflictOverlay?.AddToClassList("hidden");
+    }
+
+    private void OnNavigationCancel()
+    {
+        if (_rebindService != null && _rebindService.IsRebinding)
+        {
+            OnCancelRebindClicked();
+            return;
+        }
+
+        if (_rebindService != null && _rebindService.HasPendingConflict)
+        {
+            OnCancelConflictClicked();
+            return;
+        }
+
+        Hide();
+    }
+
     private void SetPlayerInputLocked(bool locked)
     {
         if (!_lockPlayerInputWhileOpen) return;
 
-        _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
-        if (_inputHandler == null) return;
+        foreach (var handler in FindObjectsByType<PlayerInputHandler>(FindObjectsSortMode.None))
+        {
+            if (!handler.IsOwner) continue;
 
-        if (locked)
-            _inputHandler.LockAllInput();
-        else
-            _inputHandler.UnlockAllInput();
+            if (locked)
+                handler.LockAllInput();
+            else
+                handler.UnlockAllInput();
+        }
     }
 }
