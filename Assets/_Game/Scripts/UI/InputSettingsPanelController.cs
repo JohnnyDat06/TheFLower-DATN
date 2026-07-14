@@ -1,17 +1,12 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// InputSettingsPanelController — Controller cho InputSettingsPanel (UI Toolkit).
-/// SRP: Chỉ binding UI elements ↔ services. KHÔNG chứa business logic.
-/// DIP: Phụ thuộc IInputRebindService và IInputIconProvider qua [SerializeField].
-/// 
-/// Panel lifecycle:
-/// 1. Show() → build rows, refresh bindings, focus first element
-/// 2. User interacts → delegate to services
-/// 3. Hide() → cleanup
+/// UI Toolkit controller for the Elden Ring-style input binding panel.
+/// It only coordinates UI state and delegates binding logic to InputRebindService.
 /// </summary>
 public class InputSettingsPanelController : MonoBehaviour
 {
@@ -27,17 +22,22 @@ public class InputSettingsPanelController : MonoBehaviour
     [SerializeField] private bool _enableGamepadToggle = false;
     [SerializeField] private bool _lockPlayerInputWhileOpen = true;
 
-    // Cached UI elements
     private VisualElement _root;
     private VisualElement _panelOverlay;
     private ScrollView _rebindList;
     private VisualElement _rebindOverlay;
     private VisualElement _conflictOverlay;
+    private VisualElement _gamepadMap;
     private Label _rebindPrompt;
     private Label _conflictPrompt;
-    private Slider _sensitivitySlider;
+    private Label _keyboardHeader;
+    private Label _mouseHeader;
+    private Label _gamepadHeader;
     private Label _sensitivityValueLabel;
-    private Button _btnModeAuto;
+    private Label _footerOkHint;
+    private Label _footerBackHint;
+    private Label _footerCancelHint;
+    private Slider _sensitivitySlider;
     private Button _btnModeKeyboard;
     private Button _btnModeGamepad;
     private Button _btnResetAll;
@@ -47,8 +47,11 @@ public class InputSettingsPanelController : MonoBehaviour
     private Button _btnCancelConflict;
 
     private readonly List<RebindRowController> _rows = new();
+    private readonly Dictionary<PlayerInputHandler, bool> _cameraLookStates = new();
     private bool _isVisible;
-    private EventCallback<ClickEvent> _modeAutoClicked;
+    private bool _showGamepadTab;
+    private bool _managesPlayerInput;
+    private Action _onClosed;
     private EventCallback<ClickEvent> _modeKeyboardClicked;
     private EventCallback<ClickEvent> _modeGamepadClicked;
     private EventCallback<ClickEvent> _resetAllClicked;
@@ -59,7 +62,20 @@ public class InputSettingsPanelController : MonoBehaviour
     private EventCallback<NavigationCancelEvent> _navigationCancel;
     private RebindRowController _activeRow;
     private InputBindingTarget _activeTarget;
-    // ─── Lifecycle ────────────────────────────────────────────────────────────
+
+    private static readonly InputBindingTarget[] KeyboardMouseTargets =
+    {
+        InputBindingTarget.Keyboard,
+        InputBindingTarget.Mouse
+    };
+
+    private static readonly InputBindingTarget[] GamepadTargets =
+    {
+        InputBindingTarget.Gamepad
+    };
+
+    public bool IsVisible => _isVisible;
+    public bool IsRebinding => _rebindService != null && _rebindService.IsRebinding;
 
     private void Awake()
     {
@@ -69,19 +85,19 @@ public class InputSettingsPanelController : MonoBehaviour
 
         if (_uiDocument == null)
         {
-            Debug.LogError("[InputSettingsPanelController] UIDocument chưa gán trong Inspector!");
+            Debug.LogError("[InputSettingsPanelController] UIDocument is not assigned.");
+            enabled = false;
             return;
         }
 
         if (_rebindService == null)
-            Debug.LogError("[InputSettingsPanelController] InputRebindService chưa gán trong Inspector!");
+            Debug.LogError("[InputSettingsPanelController] InputRebindService is not assigned.");
 
         if (_iconProvider == null)
-            Debug.LogError("[InputSettingsPanelController] InputIconMap chưa gán trong Inspector!");
+            Debug.LogWarning("[InputSettingsPanelController] InputIconMap is not assigned. Binding text will still work.");
 
-        _modeAutoClicked = _ => OnDeviceModeClicked(0);
-        _modeKeyboardClicked = _ => OnDeviceModeClicked(1);
-        _modeGamepadClicked = _ => OnDeviceModeClicked(2);
+        _modeKeyboardClicked = _ => SelectDeviceTab(false);
+        _modeGamepadClicked = _ => SelectDeviceTab(true);
         _resetAllClicked = _ => OnResetAllClicked();
         _backClicked = _ => Hide();
         _cancelRebindClicked = _ => OnCancelRebindClicked();
@@ -95,14 +111,11 @@ public class InputSettingsPanelController : MonoBehaviour
         EventBus.OnInputDeviceChanged += OnDeviceChanged;
         EventBus.OnInputBindingChanged += RefreshAllBindings;
 
-        // Bind UI sau khi UIDocument loaded
         _root = _uiDocument.rootVisualElement;
         if (_root == null) return;
 
         CacheUIElements();
         BindCallbacks();
-
-        // Mặc định ẩn panel
         Hide();
     }
 
@@ -125,64 +138,65 @@ public class InputSettingsPanelController : MonoBehaviour
             Toggle();
     }
 
-    // ─── Public API ───────────────────────────────────────────────────────────
-
-    public bool IsVisible => _isVisible;
-    public bool IsRebinding => _rebindService != null && _rebindService.IsRebinding;
-
-    /// <summary>Mở InputSettings panel.</summary>
-    public void Show()
+    public void Show(Action onClosed = null, bool managePlayerInput = true)
     {
         if (_panelOverlay == null) return;
 
+        _onClosed = onClosed;
+        _managesPlayerInput = managePlayerInput;
+        _showGamepadTab = IsCurrentDeviceGamepad();
         _isVisible = true;
         _panelOverlay.RemoveFromClassList("hidden");
         _panelOverlay.style.display = DisplayStyle.Flex;
         UICursorLockService.Request(this);
-        SetPlayerInputLocked(true);
+        if (_managesPlayerInput)
+            SetPlayerInputLocked(true);
 
+        RefreshDeviceModeButtons();
         BuildRebindRows();
         RefreshAllBindings();
-        RefreshDeviceModeButtons();
         RefreshSensitivitySlider();
+        RefreshInputHints();
 
-        // Focus first rebind button cho gamepad navigation
-        if (_rows.Count > 0)
-        {
-            // Delay 1 frame để UI Toolkit build xong
-            _root.schedule.Execute(() => _btnModeAuto?.Focus()).ExecuteLater(50);
-        }
+        _root.schedule.Execute(FocusFirstBinding).ExecuteLater(50);
     }
 
-    /// <summary>Đóng InputSettings panel.</summary>
     public void Hide()
     {
+        bool wasVisible = _isVisible;
         _isVisible = false;
+
         if (_panelOverlay != null)
         {
             _panelOverlay.style.display = DisplayStyle.None;
             _panelOverlay.AddToClassList("hidden");
         }
+
         HideRebindOverlay();
         HideConflictOverlay();
-        UICursorLockService.Release(this);
-        SetPlayerInputLocked(false);
 
-        // Cancel rebind nếu đang chờ
+        if (!wasVisible) return;
+
+        UICursorLockService.Release(this);
+        if (_managesPlayerInput)
+            SetPlayerInputLocked(false);
+        _managesPlayerInput = false;
+
         if (_rebindService != null && _rebindService.IsRebinding)
             _rebindService.CancelRebind();
 
         _rebindService?.DiscardPendingConflict();
+
+        var onClosed = _onClosed;
+        _onClosed = null;
+        onClosed?.Invoke();
     }
 
-    /// <summary>Toggle panel visibility.</summary>
     public void Toggle()
     {
         if (_isVisible) Hide();
         else Show();
     }
-
-    // ─── UI Binding ───────────────────────────────────────────────────────────
 
     private void CacheUIElements()
     {
@@ -190,11 +204,17 @@ public class InputSettingsPanelController : MonoBehaviour
         _rebindList = _root.Q<ScrollView>("rebind-list");
         _rebindOverlay = _root.Q<VisualElement>("rebind-overlay");
         _conflictOverlay = _root.Q<VisualElement>("conflict-overlay");
+        _gamepadMap = _root.Q<VisualElement>("gamepad-map");
         _rebindPrompt = _root.Q<Label>("rebind-prompt");
         _conflictPrompt = _root.Q<Label>("conflict-prompt");
+        _keyboardHeader = _root.Q<Label>("header-keyboard");
+        _mouseHeader = _root.Q<Label>("header-mouse");
+        _gamepadHeader = _root.Q<Label>("header-gamepad");
         _sensitivitySlider = _root.Q<Slider>("gamepad-sensitivity");
         _sensitivityValueLabel = _root.Q<Label>("sensitivity-value");
-        _btnModeAuto = _root.Q<Button>("btn-mode-auto");
+        _footerOkHint = _root.Q<Label>("footer-ok-hint");
+        _footerBackHint = _root.Q<Label>("footer-back-hint");
+        _footerCancelHint = _root.Q<Label>("footer-cancel-hint");
         _btnModeKeyboard = _root.Q<Button>("btn-mode-keyboard");
         _btnModeGamepad = _root.Q<Button>("btn-mode-gamepad");
         _btnResetAll = _root.Q<Button>("btn-reset-all");
@@ -206,7 +226,6 @@ public class InputSettingsPanelController : MonoBehaviour
 
     private void BindCallbacks()
     {
-        _btnModeAuto?.RegisterCallback(_modeAutoClicked);
         _btnModeKeyboard?.RegisterCallback(_modeKeyboardClicked);
         _btnModeGamepad?.RegisterCallback(_modeGamepadClicked);
         _btnResetAll?.RegisterCallback(_resetAllClicked);
@@ -214,17 +233,12 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnCancelRebind?.RegisterCallback(_cancelRebindClicked);
         _btnConfirmConflict?.RegisterCallback(_confirmConflictClicked);
         _btnCancelConflict?.RegisterCallback(_cancelConflictClicked);
-
-        if (_sensitivitySlider != null)
-            _sensitivitySlider.RegisterValueChangedCallback(OnSensitivityChanged);
-
-        // Gamepad B button = back (NavigationCancelEvent)
+        _sensitivitySlider?.RegisterValueChangedCallback(OnSensitivityChanged);
         _panelOverlay?.RegisterCallback(_navigationCancel);
     }
 
     private void UnbindCallbacks()
     {
-        _btnModeAuto?.UnregisterCallback(_modeAutoClicked);
         _btnModeKeyboard?.UnregisterCallback(_modeKeyboardClicked);
         _btnModeGamepad?.UnregisterCallback(_modeGamepadClicked);
         _btnResetAll?.UnregisterCallback(_resetAllClicked);
@@ -232,37 +246,31 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnCancelRebind?.UnregisterCallback(_cancelRebindClicked);
         _btnConfirmConflict?.UnregisterCallback(_confirmConflictClicked);
         _btnCancelConflict?.UnregisterCallback(_cancelConflictClicked);
-
-        if (_sensitivitySlider != null)
-            _sensitivitySlider.UnregisterValueChangedCallback(OnSensitivityChanged);
-
+        _sensitivitySlider?.UnregisterValueChangedCallback(OnSensitivityChanged);
         _panelOverlay?.UnregisterCallback(_navigationCancel);
     }
 
-    // ─── Build Rows ───────────────────────────────────────────────────────────
-
     private void BuildRebindRows()
     {
-        _rebindList.Clear();
+        _rebindList?.Clear();
         _rows.Clear();
         RebindRowController.ResetTabIndex();
 
-        if (_rebindService == null) return;
+        if (_rebindService == null || _rebindList == null) return;
 
+        var targets = _showGamepadTab ? GamepadTargets : KeyboardMouseTargets;
         var actionNames = _rebindService.GetRebindableActionNames();
         for (int i = 0; i < actionNames.Count; i++)
         {
-            var row = new RebindRowController(
+            _rows.Add(new RebindRowController(
                 actionNames[i],
                 _rebindList,
                 OnRebindClicked,
+                targets,
                 isAlt: i % 2 == 1
-            );
-            _rows.Add(row);
+            ));
         }
     }
-
-    // ─── Event Handlers ───────────────────────────────────────────────────────
 
     private void OnRebindClicked(string actionName, InputBindingTarget target)
     {
@@ -275,14 +283,14 @@ public class InputSettingsPanelController : MonoBehaviour
         _activeRow?.SetRebindingState(target, true);
 
         _rebindService.StartRebind(actionName, target,
-            onComplete: (success, newKey) =>
+            onComplete: (_, _) =>
             {
                 HideRebindOverlay();
                 _activeRow?.SetRebindingState(target, false);
                 RefreshAllBindings();
                 _activeRow?.Focus(target);
             },
-            onConflict: (conflict) =>
+            onConflict: conflict =>
             {
                 _activeRow?.SetRebindingState(target, false);
                 HideRebindOverlay();
@@ -321,10 +329,17 @@ public class InputSettingsPanelController : MonoBehaviour
         _activeRow?.Focus(_activeTarget);
     }
 
-    private void OnDeviceModeClicked(int mode)
+    private void SelectDeviceTab(bool gamepad)
     {
-        InputDeviceDetector.Instance?.SetPreferredDevice(mode);
+        if (_showGamepadTab == gamepad) return;
+
+        _showGamepadTab = gamepad;
+        InputDeviceDetector.Instance?.SetPreferredDevice(gamepad ? 2 : 1);
         RefreshDeviceModeButtons();
+        BuildRebindRows();
+        RefreshAllBindings();
+        RefreshInputHints();
+        _root.schedule.Execute(FocusFirstBinding).ExecuteLater(50);
     }
 
     private void OnSensitivityChanged(ChangeEvent<float> evt)
@@ -337,12 +352,15 @@ public class InputSettingsPanelController : MonoBehaviour
             _inputHandler.GamepadCameraSensitivity = evt.newValue;
     }
 
-    private void OnDeviceChanged(InputDeviceType _)
+    private void OnDeviceChanged(InputDeviceType deviceType)
     {
-        if (_isVisible) RefreshAllBindings();
-    }
+        if (!_isVisible) return;
 
-    // ─── Refresh UI ───────────────────────────────────────────────────────────
+        RefreshInputHints();
+        if ((_showGamepadTab && deviceType == InputDeviceType.Gamepad)
+            || (!_showGamepadTab && deviceType == InputDeviceType.KeyboardMouse))
+            RefreshAllBindings();
+    }
 
     private void RefreshAllBindings()
     {
@@ -354,14 +372,18 @@ public class InputSettingsPanelController : MonoBehaviour
 
     private void RefreshDeviceModeButtons()
     {
-        int mode = InputDeviceDetector.Instance?.GetPreferredDevice() ?? 0;
+        SetModeButtonActive(_btnModeKeyboard, !_showGamepadTab);
+        SetModeButtonActive(_btnModeGamepad, _showGamepadTab);
+        SetElementVisible(_keyboardHeader, !_showGamepadTab);
+        SetElementVisible(_mouseHeader, !_showGamepadTab);
+        SetElementVisible(_gamepadHeader, _showGamepadTab);
+        SetElementVisible(_gamepadMap, _showGamepadTab);
 
-        SetModeButtonActive(_btnModeAuto, mode == 0);
-        SetModeButtonActive(_btnModeKeyboard, mode == 1);
-        SetModeButtonActive(_btnModeGamepad, mode == 2);
+        if (_sensitivitySlider != null)
+            _sensitivitySlider.SetEnabled(_showGamepadTab);
     }
 
-    private void SetModeButtonActive(Button btn, bool active)
+    private static void SetModeButtonActive(Button btn, bool active)
     {
         if (btn == null) return;
         if (active)
@@ -370,33 +392,49 @@ public class InputSettingsPanelController : MonoBehaviour
             btn.RemoveFromClassList("mode-active");
     }
 
-    private void RefreshSensitivitySlider()
+    private static void SetElementVisible(VisualElement element, bool visible)
     {
-        if (_sensitivitySlider != null)
-        {
-            _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
-            float value = _inputHandler != null ? _inputHandler.GamepadCameraSensitivity : _sensitivitySlider.value;
-            _sensitivitySlider.SetValueWithoutNotify(value);
-
-            if (_sensitivityValueLabel != null)
-                _sensitivityValueLabel.text = $"{Mathf.RoundToInt(value * 100)}%";
-        }
+        if (element == null) return;
+        element.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
-    // ─── Rebind Overlay ───────────────────────────────────────────────────────
+    private void RefreshSensitivitySlider()
+    {
+        if (_sensitivitySlider == null) return;
+
+        _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
+        float value = _inputHandler != null ? _inputHandler.GamepadCameraSensitivity : _sensitivitySlider.value;
+        _sensitivitySlider.SetValueWithoutNotify(value);
+
+        if (_sensitivityValueLabel != null)
+            _sensitivityValueLabel.text = $"{Mathf.RoundToInt(value * 100)}%";
+    }
+
+    private void RefreshInputHints()
+    {
+        bool gamepad = IsCurrentDeviceGamepad();
+        if (_footerOkHint != null)
+            _footerOkHint.text = gamepad ? "A : OK" : "Enter / Click : OK";
+        if (_footerBackHint != null)
+            _footerBackHint.text = gamepad ? "B : Back" : "Esc : Back";
+        if (_footerCancelHint != null)
+            _footerCancelHint.text = gamepad ? "Menu : Cancel rebind" : "Esc : Cancel rebind";
+    }
 
     private void ShowRebindOverlay(string actionName, InputBindingTarget target)
     {
         if (_rebindOverlay == null) return;
 
+        string cancelHint = target == InputBindingTarget.Gamepad ? "Menu: Cancel" : "Esc: Cancel";
         string deviceLabel = target switch
         {
             InputBindingTarget.Gamepad => "gamepad button",
             InputBindingTarget.Mouse => "mouse button",
             _ => "keyboard key"
         };
+
         if (_rebindPrompt != null)
-            _rebindPrompt.text = $"Press any {deviceLabel} for '{actionName}'\nEsc / Menu: Cancel";
+            _rebindPrompt.text = $"Press any {deviceLabel} for '{actionName}'\n{cancelHint}";
 
         _rebindOverlay.RemoveFromClassList("hidden");
         _root.schedule.Execute(() => _btnCancelRebind?.Focus()).ExecuteLater(50);
@@ -444,6 +482,19 @@ public class InputSettingsPanelController : MonoBehaviour
         Hide();
     }
 
+    private void FocusFirstBinding()
+    {
+        if (_rows.Count == 0) return;
+
+        _rows[0].Focus(_showGamepadTab ? InputBindingTarget.Gamepad : InputBindingTarget.Keyboard);
+    }
+
+    private static bool IsCurrentDeviceGamepad()
+    {
+        return InputDeviceDetector.Instance != null
+            && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
+    }
+
     private void SetPlayerInputLocked(bool locked)
     {
         if (!_lockPlayerInputWhileOpen) return;
@@ -453,9 +504,22 @@ public class InputSettingsPanelController : MonoBehaviour
             if (!handler.IsOwner) continue;
 
             if (locked)
+            {
+                if (!_cameraLookStates.ContainsKey(handler))
+                    _cameraLookStates.Add(handler, handler.CameraLookEnabled);
                 handler.LockAllInput();
+                handler.DisableCameraLook();
+            }
             else
+            {
                 handler.UnlockAllInput();
+                if (_cameraLookStates.TryGetValue(handler, out bool wasEnabled) && wasEnabled)
+                    handler.EnableCameraLook();
+                else
+                    handler.DisableCameraLook();
+
+                _cameraLookStates.Remove(handler);
+            }
         }
     }
 }

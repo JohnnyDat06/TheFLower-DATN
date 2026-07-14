@@ -1,4 +1,4 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEngine.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEngine.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
     <ui:Style src="InputSettingsPanel.uss" />
     <ui:VisualElement name="panel-overlay" class="panel-overlay hidden">
         <ui:VisualElement name="panel-container" class="panel-container">
@@ -10,17 +10,41 @@
             <ui:VisualElement name="device-mode-section" class="device-mode-section">
                 <ui:Label text="Controller Settings" class="section-label" />
                 <ui:VisualElement name="device-mode-buttons" class="device-mode-buttons">
-                    <ui:Button name="btn-mode-auto" text="Auto" class="mode-button mode-active" focusable="true" tabindex="1" />
-                    <ui:Button name="btn-mode-keyboard" text="Keyboard / Mouse" class="mode-button" focusable="true" tabindex="2" />
-                    <ui:Button name="btn-mode-gamepad" text="Gamepad" class="mode-button" focusable="true" tabindex="3" />
+                    <ui:Button name="btn-mode-keyboard" text="Keyboard / Mouse" class="mode-button mode-active" focusable="true" tabindex="1" />
+                    <ui:Button name="btn-mode-gamepad" text="Gamepad" class="mode-button" focusable="true" tabindex="2" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement name="gamepad-map" class="gamepad-map hidden">
+                <ui:VisualElement class="gamepad-shell">
+                    <ui:VisualElement class="gamepad-left-grip" />
+                    <ui:VisualElement class="gamepad-right-grip" />
+                    <ui:Label text="LB" class="pad-label pad-lb" />
+                    <ui:Label text="RB" class="pad-label pad-rb" />
+                    <ui:Label text="LT Skill" class="pad-note pad-lt" />
+                    <ui:Label text="RT Strong Attack" class="pad-note pad-rt" />
+                    <ui:Label text="Menu" class="pad-note pad-menu" />
+                    <ui:Label text="View" class="pad-note pad-view" />
+                    <ui:Label text="L Movement" class="pad-note pad-left-stick" />
+                    <ui:Label text="R Camera" class="pad-note pad-right-stick" />
+                    <ui:Label text="D-Pad Switch Items" class="pad-note pad-dpad" />
+                    <ui:VisualElement class="pad-stick pad-stick-left" />
+                    <ui:VisualElement class="pad-stick pad-stick-right" />
+                    <ui:VisualElement class="pad-dpad-cross" />
+                    <ui:VisualElement class="pad-face-grid">
+                        <ui:Label text="Y" class="face-button face-y" />
+                        <ui:Label text="X" class="face-button face-x" />
+                        <ui:Label text="B" class="face-button face-b" />
+                        <ui:Label text="A" class="face-button face-a" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
 
             <ui:VisualElement name="header-row" class="rebind-row header-row">
                 <ui:Label text="" class="col-action" />
-                <ui:Label text="Keyboard" class="col-binding col-header" />
-                <ui:Label text="Mouse" class="col-binding col-header" />
-                <ui:Label text="Gamepad" class="col-binding col-header" />
+                <ui:Label name="header-keyboard" text="Keyboard" class="col-binding col-header" />
+                <ui:Label name="header-mouse" text="Mouse" class="col-binding col-header" />
+                <ui:Label name="header-gamepad" text="Gamepad" class="col-binding col-header hidden" />
             </ui:VisualElement>
 
             <ui:ScrollView name="rebind-list" class="rebind-list" />
@@ -37,11 +61,11 @@
 
             <ui:VisualElement name="button-row" class="button-row">
                 <ui:VisualElement class="footer-hints">
-                    <ui:Label text="A : OK" class="footer-hint ok-hint" />
-                    <ui:Label text="B : Back" class="footer-hint back-hint" />
+                    <ui:Label name="footer-ok-hint" text="A : OK" class="footer-hint ok-hint" />
+                    <ui:Label name="footer-back-hint" text="B : Back" class="footer-hint back-hint" />
                     <ui:Label text="X : Reset assignments" class="footer-hint" />
                     <ui:Label text="Y : Defaults" class="footer-hint" />
-                    <ui:Label text="Esc / Menu : Cancel" class="footer-hint" />
+                    <ui:Label name="footer-cancel-hint" text="Menu : Cancel rebind" class="footer-hint" />
                 </ui:VisualElement>
                 <ui:VisualElement class="footer-buttons">
                     <ui:Button name="btn-reset-all" text="Reset All" class="action-button reset-button" focusable="true" tabindex="200" />
