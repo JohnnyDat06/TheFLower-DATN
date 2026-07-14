@@ -1,6 +1,8 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using TMPro;
 using Unity.Netcode;
 using Unity.Cinemachine;
@@ -25,6 +27,7 @@ namespace Game.Core
         [SerializeField] private List<TrailerStep> _steps;
         [SerializeField] private GameObject _subtitlePanel;
         [SerializeField] private TextMeshProUGUI _subtitleText;
+        [SerializeField] private Button _skipButton;
         
         [Header("Audio Config")]
         [SerializeField] private SOAudioClip _backgroundMusic;
@@ -37,6 +40,11 @@ namespace Game.Core
         {
             Instance = this;
             if (_subtitlePanel != null) _subtitlePanel.SetActive(false);
+            if (_skipButton != null)
+            {
+                _skipButton.gameObject.SetActive(false);
+                _skipButton.onClick.AddListener(SkipTrailer);
+            }
             SetupDefaultDialogues();
 
             foreach (var step in _steps)
@@ -72,7 +80,38 @@ namespace Game.Core
             
             foreach (var step in _steps) if (step.VirtualCamera != null) step.VirtualCamera.Priority = 0;
             
+            if (_skipButton != null) _skipButton.gameObject.SetActive(true);
+
             _trailerCoroutine = StartCoroutine(PlayTrailerSequence());
+        }
+
+        private void Update()
+        {
+            if (!_isTrailerFinished && _trailerCoroutine != null)
+            {
+                // Check skip inputs
+                if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+                {
+                    SkipTrailer();
+                }
+                else if (Gamepad.current != null && Gamepad.current.buttonSouth.wasPressedThisFrame) // buttonSouth is usually 'X' or 'A'
+                {
+                    SkipTrailer();
+                }
+            }
+        }
+
+        public void SkipTrailer()
+        {
+            if (_isTrailerFinished) return;
+
+            if (_trailerCoroutine != null)
+            {
+                StopCoroutine(_trailerCoroutine);
+                _trailerCoroutine = null;
+            }
+
+            FinishTrailer();
         }
 
         private IEnumerator PlayTrailerSequence()
@@ -130,6 +169,7 @@ namespace Game.Core
             }
 
             if (_subtitlePanel != null) _subtitlePanel.SetActive(false);
+            if (_skipButton != null) _skipButton.gameObject.SetActive(false);
             foreach (var step in _steps) if (step.VirtualCamera != null) step.VirtualCamera.Priority = 0;
             if (CameraManager.Instance != null) CameraManager.Instance.SwitchCamera(CameraPreset.ThirdPerson);
             ReportTrailerFinishedServerRpc();
