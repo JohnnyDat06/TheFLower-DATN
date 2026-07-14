@@ -4,15 +4,9 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// InputRebindService — Cho phép người chơi đổi phím binding theo device type.
-/// Implements IInputRebindService.
-/// 
-/// SRP: Chỉ xử lý rebind logic. Persistence delegate cho IInputBindingPersistence.
-/// DIP: Phụ thuộc IInputBindingPersistence (inject qua [SerializeField]).
-/// 
-/// Load binding overrides trước khi PlayerInputHandler khởi tạo (Awake vs Start).
-/// Fire EventBus.OnInputBindingChanged sau khi save thành công.
-/// SRS §14.6
+/// Handles interactive input rebinding and persistence.
+/// UI asks this service for display data and conflict resolution; the service owns
+/// binding indices, overrides, validation, and saving.
 /// </summary>
 [DefaultExecutionOrder(-200)]
 public class InputRebindService : MonoBehaviour, IInputRebindService
@@ -22,27 +16,22 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
     [SerializeField] private PlayerPrefsBindingPersistence _persistence;
 
     private InputActionRebindingExtensions.RebindingOperation _rebindOp;
+    private PendingConflict _pendingConflict;
 
-    // Actions không được phép rebind:
-    // - Move: composite binding (WASD) — rebind sẽ phá layout
-    // - CameraLook: analog input (mouse delta / stick) — không có ý nghĩa rebind
-    // - SkipCutScene: system action
     private static readonly HashSet<string> NON_REBINDABLE = new()
     {
         "Move", "CameraLook", "Pause", "SkipCutScene"
     };
 
-    // ─── IInputRebindService Properties ──────────────────────────────────────
-
     public bool IsRebinding => _rebindOp != null;
-
-    // ─── Lifecycle ───────────────────────────────────────────────────────────
+    public bool HasPendingConflict => _pendingConflict != null;
+    public InputRebindConflict PendingConflict => _pendingConflict?.Info ?? default;
 
     private void Awake()
     {
         if (_inputActions == null)
         {
-            Debug.LogError("[InputRebindService] InputActionAsset chưa được gán trong Inspector!");
+            Debug.LogError("[InputRebindService] InputActionAsset is not assigned.");
             return;
         }
 
@@ -50,30 +39,34 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
         {
             _persistence = GetComponent<PlayerPrefsBindingPersistence>();
             if (_persistence == null)
-            {
                 _persistence = gameObject.AddComponent<PlayerPrefsBindingPersistence>();
-            }
         }
 
-        // Load bindings cho cả 2 device types — phải chạy trước PlayerInputHandler.Awake()
         LoadAllBindings();
     }
 
     private void OnDestroy()
     {
         _rebindOp?.Dispose();
+        _rebindOp = null;
     }
 
-    // ─── IInputRebindService Implementation ──────────────────────────────────
-
-    /// <inheritdoc/>
     public void StartRebind(string actionName, InputDeviceType deviceType,
                             Action<bool, string> onComplete, Action<string> onConflict = null)
     {
+        var target = deviceType == InputDeviceType.Gamepad ? InputBindingTarget.Gamepad : InputBindingTarget.Keyboard;
+        StartRebind(actionName, target, onComplete, conflict => onConflict?.Invoke(conflict.ConflictActionName));
+    }
+
+    public void StartRebind(string actionName, InputBindingTarget target,
+                            Action<bool, string> onComplete, Action<InputRebindConflict> onConflict = null)
+    {
+        DiscardPendingConflict();
+
         if (NON_REBINDABLE.Contains(actionName))
         {
 #if UNITY_EDITOR || DEBUG_BUILD
-            Debug.LogWarning($"[InputRebindService] '{actionName}' không thể rebind.");
+            Debug.LogWarning($"[InputRebindService] '{actionName}' cannot be rebound.");
 #endif
             onComplete?.Invoke(false, string.Empty);
             return;
@@ -82,62 +75,53 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
         var action = _inputActions.FindAction(actionName);
         if (action == null)
         {
-            Debug.LogError($"[InputRebindService] Action '{actionName}' không tìm thấy.");
+            Debug.LogError($"[InputRebindService] Action '{actionName}' was not found.");
             onComplete?.Invoke(false, string.Empty);
             return;
         }
 
-        int bindingIndex = FindBindingIndexForDevice(action, deviceType);
+        int bindingIndex = FindBindingIndexForTarget(action, target, allowFallbackKeyboardMouse: true);
         if (bindingIndex < 0)
         {
-            Debug.LogError($"[InputRebindService] Không tìm thấy binding cho '{actionName}' trên {deviceType}.");
+            Debug.LogError($"[InputRebindService] No binding slot found for '{actionName}' on {target}.");
             onComplete?.Invoke(false, string.Empty);
             return;
         }
 
-        // Disable action trước khi rebind (yêu cầu bắt buộc của InputSystem)
         string previousOverridePath = action.bindings[bindingIndex].overridePath;
+        string previousEffectivePath = action.bindings[bindingIndex].effectivePath;
+
         action.Disable();
 
         var rebindBuilder = action.PerformInteractiveRebinding(bindingIndex)
             .OnMatchWaitForAnother(0.1f);
 
-        // Exclude controls based on device type
-        if (deviceType == InputDeviceType.KeyboardMouse)
-        {
-            // Keyboard rebind: exclude mouse position/delta (không rebindable)
-            rebindBuilder
-                .WithControlsExcluding("<Mouse>/position")
-                .WithControlsExcluding("<Mouse>/delta")
-                .WithControlsExcluding("<Gamepad>") // Chỉ lắng nghe KB+Mouse
-                .WithControlsExcluding("<Keyboard>/escape")
-                .WithCancelingThrough("<Keyboard>/escape");
-        }
-        else
-        {
-            // Gamepad rebind: chỉ lắng nghe Gamepad
-            rebindBuilder
-                .WithControlsExcluding("<Keyboard>")
-                .WithControlsExcluding("<Mouse>")
-                .WithControlsExcluding("<Gamepad>/start")
-                .WithCancelingThrough("<Gamepad>/start");
-        }
+        ConfigureTargetFilters(rebindBuilder, target);
 
         rebindBuilder
             .OnComplete(op =>
             {
-                var newKey = op.selectedControl?.displayName ?? string.Empty;
+                string newKey = op.selectedControl?.displayName ?? string.Empty;
+                string attemptedOverridePath = action.bindings[bindingIndex].overridePath;
+                string attemptedEffectivePath = action.bindings[bindingIndex].effectivePath;
 
-                // Kiểm tra conflict
-                var conflict = FindConflict(action, bindingIndex, deviceType);
-                if (conflict != null)
+                var conflict = FindConflict(action, bindingIndex, target, attemptedEffectivePath);
+                if (conflict.HasValue)
                 {
-                    // Revert binding — để caller xử lý Overwrite/Cancel dialog
                     RestoreBindingOverride(action, bindingIndex, previousOverridePath);
+                    _pendingConflict = new PendingConflict(
+                        new InputRebindConflict(action.name, conflict.Value.Action.name, target, newKey),
+                        action,
+                        bindingIndex,
+                        conflict.Value.Action,
+                        conflict.Value.BindingIndex,
+                        attemptedOverridePath,
+                        previousEffectivePath);
+
                     op.Dispose();
                     _rebindOp = null;
                     action.Enable();
-                    onConflict?.Invoke(conflict);
+                    onConflict?.Invoke(_pendingConflict.Info);
                     return;
                 }
 
@@ -147,10 +131,6 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
                 SaveCurrentBindings();
                 EventBus.RaiseInputBindingChanged();
                 onComplete?.Invoke(true, newKey);
-
-#if UNITY_EDITOR || DEBUG_BUILD
-                Debug.Log($"[InputRebindService] '{actionName}' [{deviceType}] → '{newKey}'");
-#endif
             })
             .OnCancel(op =>
             {
@@ -163,27 +143,43 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
         _rebindOp = rebindBuilder.Start();
     }
 
-    /// <inheritdoc/>
     public void CancelRebind()
     {
         _rebindOp?.Cancel();
     }
 
-    /// <inheritdoc/>
+    public bool ApplyPendingConflict()
+    {
+        if (_pendingConflict == null) return false;
+
+        var pending = _pendingConflict;
+        _pendingConflict = null;
+
+        RestoreBindingOverride(pending.SourceAction, pending.SourceBindingIndex, pending.AttemptedOverridePath);
+        pending.ConflictAction.ApplyBindingOverride(pending.ConflictBindingIndex, pending.SourcePreviousEffectivePath);
+
+        SaveCurrentBindings();
+        EventBus.RaiseInputBindingChanged();
+        return true;
+    }
+
+    public void DiscardPendingConflict()
+    {
+        _pendingConflict = null;
+    }
+
     public void ResetAllBindings()
     {
+        DiscardPendingConflict();
         _inputActions.RemoveAllBindingOverrides();
         _persistence.ClearAllBindings();
         EventBus.RaiseInputBindingChanged();
-
-#if UNITY_EDITOR || DEBUG_BUILD
-        Debug.Log("[InputRebindService] All bindings reset to default.");
-#endif
     }
 
-    /// <inheritdoc/>
     public void ResetBindingsForDevice(InputDeviceType deviceType)
     {
+        DiscardPendingConflict();
+
         string targetGroup = GetGroupName(deviceType);
         var playerMap = _inputActions.FindActionMap("Player");
         if (playerMap == null) return;
@@ -194,33 +190,31 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
             {
                 var binding = action.bindings[i];
                 if (!string.IsNullOrEmpty(binding.groups) && binding.groups.Contains(targetGroup))
-                {
                     action.RemoveBindingOverride(i);
-                }
             }
         }
 
         _persistence.ClearBindings(deviceType);
         EventBus.RaiseInputBindingChanged();
-
-#if UNITY_EDITOR || DEBUG_BUILD
-        Debug.Log($"[InputRebindService] Bindings reset to default for {deviceType}.");
-#endif
     }
 
-    /// <inheritdoc/>
     public string GetBindingDisplayName(string actionName, InputDeviceType deviceType)
+    {
+        var target = deviceType == InputDeviceType.Gamepad ? InputBindingTarget.Gamepad : InputBindingTarget.Keyboard;
+        return GetBindingDisplayName(actionName, target);
+    }
+
+    public string GetBindingDisplayName(string actionName, InputBindingTarget target)
     {
         var action = _inputActions.FindAction(actionName);
         if (action == null) return string.Empty;
 
-        int index = FindBindingIndexForDevice(action, deviceType);
+        int index = FindBindingIndexForTarget(action, target, allowFallbackKeyboardMouse: false);
         if (index < 0) return string.Empty;
 
-        return action.GetBindingDisplayString(index);
+        return NormalizeDisplayName(action.GetBindingDisplayString(index), target);
     }
 
-    /// <inheritdoc/>
     public IReadOnlyList<string> GetRebindableActionNames()
     {
         var list = new List<string>();
@@ -236,39 +230,73 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
         return list;
     }
 
-    // ─── Private Helpers ─────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Tìm binding index trong action thuộc group device tương ứng.
-    /// Skip composite parents — chỉ tìm single bindings.
-    /// </summary>
-    private int FindBindingIndexForDevice(InputAction action, InputDeviceType deviceType)
+    private static void ConfigureTargetFilters(InputActionRebindingExtensions.RebindingOperation rebindBuilder, InputBindingTarget target)
     {
-        string targetGroup = GetGroupName(deviceType);
+        rebindBuilder
+            .WithControlsExcluding("<Mouse>/position")
+            .WithControlsExcluding("<Mouse>/delta")
+            .WithControlsExcluding("<Mouse>/scroll");
+
+        switch (target)
+        {
+            case InputBindingTarget.Keyboard:
+                rebindBuilder
+                    .WithControlsExcluding("<Mouse>")
+                    .WithControlsExcluding("<Gamepad>")
+                    .WithControlsExcluding("<Keyboard>/escape")
+                    .WithCancelingThrough("<Keyboard>/escape");
+                break;
+
+            case InputBindingTarget.Mouse:
+                rebindBuilder
+                    .WithControlsExcluding("<Keyboard>")
+                    .WithControlsExcluding("<Gamepad>")
+                    .WithCancelingThrough("<Keyboard>/escape");
+                break;
+
+            case InputBindingTarget.Gamepad:
+                rebindBuilder
+                    .WithControlsExcluding("<Keyboard>")
+                    .WithControlsExcluding("<Mouse>")
+                    .WithControlsExcluding("<Gamepad>/start")
+                    .WithCancelingThrough("<Gamepad>/start");
+                break;
+        }
+    }
+
+    private int FindBindingIndexForTarget(InputAction action, InputBindingTarget target, bool allowFallbackKeyboardMouse)
+    {
+        int fallbackKeyboardMouseIndex = -1;
+        string targetGroup = GetGroupName(target);
 
         for (int i = 0; i < action.bindings.Count; i++)
         {
             var binding = action.bindings[i];
-            // Skip composite parents (Move) — chúng không có path
-            if (binding.isComposite) continue;
-            // Skip composite parts (WASD parts) — chúng thuộc composite
-            if (binding.isPartOfComposite) continue;
+            if (binding.isComposite || binding.isPartOfComposite) continue;
+            if (string.IsNullOrEmpty(binding.groups) || !binding.groups.Contains(targetGroup)) continue;
 
-            if (!string.IsNullOrEmpty(binding.groups) && binding.groups.Contains(targetGroup))
+            string path = binding.effectivePath;
+            if (target == InputBindingTarget.Gamepad)
+                return i;
+
+            if (fallbackKeyboardMouseIndex < 0)
+                fallbackKeyboardMouseIndex = i;
+
+            if (target == InputBindingTarget.Keyboard && IsKeyboardPath(path))
+                return i;
+
+            if (target == InputBindingTarget.Mouse && IsMousePath(path))
                 return i;
         }
 
-        return -1;
+        return allowFallbackKeyboardMouse && target != InputBindingTarget.Gamepad ? fallbackKeyboardMouseIndex : -1;
     }
 
-    /// <summary>
-    /// Tìm action khác đang dùng cùng binding path trong cùng device group.
-    /// Trả null nếu không conflict.
-    /// </summary>
-    private string FindConflict(InputAction rebindingAction, int bindingIndex, InputDeviceType deviceType)
+    private ConflictBinding? FindConflict(InputAction rebindingAction, int bindingIndex, InputBindingTarget target, string newPath)
     {
-        var newPath = rebindingAction.bindings[bindingIndex].effectivePath;
-        string targetGroup = GetGroupName(deviceType);
+        if (string.IsNullOrEmpty(newPath)) return null;
+
+        string targetGroup = GetGroupName(target);
         var playerMap = _inputActions.FindActionMap("Player");
         if (playerMap == null) return null;
 
@@ -276,14 +304,14 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
         {
             if (action == rebindingAction) continue;
 
-            foreach (var binding in action.bindings)
+            for (int i = 0; i < action.bindings.Count; i++)
             {
-                // Chỉ check conflict trong cùng device group
-                if (string.IsNullOrEmpty(binding.groups) || !binding.groups.Contains(targetGroup))
-                    continue;
+                var binding = action.bindings[i];
+                if (binding.isComposite || binding.isPartOfComposite) continue;
+                if (string.IsNullOrEmpty(binding.groups) || !binding.groups.Contains(targetGroup)) continue;
+                if (!string.Equals(binding.effectivePath, newPath, StringComparison.Ordinal)) continue;
 
-                if (binding.effectivePath == newPath)
-                    return action.name;
+                return new ConflictBinding(action, i);
             }
         }
 
@@ -293,19 +321,13 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
     private static void RestoreBindingOverride(InputAction action, int bindingIndex, string previousOverridePath)
     {
         if (string.IsNullOrEmpty(previousOverridePath))
-        {
             action.RemoveBindingOverride(bindingIndex);
-            return;
-        }
-
-        action.ApplyBindingOverride(bindingIndex, previousOverridePath);
+        else
+            action.ApplyBindingOverride(bindingIndex, previousOverridePath);
     }
 
-    /// <summary>Load binding overrides cho tất cả device types.</summary>
     private void LoadAllBindings()
     {
-        // Load theo thứ tự: Keyboard trước, Gamepad sau
-        // InputSystem sẽ merge overrides — mỗi binding chỉ bị override 1 lần
         LoadBindingsForDevice(InputDeviceType.KeyboardMouse);
         LoadBindingsForDevice(InputDeviceType.Gamepad);
     }
@@ -314,24 +336,80 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
     {
         string json = _persistence.LoadBindings(deviceType);
         if (!string.IsNullOrEmpty(json))
-        {
             _inputActions.LoadBindingOverridesFromJson(json);
-
-#if UNITY_EDITOR || DEBUG_BUILD
-            Debug.Log($"[InputRebindService] Bindings loaded for {deviceType}.");
-#endif
-        }
     }
 
-    /// <summary>Save toàn bộ binding overrides hiện tại.</summary>
     private void SaveCurrentBindings()
     {
-        // InputSystem lưu tất cả overrides dưới 1 JSON — save cho cả 2 device types
         var json = _inputActions.SaveBindingOverridesAsJson();
         _persistence.SaveBindings(json, InputDeviceType.KeyboardMouse);
         _persistence.SaveBindings(json, InputDeviceType.Gamepad);
     }
 
+    private static string NormalizeDisplayName(string displayName, InputBindingTarget target)
+    {
+        if (string.IsNullOrWhiteSpace(displayName)) return string.Empty;
+
+        return displayName
+            .Replace("Left Button", "LMB")
+            .Replace("Right Button", "RMB")
+            .Replace("Middle Button", "MMB")
+            .Replace("Left Stick Press", "LS")
+            .Replace("Right Stick Press", "RS")
+            .Replace("Button South", "A")
+            .Replace("Button East", "B")
+            .Replace("Button West", "X")
+            .Replace("Button North", "Y")
+            .Replace("Start", "Menu");
+    }
+
+    private static bool IsKeyboardPath(string path) => !string.IsNullOrEmpty(path) && path.StartsWith("<Keyboard>", StringComparison.Ordinal);
+    private static bool IsMousePath(string path) => !string.IsNullOrEmpty(path) && path.StartsWith("<Mouse>", StringComparison.Ordinal);
+
     private static string GetGroupName(InputDeviceType deviceType) =>
         deviceType == InputDeviceType.Gamepad ? "Gamepad" : "KeyboardMouse";
+
+    private static string GetGroupName(InputBindingTarget target) =>
+        target == InputBindingTarget.Gamepad ? "Gamepad" : "KeyboardMouse";
+
+    private readonly struct ConflictBinding
+    {
+        public ConflictBinding(InputAction action, int bindingIndex)
+        {
+            Action = action;
+            BindingIndex = bindingIndex;
+        }
+
+        public InputAction Action { get; }
+        public int BindingIndex { get; }
+    }
+
+    private sealed class PendingConflict
+    {
+        public PendingConflict(
+            InputRebindConflict info,
+            InputAction sourceAction,
+            int sourceBindingIndex,
+            InputAction conflictAction,
+            int conflictBindingIndex,
+            string attemptedOverridePath,
+            string sourcePreviousEffectivePath)
+        {
+            Info = info;
+            SourceAction = sourceAction;
+            SourceBindingIndex = sourceBindingIndex;
+            ConflictAction = conflictAction;
+            ConflictBindingIndex = conflictBindingIndex;
+            AttemptedOverridePath = attemptedOverridePath;
+            SourcePreviousEffectivePath = sourcePreviousEffectivePath;
+        }
+
+        public InputRebindConflict Info { get; }
+        public InputAction SourceAction { get; }
+        public int SourceBindingIndex { get; }
+        public InputAction ConflictAction { get; }
+        public int ConflictBindingIndex { get; }
+        public string AttemptedOverridePath { get; }
+        public string SourcePreviousEffectivePath { get; }
+    }
 }
