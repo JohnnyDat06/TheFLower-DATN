@@ -16,7 +16,7 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
     [SerializeField] private PlayerPrefsBindingPersistence _persistence;
 
     private InputActionRebindingExtensions.RebindingOperation _rebindOp;
-    private PendingConflict _pendingConflict;
+    private PendingConflictState _pendingConflict;
 
     private static readonly HashSet<string> NON_REBINDABLE = new()
     {
@@ -109,7 +109,7 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
                 if (conflict.HasValue)
                 {
                     RestoreBindingOverride(action, bindingIndex, previousOverridePath);
-                    _pendingConflict = new PendingConflict(
+                    _pendingConflict = new PendingConflictState(
                         new InputRebindConflict(action.name, conflict.Value.Action.name, target, newKey),
                         action,
                         bindingIndex,
@@ -384,9 +384,9 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
         public int BindingIndex { get; }
     }
 
-    private sealed class PendingConflict
+    private sealed class PendingConflictState
     {
-        public PendingConflict(
+        public PendingConflictState(
             InputRebindConflict info,
             InputAction sourceAction,
             int sourceBindingIndex,
