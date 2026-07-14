@@ -67,7 +67,14 @@
     color: rgb(221, 211, 170);
     font-size: 18px;
     -unity-text-align: middle-center;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
+}
+
+.tab-switch-hint {
+    color: rgba(218, 210, 184, 0.72);
+    font-size: 13px;
+    -unity-text-align: middle-center;
+    margin-bottom: 6px;
 }
 
 .device-mode-buttons {
@@ -98,118 +105,75 @@
 }
 
 .gamepad-map {
-    height: 172px;
+    height: 230px;
     margin-bottom: 10px;
     align-items: center;
     justify-content: center;
 }
 
-.gamepad-shell {
-    width: 520px;
-    height: 160px;
-    background-color: rgba(20, 21, 20, 0.86);
-    border-width: 2px;
-    border-color: rgba(224, 217, 178, 0.35);
-    border-radius: 58px;
+.gamepad-diagram {
+    width: 820px;
+    height: 220px;
     align-self: center;
+    background-color: rgba(9, 9, 7, 0.36);
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-color: rgba(210, 200, 160, 0.14);
 }
 
-.gamepad-left-grip,
-.gamepad-right-grip {
+.gamepad-image {
     position: absolute;
-    width: 150px;
-    height: 116px;
-    top: 42px;
-    background-color: rgba(15, 15, 15, 0.92);
-    border-width: 1px;
-    border-color: rgba(224, 217, 178, 0.22);
-    border-radius: 58px;
+    left: 290px;
+    top: 13px;
+    width: 240px;
+    height: 190px;
+    background-image: url("../PauseMenu/Gamepad.png");
+    -unity-background-scale-mode: scale-to-fit;
 }
 
-.gamepad-left-grip {
-    left: 18px;
-}
-
-.gamepad-right-grip {
-    right: 18px;
-}
-
-.pad-label,
-.pad-note {
+.pad-callout {
     position: absolute;
+    min-width: 116px;
+    height: 24px;
+    padding-left: 8px;
+    padding-right: 8px;
     color: var(--er-text);
+    background-color: rgba(18, 18, 14, 0.88);
+    border-width: 1px;
+    border-color: rgba(232, 226, 188, 0.38);
+    border-radius: 4px;
     font-size: 12px;
     -unity-text-align: middle-center;
 }
 
-.pad-label {
-    width: 54px;
-    height: 22px;
-    background-color: rgba(40, 39, 33, 0.88);
-    border-width: 1px;
-    border-color: rgba(232, 226, 188, 0.48);
-    border-radius: 8px;
-}
-
-.pad-lb { left: 78px; top: 10px; }
-.pad-rb { right: 78px; top: 10px; }
-.pad-lt { left: 16px; top: 34px; width: 120px; }
-.pad-rt { right: 16px; top: 34px; width: 132px; }
-.pad-menu { left: 275px; top: 62px; width: 70px; }
-.pad-view { left: 176px; top: 62px; width: 70px; }
-.pad-left-stick { left: 64px; top: 86px; width: 116px; }
-.pad-right-stick { right: 78px; top: 98px; width: 116px; }
-.pad-dpad { left: 166px; top: 122px; width: 142px; }
-
-.pad-stick {
+.connector {
     position: absolute;
-    width: 42px;
-    height: 42px;
-    background-color: rgba(78, 78, 72, 0.92);
-    border-width: 2px;
-    border-color: rgba(230, 226, 200, 0.36);
-    border-radius: 22px;
+    height: 1px;
+    background-color: rgba(232, 226, 188, 0.54);
 }
 
-.pad-stick-left { left: 84px; top: 76px; }
-.pad-stick-right { right: 126px; top: 76px; }
+.connector-lb { left: 224px; top: 40px; width: 98px; }
+.connector-rb { left: 498px; top: 40px; width: 98px; }
+.connector-lt { left: 216px; top: 18px; width: 112px; }
+.connector-rt { left: 492px; top: 18px; width: 112px; }
+.connector-dpad { left: 205px; top: 154px; width: 142px; }
+.connector-left-stick { left: 210px; top: 103px; width: 114px; }
+.connector-right-stick { left: 496px; top: 132px; width: 128px; }
+.connector-face { left: 488px; top: 95px; width: 116px; }
+.connector-menu { left: 502px; top: 67px; width: 80px; }
 
-.pad-dpad-cross {
-    position: absolute;
-    left: 194px;
-    top: 84px;
-    width: 52px;
-    height: 52px;
-    background-color: rgba(86, 84, 76, 0.82);
-    border-width: 1px;
-    border-color: rgba(230, 226, 200, 0.28);
-}
-
-.pad-face-grid {
-    position: absolute;
-    right: 64px;
-    top: 58px;
-    width: 96px;
-    height: 88px;
-}
-
-.face-button {
-    position: absolute;
-    width: 28px;
-    height: 28px;
-    color: rgb(235, 232, 210);
-    background-color: rgba(74, 74, 66, 0.9);
-    border-width: 1px;
-    border-color: rgba(232, 226, 188, 0.45);
-    border-radius: 14px;
-    -unity-text-align: middle-center;
-    font-size: 13px;
-}
-
-.face-y { left: 34px; top: 0; color: rgb(230, 210, 90); }
-.face-x { left: 0; top: 30px; color: rgb(120, 165, 235); }
-.face-b { right: 0; top: 30px; color: rgb(235, 105, 95); }
-.face-a { left: 34px; bottom: 0; color: rgb(112, 210, 110); }
+.callout-lb { left: 92px; top: 28px; }
+.callout-rb { right: 92px; top: 28px; }
+.callout-lt { left: 82px; top: 6px; }
+.callout-rt { right: 82px; top: 6px; }
+.callout-left-stick { left: 82px; top: 91px; }
+.callout-right-stick { right: 54px; top: 120px; }
+.callout-dpad { left: 56px; top: 142px; width: 150px; }
+.callout-y { right: 76px; top: 64px; color: rgb(230, 210, 90); }
+.callout-x { right: 118px; top: 92px; color: rgb(120, 165, 235); }
+.callout-b { right: 16px; top: 92px; color: rgb(235, 105, 95); }
+.callout-a { right: 76px; top: 150px; color: rgb(112, 210, 110); }
+.callout-menu { right: 22px; top: 56px; width: 142px; }
 
 .header-row {
     height: 34px;

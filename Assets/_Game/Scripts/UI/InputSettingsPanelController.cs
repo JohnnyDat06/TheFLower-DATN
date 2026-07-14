@@ -37,6 +37,7 @@ public class InputSettingsPanelController : MonoBehaviour
     private Label _footerOkHint;
     private Label _footerBackHint;
     private Label _footerCancelHint;
+    private Label _tabSwitchHint;
     private Slider _sensitivitySlider;
     private Button _btnModeKeyboard;
     private Button _btnModeGamepad;
@@ -135,7 +136,13 @@ public class InputSettingsPanelController : MonoBehaviour
         }
 
         if (_enableGamepadToggle && Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame)
+        {
             Toggle();
+            return;
+        }
+
+        if (_isVisible)
+            HandleGamepadTabSwitch();
     }
 
     public void Show(Action onClosed = null, bool managePlayerInput = true)
@@ -215,6 +222,7 @@ public class InputSettingsPanelController : MonoBehaviour
         _footerOkHint = _root.Q<Label>("footer-ok-hint");
         _footerBackHint = _root.Q<Label>("footer-back-hint");
         _footerCancelHint = _root.Q<Label>("footer-cancel-hint");
+        _tabSwitchHint = _root.Q<Label>("tab-switch-hint");
         _btnModeKeyboard = _root.Q<Button>("btn-mode-keyboard");
         _btnModeGamepad = _root.Q<Button>("btn-mode-gamepad");
         _btnResetAll = _root.Q<Button>("btn-reset-all");
@@ -342,6 +350,20 @@ public class InputSettingsPanelController : MonoBehaviour
         _root.schedule.Execute(FocusFirstBinding).ExecuteLater(50);
     }
 
+    private void HandleGamepadTabSwitch()
+    {
+        if (_rebindService != null && (_rebindService.IsRebinding || _rebindService.HasPendingConflict))
+            return;
+
+        var gamepad = Gamepad.current;
+        if (gamepad == null) return;
+
+        if (gamepad.leftShoulder.wasPressedThisFrame)
+            SelectDeviceTab(false);
+        else if (gamepad.rightShoulder.wasPressedThisFrame)
+            SelectDeviceTab(true);
+    }
+
     private void OnSensitivityChanged(ChangeEvent<float> evt)
     {
         if (_sensitivityValueLabel != null)
@@ -419,6 +441,8 @@ public class InputSettingsPanelController : MonoBehaviour
             _footerBackHint.text = gamepad ? "B : Back" : "Esc : Back";
         if (_footerCancelHint != null)
             _footerCancelHint.text = gamepad ? "Menu : Cancel rebind" : "Esc : Cancel rebind";
+        if (_tabSwitchHint != null)
+            _tabSwitchHint.text = gamepad ? "LB / RB (L1 / R1) : Switch tab" : "Click tab to switch";
     }
 
     private void ShowRebindOverlay(string actionName, InputBindingTarget target)

@@ -9,6 +9,7 @@
 
             <ui:VisualElement name="device-mode-section" class="device-mode-section">
                 <ui:Label text="Controller Settings" class="section-label" />
+                <ui:Label name="tab-switch-hint" text="LB / RB (L1 / R1) : Switch tab" class="tab-switch-hint" />
                 <ui:VisualElement name="device-mode-buttons" class="device-mode-buttons">
                     <ui:Button name="btn-mode-keyboard" text="Keyboard / Mouse" class="mode-button mode-active" focusable="true" tabindex="1" />
                     <ui:Button name="btn-mode-gamepad" text="Gamepad" class="mode-button" focusable="true" tabindex="2" />
@@ -16,27 +17,29 @@
             </ui:VisualElement>
 
             <ui:VisualElement name="gamepad-map" class="gamepad-map hidden">
-                <ui:VisualElement class="gamepad-shell">
-                    <ui:VisualElement class="gamepad-left-grip" />
-                    <ui:VisualElement class="gamepad-right-grip" />
-                    <ui:Label text="LB" class="pad-label pad-lb" />
-                    <ui:Label text="RB" class="pad-label pad-rb" />
-                    <ui:Label text="LT Skill" class="pad-note pad-lt" />
-                    <ui:Label text="RT Strong Attack" class="pad-note pad-rt" />
-                    <ui:Label text="Menu" class="pad-note pad-menu" />
-                    <ui:Label text="View" class="pad-note pad-view" />
-                    <ui:Label text="L Movement" class="pad-note pad-left-stick" />
-                    <ui:Label text="R Camera" class="pad-note pad-right-stick" />
-                    <ui:Label text="D-Pad Switch Items" class="pad-note pad-dpad" />
-                    <ui:VisualElement class="pad-stick pad-stick-left" />
-                    <ui:VisualElement class="pad-stick pad-stick-right" />
-                    <ui:VisualElement class="pad-dpad-cross" />
-                    <ui:VisualElement class="pad-face-grid">
-                        <ui:Label text="Y" class="face-button face-y" />
-                        <ui:Label text="X" class="face-button face-x" />
-                        <ui:Label text="B" class="face-button face-b" />
-                        <ui:Label text="A" class="face-button face-a" />
-                    </ui:VisualElement>
+                <ui:VisualElement class="gamepad-diagram">
+                    <ui:VisualElement class="gamepad-image" />
+                    <ui:VisualElement class="connector connector-lb" />
+                    <ui:VisualElement class="connector connector-rb" />
+                    <ui:VisualElement class="connector connector-lt" />
+                    <ui:VisualElement class="connector connector-rt" />
+                    <ui:VisualElement class="connector connector-dpad" />
+                    <ui:VisualElement class="connector connector-left-stick" />
+                    <ui:VisualElement class="connector connector-right-stick" />
+                    <ui:VisualElement class="connector connector-face" />
+                    <ui:VisualElement class="connector connector-menu" />
+                    <ui:Label text="LB / L1  Guard" class="pad-callout callout-lb" />
+                    <ui:Label text="RB / R1  Attack" class="pad-callout callout-rb" />
+                    <ui:Label text="LT  Skill" class="pad-callout callout-lt" />
+                    <ui:Label text="RT  Strong Attack" class="pad-callout callout-rt" />
+                    <ui:Label text="L  Movement" class="pad-callout callout-left-stick" />
+                    <ui:Label text="R  Camera / Lock" class="pad-callout callout-right-stick" />
+                    <ui:Label text="D-Pad  Switch Items" class="pad-callout callout-dpad" />
+                    <ui:Label text="Y  Interact" class="pad-callout callout-y" />
+                    <ui:Label text="X  Use Item" class="pad-callout callout-x" />
+                    <ui:Label text="B  Back / Dodge" class="pad-callout callout-b" />
+                    <ui:Label text="A  OK / Jump" class="pad-callout callout-a" />
+                    <ui:Label text="Menu  Pause / Cancel" class="pad-callout callout-menu" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
