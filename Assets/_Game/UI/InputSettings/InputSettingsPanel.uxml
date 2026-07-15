@@ -23,23 +23,26 @@
                     <ui:VisualElement class="connector connector-rb" />
                     <ui:VisualElement class="connector connector-lt" />
                     <ui:VisualElement class="connector connector-rt" />
-                    <ui:VisualElement class="connector connector-dpad" />
+                    <ui:VisualElement class="connector connector-dpad-left" />
+                    <ui:VisualElement class="connector connector-dpad-right" />
                     <ui:VisualElement class="connector connector-left-stick" />
                     <ui:VisualElement class="connector connector-right-stick" />
                     <ui:VisualElement class="connector connector-face" />
                     <ui:VisualElement class="connector connector-menu" />
-                    <ui:Label text="LB / L1  Guard" class="pad-callout callout-lb" />
-                    <ui:Label text="RB / R1  Attack" class="pad-callout callout-rb" />
-                    <ui:Label text="LT  Skill" class="pad-callout callout-lt" />
-                    <ui:Label text="RT  Strong Attack" class="pad-callout callout-rt" />
-                    <ui:Label text="L  Movement" class="pad-callout callout-left-stick" />
-                    <ui:Label text="R  Camera / Lock" class="pad-callout callout-right-stick" />
-                    <ui:Label text="D-Pad  Switch Items" class="pad-callout callout-dpad" />
-                    <ui:Label text="Y  Interact" class="pad-callout callout-y" />
-                    <ui:Label text="X  Use Item" class="pad-callout callout-x" />
-                    <ui:Label text="B  Back / Dodge" class="pad-callout callout-b" />
-                    <ui:Label text="A  OK / Jump" class="pad-callout callout-a" />
-                    <ui:Label text="Menu  Pause / Cancel" class="pad-callout callout-menu" />
+                    <ui:Label text="LB / L1  Unassigned" class="pad-info pad-info-lb" />
+                    <ui:Label text="RB / R1  Unassigned" class="pad-info pad-info-rb" />
+                    <ui:Label text="LT  Unassigned" class="pad-info pad-info-lt" />
+                    <ui:Label text="RT  Unassigned" class="pad-info pad-info-rt" />
+                    <ui:Label text="L Stick  Movement (fixed)" class="pad-info pad-info-left-stick" />
+                    <ui:Label text="R Stick  Camera (fixed)" class="pad-info pad-info-right-stick" />
+                    <ui:Label text="Menu  Pause (fixed)" class="pad-info pad-info-menu" />
+                    <ui:Button name="pad-dpad-left" text="D-Pad Left\nPrevious Item" class="pad-binding pad-binding-dpad-left" focusable="true" />
+                    <ui:Button name="pad-dpad-right" text="D-Pad Right\nNext Item" class="pad-binding pad-binding-dpad-right" focusable="true" />
+                    <ui:Button name="pad-y" text="Y\nInteract" class="pad-binding pad-binding-y" focusable="true" />
+                    <ui:Button name="pad-x" text="X\nAttack" class="pad-binding pad-binding-x" focusable="true" />
+                    <ui:Button name="pad-b" text="B\nCrouch / Dodge" class="pad-binding pad-binding-b" focusable="true" />
+                    <ui:Button name="pad-a" text="A\nJump" class="pad-binding pad-binding-a" focusable="true" />
+                    <ui:Button name="pad-left-stick" text="LS Click\nSprint" class="pad-binding pad-binding-left-stick" focusable="true" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
