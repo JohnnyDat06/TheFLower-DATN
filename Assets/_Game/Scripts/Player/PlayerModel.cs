@@ -1,6 +1,7 @@
 using Unity.Netcode;
 using UnityEngine;
 using System.Linq;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// PlayerModel — VIP Update: Tự động kích hoạt bản thân và xếp chỗ đứng.
@@ -25,6 +26,9 @@ public class PlayerModel : NetworkBehaviour
     {
         base.OnNetworkSpawn();
 
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+
         // 1. CƯỠNG ÉP BẬT ACTIVE CỦA CHÍNH NÓ (Fix lỗi tàng hình do Prefab bị tắt)
         gameObject.SetActive(true);
 
@@ -35,11 +39,31 @@ public class PlayerModel : NetworkBehaviour
         ApplyModel(isHostPlayer);
     }
 
+    public override void OnNetworkDespawn()
+    {
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        base.OnNetworkDespawn();
+    }
+
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        bool isHostPlayer = NetworkManager != null && OwnerClientId == NetworkManager.ServerClientId;
+        ApplyModel(isHostPlayer);
+    }
+
     // Đã XÓA HOÀN TOÀN hàm AutoPosition() vì việc đặt vị trí đã do LobbyPlayerState quản lý (chỉ 1 lần), 
     // và Spawner sẽ lo phần còn lại khi chuyển map.
 
     private void ApplyModel(bool isHost)
     {
+        // Player objects remain spawned for NGO state, but the remade lobby uses 2D portraits.
+        if (SceneManager.GetActiveScene().name.Contains("Lobby", System.StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (Renderer renderer in GetComponentsInChildren<Renderer>(true))
+                renderer.enabled = false;
+            return;
+        }
+
         // Bật mesh tương ứng
         if (_meshMale != null) _meshMale.SetActive(true);
         if (_meshFemale != null) _meshFemale.SetActive(true);
