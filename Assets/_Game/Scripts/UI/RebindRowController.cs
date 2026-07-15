@@ -10,6 +10,8 @@ public class RebindRowController
 {
     public string ActionName { get; }
 
+    private readonly ScrollView _parent;
+    private readonly VisualElement _row;
     private readonly Label _actionLabel;
     private readonly Button _keyboardButton;
     private readonly Button _mouseButton;
@@ -26,35 +28,36 @@ public class RebindRowController
     {
         ActionName = actionName;
         _onRebindClicked = onRebindClicked;
+        _parent = parent;
         _visibleTargets.AddRange(visibleTargets);
 
-        var row = new VisualElement();
-        row.AddToClassList("rebind-row");
-        if (isAlt) row.AddToClassList("rebind-row-alt");
+        _row = new VisualElement();
+        _row.AddToClassList("rebind-row");
+        if (isAlt) _row.AddToClassList("rebind-row-alt");
 
         _actionLabel = new Label(GetFriendlyActionName(actionName));
         _actionLabel.AddToClassList("col-action");
-        row.Add(_actionLabel);
+        _row.Add(_actionLabel);
 
         if (_visibleTargets.Contains(InputBindingTarget.Keyboard))
         {
             _keyboardButton = CreateBindingButton(InputBindingTarget.Keyboard);
-            row.Add(WrapBindingButton(_keyboardButton));
+            _row.Add(WrapBindingButton(_keyboardButton));
         }
 
         if (_visibleTargets.Contains(InputBindingTarget.Mouse))
         {
             _mouseButton = CreateBindingButton(InputBindingTarget.Mouse);
-            row.Add(WrapBindingButton(_mouseButton));
+            _row.Add(WrapBindingButton(_mouseButton));
         }
 
         if (_visibleTargets.Contains(InputBindingTarget.Gamepad))
         {
             _gamepadButton = CreateBindingButton(InputBindingTarget.Gamepad);
-            row.Add(WrapBindingButton(_gamepadButton));
+            _row.Add(WrapBindingButton(_gamepadButton));
         }
 
-        parent.Add(row);
+        parent.Add(_row);
     }
 
     public void Refresh(InputRebindService rebindService)
@@ -83,6 +86,7 @@ public class RebindRowController
     public void Focus(InputBindingTarget target = InputBindingTarget.Keyboard)
     {
         (GetButton(target) ?? GetFirstButton())?.Focus();
+        ScrollIntoView();
     }
 
     public static void ResetTabIndex()
@@ -96,7 +100,14 @@ public class RebindRowController
         button.AddToClassList("rebind-button");
         button.focusable = true;
         button.tabIndex = _tabIndexCounter++;
+        button.RegisterCallback<FocusInEvent>(_ => ScrollIntoView());
         return button;
+    }
+
+    private void ScrollIntoView()
+    {
+        if (_parent == null || _row == null) return;
+        _parent.schedule.Execute(() => _parent.ScrollTo(_row)).ExecuteLater(10);
     }
 
     private static VisualElement WrapBindingButton(Button button)

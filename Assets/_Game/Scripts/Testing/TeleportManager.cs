@@ -153,8 +153,8 @@ namespace Game.Testing
             }
 
             listStr += IsCurrentDeviceGamepad()
-                ? "\n<size=80%><color=#9fd58b>A : Teleport</color>   <color=#e48a7e>B : Back</color>   D-Pad/L-Stick : Select</size>"
-                : "\n<size=80%>Enter : Teleport   Esc/Tab : Back</size>";
+                ? "\n<size=80%><color=#9fd58b><sprite name=\"xa\"> Teleport</color>   <color=#e48a7e><sprite name=\"xb\"> Back</color>   <sprite name=\"dpad\"> / <sprite name=\"jl\"> Select</size>"
+                : "\n<size=80%><sprite name=\"enter\"> Teleport   <sprite name=\"esc\"> Back</size>";
 
             _pointsListText.text = listStr;
         }

@@ -9,6 +9,7 @@
 
             <ui:VisualElement name="device-mode-section" class="device-mode-section">
                 <ui:Label text="Controller Settings" class="section-label" />
+                <ui:Label name="tab-switch-hint" text="LB / RB (L1 / R1) : Switch tab" class="tab-switch-hint" />
                 <ui:VisualElement name="device-mode-buttons" class="device-mode-buttons">
                     <ui:Button name="btn-mode-keyboard" text="Keyboard / Mouse" class="mode-button mode-active" focusable="true" tabindex="1" />
                     <ui:Button name="btn-mode-gamepad" text="Gamepad" class="mode-button" focusable="true" tabindex="2" />
@@ -16,27 +17,32 @@
             </ui:VisualElement>
 
             <ui:VisualElement name="gamepad-map" class="gamepad-map hidden">
-                <ui:VisualElement class="gamepad-shell">
-                    <ui:VisualElement class="gamepad-left-grip" />
-                    <ui:VisualElement class="gamepad-right-grip" />
-                    <ui:Label text="LB" class="pad-label pad-lb" />
-                    <ui:Label text="RB" class="pad-label pad-rb" />
-                    <ui:Label text="LT Skill" class="pad-note pad-lt" />
-                    <ui:Label text="RT Strong Attack" class="pad-note pad-rt" />
-                    <ui:Label text="Menu" class="pad-note pad-menu" />
-                    <ui:Label text="View" class="pad-note pad-view" />
-                    <ui:Label text="L Movement" class="pad-note pad-left-stick" />
-                    <ui:Label text="R Camera" class="pad-note pad-right-stick" />
-                    <ui:Label text="D-Pad Switch Items" class="pad-note pad-dpad" />
-                    <ui:VisualElement class="pad-stick pad-stick-left" />
-                    <ui:VisualElement class="pad-stick pad-stick-right" />
-                    <ui:VisualElement class="pad-dpad-cross" />
-                    <ui:VisualElement class="pad-face-grid">
-                        <ui:Label text="Y" class="face-button face-y" />
-                        <ui:Label text="X" class="face-button face-x" />
-                        <ui:Label text="B" class="face-button face-b" />
-                        <ui:Label text="A" class="face-button face-a" />
-                    </ui:VisualElement>
+                <ui:VisualElement class="gamepad-diagram">
+                    <ui:VisualElement class="gamepad-image" />
+                    <ui:VisualElement class="connector connector-lb" />
+                    <ui:VisualElement class="connector connector-rb" />
+                    <ui:VisualElement class="connector connector-lt" />
+                    <ui:VisualElement class="connector connector-rt" />
+                    <ui:VisualElement class="connector connector-dpad-left" />
+                    <ui:VisualElement class="connector connector-dpad-right" />
+                    <ui:VisualElement class="connector connector-left-stick" />
+                    <ui:VisualElement class="connector connector-right-stick" />
+                    <ui:VisualElement class="connector connector-face" />
+                    <ui:VisualElement class="connector connector-menu" />
+                    <ui:Label text="LB / L1  Unassigned" class="pad-info pad-info-lb" />
+                    <ui:Label text="RB / R1  Unassigned" class="pad-info pad-info-rb" />
+                    <ui:Label text="LT  Unassigned" class="pad-info pad-info-lt" />
+                    <ui:Label text="RT  Unassigned" class="pad-info pad-info-rt" />
+                    <ui:Label text="L Stick  Movement (fixed)" class="pad-info pad-info-left-stick" />
+                    <ui:Label text="R Stick  Camera (fixed)" class="pad-info pad-info-right-stick" />
+                    <ui:Label text="Menu  Pause (fixed)" class="pad-info pad-info-menu" />
+                    <ui:Button name="pad-dpad-left" text="D-Pad Left\nPrevious Item" class="pad-binding pad-binding-dpad-left" focusable="true" />
+                    <ui:Button name="pad-dpad-right" text="D-Pad Right\nNext Item" class="pad-binding pad-binding-dpad-right" focusable="true" />
+                    <ui:Button name="pad-y" text="Y\nInteract" class="pad-binding pad-binding-y" focusable="true" />
+                    <ui:Button name="pad-x" text="X\nAttack" class="pad-binding pad-binding-x" focusable="true" />
+                    <ui:Button name="pad-b" text="B\nCrouch / Dodge" class="pad-binding pad-binding-b" focusable="true" />
+                    <ui:Button name="pad-a" text="A\nJump" class="pad-binding pad-binding-a" focusable="true" />
+                    <ui:Button name="pad-left-stick" text="LS Click\nSprint" class="pad-binding pad-binding-left-stick" focusable="true" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
