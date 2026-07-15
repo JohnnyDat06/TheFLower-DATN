@@ -1,0 +1,56 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Style src="LobbyInputSettings.uss" />
+    <ui:VisualElement name="panel-overlay" class="panel-overlay hidden">
+        <ui:VisualElement class="forest-glow glow-left" />
+        <ui:VisualElement class="forest-glow glow-right" />
+        <ui:VisualElement name="panel-container" class="panel-container">
+            <ui:VisualElement class="title-row">
+                <ui:VisualElement class="title-emblem"><ui:Label text="✿" class="emblem-text" /></ui:VisualElement>
+                <ui:VisualElement class="title-copy">
+                    <ui:Label text="FOREST CONTROLS" class="title" />
+                    <ui:Label text="Choose the controls for your shared journey" class="title-subtitle" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="device-mode-section" class="device-mode-section">
+                <ui:Label text="CONTROL METHOD" class="section-label" />
+                <ui:VisualElement class="device-mode-buttons">
+                    <ui:Button name="btn-mode-keyboard" text="KEYBOARD / MOUSE" class="mode-button mode-active" focusable="true" tabindex="1" />
+                    <ui:Button name="btn-mode-gamepad" text="GAMEPAD" class="mode-button" focusable="true" tabindex="2" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="gamepad-map" class="gamepad-map hidden" />
+            <ui:VisualElement class="list-card">
+                <ui:VisualElement name="header-row" class="rebind-row header-row">
+                    <ui:Label text="ACTION" class="col-action col-header" />
+                    <ui:Label name="header-keyboard" text="KEYBOARD" class="col-binding col-header" />
+                    <ui:Label name="header-mouse" text="MOUSE" class="col-binding col-header" />
+                    <ui:Label name="header-gamepad" text="GAMEPAD" class="col-binding col-header hidden" />
+                </ui:VisualElement>
+                <ui:ScrollView name="rebind-list" class="rebind-list" />
+            </ui:VisualElement>
+            <ui:VisualElement name="sensitivity-section" class="sensitivity-section">
+                <ui:Label text="GAMEPAD CAMERA SENSITIVITY" class="setting-label" />
+                <ui:Slider name="gamepad-sensitivity" low-value="0.1" high-value="3" value="1" class="sensitivity-slider" focusable="true" tabindex="100" />
+                <ui:Label name="sensitivity-value" text="100%" class="sensitivity-value-label" />
+            </ui:VisualElement>
+            <ui:VisualElement class="description-panel"><ui:Label text="Select a control, then press the new key you want to use." class="description-text" /></ui:VisualElement>
+            <ui:VisualElement class="button-row">
+                <ui:VisualElement class="footer-hints">
+                    <ui:Label name="footer-ok-hint" text="SELECT  •  CHANGE" class="footer-hint ok-hint" />
+                    <ui:Label name="footer-cancel-hint" text="ESC  •  CANCEL" class="footer-hint" />
+                    <ui:Label name="footer-back-hint" text="ESC  •  BACK" class="footer-hint back-hint" />
+                </ui:VisualElement>
+                <ui:VisualElement class="footer-buttons">
+                    <ui:Button name="btn-reset-all" text="RESET ALL" class="action-button reset-button" focusable="true" tabindex="200" />
+                    <ui:Button name="btn-back" text="BACK" class="action-button back-button" focusable="true" tabindex="201" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="rebind-overlay" class="modal-overlay hidden">
+        <ui:VisualElement class="modal-content"><ui:Label text="READY TO CHANGE" class="modal-kicker" /><ui:Label name="rebind-prompt" text="Press any key..." class="modal-prompt" /><ui:Button name="btn-cancel-rebind" text="CANCEL" class="action-button back-button" focusable="true" /></ui:VisualElement>
+    </ui:VisualElement>
+    <ui:VisualElement name="conflict-overlay" class="modal-overlay hidden">
+        <ui:VisualElement class="modal-content"><ui:Label name="conflict-prompt" text="This control is already in use" class="modal-prompt" /><ui:VisualElement class="modal-button-row"><ui:Button name="btn-confirm-conflict" text="SWAP" class="action-button confirm-button" focusable="true" /><ui:Button name="btn-cancel-conflict" text="CANCEL" class="action-button back-button" focusable="true" /></ui:VisualElement></ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

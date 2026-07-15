@@ -85,6 +85,10 @@ public class PlayerInputHandler : NetworkBehaviour
 
     private void Awake()
     {
+        _gamepadCameraSensitivity = PlayerPrefs.GetFloat(
+            Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY,
+            _gamepadCameraSensitivity);
+
         if (_inputActions == null)
         {
             Debug.LogError("[PlayerInputHandler] InputActionAsset chưa được gán trong Inspector!");

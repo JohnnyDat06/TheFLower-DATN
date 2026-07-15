@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Coordinates cursor state for modal UI surfaces so panels do not fight each other.
@@ -7,6 +8,16 @@ using UnityEngine;
 public static class UICursorLockService
 {
     private static readonly HashSet<object> Owners = new();
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void Initialize()
+    {
+        Owners.Clear();
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => Apply();
 
     public static bool IsCursorReleased => Owners.Count > 0;
 
@@ -34,8 +45,16 @@ public static class UICursorLockService
 
     private static void Apply()
     {
-        bool showCursor = Owners.Count > 0;
+        Owners.RemoveWhere(owner => owner is Object unityObject && unityObject == null);
+        bool showCursor = Owners.Count > 0 || IsMenuScene(SceneManager.GetActiveScene().name);
         Cursor.lockState = showCursor ? CursorLockMode.None : CursorLockMode.Locked;
         Cursor.visible = showCursor;
+    }
+
+    private static bool IsMenuScene(string sceneName)
+    {
+        if (string.IsNullOrWhiteSpace(sceneName)) return false;
+        return sceneName.Contains("Lobby", System.StringComparison.OrdinalIgnoreCase) ||
+               sceneName.Contains("Menu", System.StringComparison.OrdinalIgnoreCase);
     }
 }

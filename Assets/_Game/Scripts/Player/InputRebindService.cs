@@ -27,6 +27,12 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
     public bool HasPendingConflict => _pendingConflict != null;
     public InputRebindConflict PendingConflict => _pendingConflict?.Info ?? default;
 
+    public void Configure(InputActionAsset inputActions, PlayerPrefsBindingPersistence persistence)
+    {
+        _inputActions = inputActions;
+        _persistence = persistence;
+    }
+
     private void Awake()
     {
         if (_inputActions == null)

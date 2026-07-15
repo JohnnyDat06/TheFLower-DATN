@@ -75,7 +75,15 @@ public class InputSettingsPanelController : MonoBehaviour
     };
 
     public bool IsVisible => _isVisible;
+    public bool IsInitialized => _panelOverlay != null;
     public bool IsRebinding => _rebindService != null && _rebindService.IsRebinding;
+
+    public void Configure(InputRebindService rebindService, InputIconMap iconProvider, UIDocument uiDocument)
+    {
+        _rebindService = rebindService;
+        _iconProvider = iconProvider;
+        _uiDocument = uiDocument;
+    }
 
     private void Awake()
     {
@@ -124,10 +132,28 @@ public class InputSettingsPanelController : MonoBehaviour
         EventBus.OnInputDeviceChanged -= OnDeviceChanged;
         EventBus.OnInputBindingChanged -= RefreshAllBindings;
         UnbindCallbacks();
+
+        if (_isVisible)
+        {
+            _isVisible = false;
+            UICursorLockService.Release(this);
+            if (_managesPlayerInput)
+                SetPlayerInputLocked(false);
+            _managesPlayerInput = false;
+        }
     }
 
     private void Update()
     {
+        if (_isVisible && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            if (IsRebinding)
+                OnCancelRebindClicked();
+            else
+                Hide();
+            return;
+        }
+
         if (_enableKeyboardToggle && Keyboard.current != null && Keyboard.current[_keyboardToggleKey].wasPressedThisFrame)
         {
             Toggle();
@@ -140,7 +166,11 @@ public class InputSettingsPanelController : MonoBehaviour
 
     public void Show(Action onClosed = null, bool managePlayerInput = true)
     {
-        if (_panelOverlay == null) return;
+        if (_panelOverlay == null && !TryInitializeVisualTree())
+        {
+            Debug.LogError("[InputSettingsPanelController] The input settings visual tree could not be initialized.");
+            return;
+        }
 
         _onClosed = onClosed;
         _managesPlayerInput = managePlayerInput;
@@ -159,6 +189,19 @@ public class InputSettingsPanelController : MonoBehaviour
         RefreshInputHints();
 
         _root.schedule.Execute(FocusFirstBinding).ExecuteLater(50);
+    }
+
+    public bool TryInitializeVisualTree()
+    {
+        _uiDocument ??= GetComponent<UIDocument>();
+        if (_uiDocument == null || _uiDocument.rootVisualElement == null)
+            return false;
+
+        UnbindCallbacks();
+        _root = _uiDocument.rootVisualElement;
+        CacheUIElements();
+        BindCallbacks();
+        return _panelOverlay != null;
     }
 
     public void Hide()
@@ -347,6 +390,9 @@ public class InputSettingsPanelController : MonoBehaviour
         if (_sensitivityValueLabel != null)
             _sensitivityValueLabel.text = $"{Mathf.RoundToInt(evt.newValue * 100)}%";
 
+        PlayerPrefs.SetFloat(Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY, evt.newValue);
+        PlayerPrefs.Save();
+
         _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
         if (_inputHandler != null)
             _inputHandler.GamepadCameraSensitivity = evt.newValue;
@@ -379,8 +425,8 @@ public class InputSettingsPanelController : MonoBehaviour
         SetElementVisible(_gamepadHeader, _showGamepadTab);
         SetElementVisible(_gamepadMap, _showGamepadTab);
 
-        if (_sensitivitySlider != null)
-            _sensitivitySlider.SetEnabled(_showGamepadTab);
+        // This is a shared saved setting, so it can be configured from either tab.
+        _sensitivitySlider?.SetEnabled(true);
     }
 
     private static void SetModeButtonActive(Button btn, bool active)
@@ -403,7 +449,11 @@ public class InputSettingsPanelController : MonoBehaviour
         if (_sensitivitySlider == null) return;
 
         _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
-        float value = _inputHandler != null ? _inputHandler.GamepadCameraSensitivity : _sensitivitySlider.value;
+        float value = _inputHandler != null
+            ? _inputHandler.GamepadCameraSensitivity
+            : PlayerPrefs.GetFloat(
+                Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY,
+                _sensitivitySlider.value);
         _sensitivitySlider.SetValueWithoutNotify(value);
 
         if (_sensitivityValueLabel != null)
