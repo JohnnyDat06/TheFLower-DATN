@@ -173,6 +173,7 @@ namespace Game.UI.LobbyAuto
         private void ShowCreate()
         {
             SyncSavedNames();
+            SetPasswordVisibility(_createPassword, false);
             ShowPanel(_createPanel);
             SetStatus("Create a public room. Password is optional.", Paper);
             Select(_createPlayerName);
@@ -181,6 +182,7 @@ namespace Game.UI.LobbyAuto
         private void ShowJoin()
         {
             SyncSavedNames();
+            SetPasswordVisibility(_joinPassword, false);
             HidePasswordPrompt();
             ShowPanel(_joinPanel);
             SetStatus("Join by exact room name or choose an open room", Paper);
@@ -452,6 +454,7 @@ namespace Game.UI.LobbyAuto
         {
             _passwordPromptTitle.text = $"JOIN {room.Name.ToUpperInvariant()}";
             _roomPasswordPrompt.SetTextWithoutNotify(string.Empty);
+            SetPasswordVisibility(_roomPasswordPrompt, false);
             _passwordPromptPanel.SetActive(true);
             _passwordPromptPanel.transform.SetAsLastSibling();
             Select(_roomPasswordPrompt);
@@ -620,7 +623,7 @@ namespace Game.UI.LobbyAuto
             _createPlayerName = CreateInput(form, "Your character name", new Vector2(0f, -66f), 620f);
             CreateFieldLabel(form, "ROOM NAME", -150f);
             _createRoomName = CreateInput(form, "Example: Cloud Garden", new Vector2(0f, -180f), 620f);
-            CreateFieldLabel(form, "PASSWORD  (OPTIONAL, 8+ CHARACTERS)", -264f);
+            CreateFieldLabel(form, "PASSWORD - OPTIONAL", -264f);
             _createPassword = CreateInput(form, "Leave empty for no password", new Vector2(0f, -294f), 620f, true);
             Button create = CreateButton(form, "CREATE", Teal, new Vector2(-160f, -394f), 300f, 66f, 18f);
             create.onClick.AddListener(CreateRoom);
@@ -825,7 +828,52 @@ namespace Game.UI.LobbyAuto
             input.contentType = password ? TMP_InputField.ContentType.Password : TMP_InputField.ContentType.Standard;
             input.caretColor = Teal;
             input.selectionColor = new Color(Teal.r, Teal.g, Teal.b, 0.35f);
+            if (password) AddPasswordVisibilityToggle(root, viewport, input);
             return input;
+        }
+
+        private void AddPasswordVisibilityToggle(RectTransform inputRoot, RectTransform viewport, TMP_InputField input)
+        {
+            viewport.offsetMax = new Vector2(-112f, -6f);
+
+            RectTransform toggleRoot = Rect(
+                "PasswordVisibility",
+                inputRoot,
+                new Vector2(1f, 0.5f),
+                new Vector2(1f, 0.5f),
+                new Vector2(-8f, 0f),
+                new Vector2(94f, 42f),
+                new Vector2(1f, 0.5f));
+            Image graphic = toggleRoot.gameObject.AddComponent<Image>();
+            graphic.color = new Color(0.08f, 0.55f, 0.43f, 1f);
+            Button toggle = toggleRoot.gameObject.AddComponent<Button>();
+            toggle.targetGraphic = graphic;
+
+            ColorBlock colors = toggle.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(1.14f, 1.14f, 1.14f, 1f);
+            colors.pressedColor = new Color(0.72f, 0.78f, 0.75f, 1f);
+            toggle.colors = colors;
+
+            TMP_Text label = CreateText(toggleRoot, "SHOW", 13f, Color.white, FontStyles.Bold, TextAlignmentOptions.Center);
+            label.gameObject.name = "VisibilityLabel";
+            Stretch(label.rectTransform.gameObject, toggleRoot);
+            toggle.onClick.AddListener(() =>
+                SetPasswordVisibility(input, input.contentType == TMP_InputField.ContentType.Password));
+        }
+
+        private static void SetPasswordVisibility(TMP_InputField input, bool visible)
+        {
+            if (input == null) return;
+
+            input.contentType = visible
+                ? TMP_InputField.ContentType.Standard
+                : TMP_InputField.ContentType.Password;
+            input.ForceLabelUpdate();
+
+            Transform toggle = input.transform.Find("PasswordVisibility/VisibilityLabel");
+            if (toggle != null && toggle.TryGetComponent(out TMP_Text label))
+                label.text = visible ? "HIDE" : "SHOW";
         }
 
         private Button CreateButton(Transform parent, string label, Color color, Vector2 position, float width, float height, float fontSize, Color? textColor = null, Vector2? anchor = null)
