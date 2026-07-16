@@ -15,13 +15,6 @@
             <ui:VisualElement name="gamepad-map" class="gamepad-map hidden">
                 <ui:VisualElement class="gamepad-diagram">
                     <ui:VisualElement class="gamepad-image" />
-                    <ui:Button name="pad-dpad-left" text="D-Pad Left\nPrevious Item" class="pad-binding pad-binding-dpad-left" focusable="true" />
-                    <ui:Button name="pad-dpad-right" text="D-Pad Right\nNext Item" class="pad-binding pad-binding-dpad-right" focusable="true" />
-                    <ui:Button name="pad-y" text="Y\nInteract" class="pad-binding pad-binding-y" focusable="true" />
-                    <ui:Button name="pad-x" text="X\nAttack" class="pad-binding pad-binding-x" focusable="true" />
-                    <ui:Button name="pad-b" text="B\nCrouch / Dodge" class="pad-binding pad-binding-b" focusable="true" />
-                    <ui:Button name="pad-a" text="A\nJump" class="pad-binding pad-binding-a" focusable="true" />
-                    <ui:Button name="pad-left-stick" text="LS Click\nSprint" class="pad-binding pad-binding-left-stick" focusable="true" />
                 </ui:VisualElement>
             </ui:VisualElement>
 

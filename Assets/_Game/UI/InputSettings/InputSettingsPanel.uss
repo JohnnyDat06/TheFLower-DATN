@@ -139,37 +139,6 @@
     -unity-background-scale-mode: scale-to-fit;
 }
 
-.pad-binding {
-    position: absolute;
-    width: 154px;
-    height: 50px;
-    padding-left: 8px;
-    padding-right: 8px;
-    color: var(--er-text);
-    background-color: rgb(228, 250, 206);
-    border-width: 2px;
-    border-color: rgba(128, 228, 148, 0.72);
-    border-radius: 12px;
-    color: rgb(8, 65, 52);
-    font-size: 11px;
-    -unity-text-align: middle-center;
-}
-
-.pad-binding:hover,
-.pad-binding:focus {
-    color: rgb(70, 54, 7);
-    background-color: rgb(255, 202, 64);
-    border-color: rgb(255, 246, 176);
-    border-width: 2px;
-}
-
-.pad-binding-dpad-left { left: 24px; top: 184px; }
-.pad-binding-dpad-right { right: 24px; top: 184px; }
-.pad-binding-y { right: 24px; top: 94px; color: rgb(230, 210, 90); }
-.pad-binding-x { right: 24px; top: 140px; color: rgb(120, 165, 235); }
-.pad-binding-b { right: 24px; top: 186px; color: rgb(235, 105, 95); }
-.pad-binding-a { right: 24px; top: 232px; color: rgb(112, 210, 110); }
-.pad-binding-left-stick { left: 24px; top: 92px; }
 .header-row {
     height: 34px;
     border-bottom-width: 1px;

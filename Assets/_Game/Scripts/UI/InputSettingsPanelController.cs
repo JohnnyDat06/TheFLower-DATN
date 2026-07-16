@@ -37,7 +37,6 @@ public class InputSettingsPanelController : MonoBehaviour
     private Label _footerOkHint;
     private Label _footerBackHint;
     private Label _footerCancelHint;
-    private Label _tabSwitchHint;
     private Slider _sensitivitySlider;
     private Button _btnModeKeyboard;
     private Button _btnModeGamepad;
@@ -265,7 +264,6 @@ public class InputSettingsPanelController : MonoBehaviour
         _footerOkHint = _root.Q<Label>("footer-ok-hint");
         _footerBackHint = _root.Q<Label>("footer-back-hint");
         _footerCancelHint = _root.Q<Label>("footer-cancel-hint");
-        _tabSwitchHint = _root.Q<Label>("tab-switch-hint");
         _btnModeKeyboard = _root.Q<Button>("btn-mode-keyboard");
         _btnModeGamepad = _root.Q<Button>("btn-mode-gamepad");
         _btnResetAll = _root.Q<Button>("btn-reset-all");
@@ -286,7 +284,6 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnCancelConflict?.RegisterCallback(_cancelConflictClicked);
         _sensitivitySlider?.RegisterValueChangedCallback(OnSensitivityChanged);
         _panelOverlay?.RegisterCallback(_navigationCancel);
-        _gamepadMap?.RegisterCallback<ClickEvent>(OnPadBindingClicked);
     }
 
     private void UnbindCallbacks()
@@ -300,7 +297,6 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnCancelConflict?.UnregisterCallback(_cancelConflictClicked);
         _sensitivitySlider?.UnregisterValueChangedCallback(OnSensitivityChanged);
         _panelOverlay?.UnregisterCallback(_navigationCancel);
-        _gamepadMap?.UnregisterCallback<ClickEvent>(OnPadBindingClicked);
     }
 
     private void BuildRebindRows()
@@ -439,66 +435,7 @@ public class InputSettingsPanelController : MonoBehaviour
         foreach (var row in _rows)
             row.Refresh(_rebindService);
 
-        RefreshGamepadDiagram();
     }
-
-    private void OnPadBindingClicked(ClickEvent evt)
-    {
-        if (!_showGamepadTab || _rebindService == null || _rebindService.IsRebinding || _rebindService.HasPendingConflict)
-            return;
-
-        if (evt.target is not Button button) return;
-
-        string actionName = GetDiagramActionName(button.name);
-        if (!string.IsNullOrEmpty(actionName))
-            OnRebindClicked(actionName, InputBindingTarget.Gamepad);
-    }
-
-    private void RefreshGamepadDiagram()
-    {
-        if (_gamepadMap == null || _rebindService == null) return;
-
-        _gamepadMap.Query<Button>(className: "pad-binding").ForEach(button =>
-        {
-            string actionName = GetDiagramActionName(button.name);
-            if (string.IsNullOrEmpty(actionName)) return;
-
-            string binding = _rebindService.GetBindingDisplayName(actionName, InputBindingTarget.Gamepad);
-            button.text = $"{GetPhysicalControlName(button.name)}\n{GetFriendlyDiagramActionName(actionName)}\n[{binding}]";
-        });
-    }
-
-    private static string GetDiagramActionName(string elementName) => elementName switch
-    {
-        "pad-dpad-left" => "Previous",
-        "pad-dpad-right" => "Next",
-        "pad-y" => "Interact",
-        "pad-x" => "Attack",
-        "pad-b" => "Crouch",
-        "pad-a" => "Jump",
-        "pad-left-stick" => "Sprint",
-        _ => string.Empty
-    };
-
-    private static string GetPhysicalControlName(string elementName) => elementName switch
-    {
-        "pad-dpad-left" => "D-Pad Left",
-        "pad-dpad-right" => "D-Pad Right",
-        "pad-left-stick" => "LS Click",
-        "pad-y" => "Y",
-        "pad-x" => "X",
-        "pad-b" => "B",
-        "pad-a" => "A",
-        _ => "Gamepad"
-    };
-
-    private static string GetFriendlyDiagramActionName(string actionName) => actionName switch
-    {
-        "Previous" => "Previous Item",
-        "Next" => "Next Item",
-        "Crouch" => "Crouch / Dodge",
-        _ => actionName
-    };
 
     private void RefreshDeviceModeButtons()
     {
@@ -508,8 +445,6 @@ public class InputSettingsPanelController : MonoBehaviour
         SetElementVisible(_mouseHeader, !_showGamepadTab);
         SetElementVisible(_gamepadHeader, _showGamepadTab);
         SetElementVisible(_gamepadMap, _showGamepadTab);
-        RefreshGamepadDiagram();
-
         // This is a shared saved setting, so it can be configured from either tab.
         _sensitivitySlider?.SetEnabled(true);
     }
@@ -554,8 +489,6 @@ public class InputSettingsPanelController : MonoBehaviour
             _footerBackHint.text = gamepad ? "B : Back" : "Esc : Back";
         if (_footerCancelHint != null)
             _footerCancelHint.text = gamepad ? "Menu : Cancel rebind" : "Esc : Cancel rebind";
-        if (_tabSwitchHint != null)
-            _tabSwitchHint.text = gamepad ? "LB / RB (L1 / R1) : Switch tab" : "Click tab to switch";
     }
 
     private void ShowRebindOverlay(string actionName, InputBindingTarget target)
