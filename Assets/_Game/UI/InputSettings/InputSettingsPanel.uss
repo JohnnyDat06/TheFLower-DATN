@@ -1,14 +1,14 @@
 :root {
-    --er-bg: rgba(5, 6, 5, 0.76);
-    --er-panel: rgba(17, 17, 14, 0.82);
-    --er-row: rgba(33, 31, 24, 0.58);
-    --er-row-alt: rgba(42, 39, 30, 0.46);
-    --er-line: rgba(201, 191, 150, 0.24);
-    --er-line-strong: rgba(230, 220, 180, 0.52);
-    --er-text: rgb(226, 220, 200);
-    --er-muted: rgba(218, 210, 184, 0.68);
-    --er-highlight: rgba(209, 202, 161, 0.28);
-    --er-highlight-border: rgb(232, 226, 188);
+    --er-bg: rgba(2, 30, 29, 0.72);
+    --er-panel: rgba(5, 47, 44, 0.96);
+    --er-row: rgba(225, 255, 223, 0.08);
+    --er-row-alt: rgba(255, 221, 92, 0.09);
+    --er-line: rgba(92, 225, 167, 0.32);
+    --er-line-strong: rgba(255, 202, 64, 0.78);
+    --er-text: rgb(255, 249, 218);
+    --er-muted: rgba(224, 250, 225, 0.76);
+    --er-highlight: rgba(91, 224, 229, 0.22);
+    --er-highlight-border: rgb(91, 224, 229);
 }
 
 .panel-overlay {
@@ -17,191 +17,127 @@
     top: 0;
     right: 0;
     bottom: 0;
-    padding: 28px;
+    padding: 12px;
     background-color: var(--er-bg);
     align-items: center;
     justify-content: center;
 }
 
 .panel-container {
-    width: 1080px;
-    max-width: 94%;
-    height: 86%;
-    max-height: 820px;
-    min-height: 640px;
+    width: 1140px;
+    max-width: 96%;
+    height: 90%;
+    max-height: 900px;
+    min-height: 680px;
+    overflow: hidden;
     background-color: var(--er-panel);
-    border-width: 1px;
-    border-color: rgba(203, 193, 155, 0.18);
-    padding: 22px 30px 16px 30px;
+    border-width: 3px;
+    border-color: rgba(255, 211, 82, 0.78);
+    border-radius: 28px;
+    padding: 26px 38px 22px 38px;
 }
 
 .title-row {
     flex-direction: row;
     align-items: center;
-    height: 58px;
+    height: 68px;
     margin-bottom: 12px;
 }
 
 .title-emblem {
-    width: 44px;
-    height: 44px;
+    width: 52px;
+    height: 52px;
     margin-right: 14px;
-    background-color: rgba(194, 178, 126, 0.22);
-    border-width: 1px;
-    border-color: rgba(226, 216, 174, 0.45);
-}
-
-.title {
-    font-size: 27px;
-    color: var(--er-text);
-    -unity-font-style: bold;
-}
-
-.device-mode-section {
-    width: 520px;
-    align-self: center;
-    margin-bottom: 12px;
-}
-
-.section-label {
-    color: rgb(221, 211, 170);
-    font-size: 18px;
-    -unity-text-align: middle-center;
-    margin-bottom: 4px;
-}
-
-.tab-switch-hint {
-    color: rgba(218, 210, 184, 0.72);
-    font-size: 13px;
-    -unity-text-align: middle-center;
-    margin-bottom: 6px;
-}
-
-.device-mode-buttons {
-    flex-direction: row;
-    height: 42px;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-color: var(--er-line);
-}
-
-.mode-button {
-    flex-grow: 1;
-    height: 38px;
-    margin: 2px 4px;
-    background-color: rgba(31, 30, 24, 0.68);
-    color: var(--er-muted);
-    border-width: 1px;
-    border-color: rgba(0, 0, 0, 0);
-    font-size: 15px;
-}
-
-.mode-button:hover,
-.mode-button:focus,
-.mode-active {
-    color: var(--er-text);
-    background-color: var(--er-highlight);
-    border-color: var(--er-highlight-border);
-}
-
-.gamepad-map {
-    height: 300px;
-    margin-bottom: 10px;
+    background-color: rgb(255, 202, 64);
+    border-width: 3px;
+    border-color: rgb(255, 243, 164);
+    border-radius: 26px;
     align-items: center;
     justify-content: center;
 }
 
+.emblem-text {
+    color: rgb(25, 119, 74);
+    font-size: 30px;
+    -unity-font-style: bold;
+}
+
+.title {
+    font-size: 29px;
+    color: rgb(255, 202, 64);
+    letter-spacing: 2px;
+    -unity-font-style: bold;
+}
+
+.device-mode-buttons {
+    width: 560px;
+    height: 40px;
+    align-self: center;
+    flex-direction: row;
+    padding: 2px;
+    margin-bottom: 10px;
+    background-color: rgba(3, 37, 36, 0.78);
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+
+.mode-button {
+    flex-grow: 1;
+    height: 36px;
+    margin: 0 2px;
+    background-color: rgba(0, 0, 0, 0);
+    color: var(--er-muted);
+    border-width: 0;
+    border-radius: 18px;
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.mode-button:hover,
+.mode-button:focus {
+    color: var(--er-text);
+    background-color: var(--er-highlight);
+}
+
+.mode-active {
+    color: rgb(13, 75, 57);
+    background-color: rgb(255, 202, 64);
+}
+
+.gamepad-map {
+    height: 310px;
+    min-height: 310px;
+    flex-shrink: 0;
+    margin-bottom: 10px;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
 .gamepad-diagram {
     width: 920px;
-    height: 288px;
+    height: 300px;
+    min-height: 300px;
+    flex-shrink: 0;
     align-self: center;
-    background-color: rgba(9, 9, 7, 0.36);
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-color: rgba(210, 200, 160, 0.14);
+    position: relative;
+    overflow: hidden;
+    background-color: rgb(224, 250, 225);
+    border-width: 2px;
+    border-color: rgba(59, 211, 132, 0.72);
+    border-radius: 18px;
 }
 
 .gamepad-image {
     position: absolute;
-    left: 280px;
+    left: 230px;
     top: 0px;
-    width: 360px;
-    height: 288px;
-    background-image: url("../PauseMenu/Gamepad.png");
+    width: 432px;
+    height: 300px;
+    flex-shrink: 0;
+    background-image: url("xbox.png");
     -unity-background-scale-mode: scale-to-fit;
 }
-
-.pad-binding {
-    position: absolute;
-    width: 154px;
-    height: 50px;
-    padding-left: 8px;
-    padding-right: 8px;
-    color: var(--er-text);
-    background-color: rgba(18, 18, 14, 0.88);
-    border-width: 1px;
-    border-color: rgba(232, 226, 188, 0.38);
-    border-radius: 4px;
-    font-size: 11px;
-    -unity-text-align: middle-center;
-}
-
-.pad-binding:hover,
-.pad-binding:focus {
-    background-color: var(--er-highlight);
-    border-color: var(--er-highlight-border);
-    border-width: 2px;
-}
-
-.pad-info {
-    position: absolute;
-    min-width: 154px;
-    height: 28px;
-    padding-left: 6px;
-    padding-right: 6px;
-    color: var(--er-muted);
-    background-color: rgba(18, 18, 14, 0.72);
-    border-width: 1px;
-    border-color: rgba(232, 226, 188, 0.2);
-    font-size: 11px;
-    -unity-text-align: middle-center;
-}
-
-.connector {
-    position: absolute;
-    height: 1px;
-    background-color: rgba(232, 226, 188, 0.54);
-}
-
-.connector-lb { left: 224px; top: 40px; width: 98px; }
-.connector-rb { left: 498px; top: 40px; width: 98px; }
-.connector-lt { left: 216px; top: 18px; width: 112px; }
-.connector-rt { left: 492px; top: 18px; width: 112px; }
-.connector-dpad-left { left: 286px; top: 205px; width: 88px; }
-.connector-dpad-right { left: 594px; top: 205px; width: 40px; }
-.connector-left-stick { left: 282px; top: 140px; width: 92px; }
-.connector-right-stick { left: 594px; top: 166px; width: 92px; }
-.connector-face { left: 594px; top: 124px; width: 90px; }
-.connector-menu { left: 550px; top: 74px; width: 44px; }
-.connector-lb { left: 282px; top: 52px; width: 72px; }
-.connector-rb { left: 594px; top: 52px; width: 72px; }
-.connector-lt { left: 270px; top: 30px; width: 84px; }
-.connector-rt { left: 594px; top: 30px; width: 84px; }
-
-.pad-binding-dpad-left { left: 24px; top: 184px; }
-.pad-binding-dpad-right { right: 24px; top: 184px; }
-.pad-binding-y { right: 24px; top: 94px; color: rgb(230, 210, 90); }
-.pad-binding-x { right: 24px; top: 140px; color: rgb(120, 165, 235); }
-.pad-binding-b { right: 24px; top: 186px; color: rgb(235, 105, 95); }
-.pad-binding-a { right: 24px; top: 232px; color: rgb(112, 210, 110); }
-.pad-binding-left-stick { left: 24px; top: 92px; }
-.pad-info-lb { left: 24px; top: 30px; }
-.pad-info-rb { right: 24px; top: 30px; }
-.pad-info-lt { left: 24px; top: 0px; }
-.pad-info-rt { right: 24px; top: 0px; }
-.pad-info-left-stick { left: 24px; top: 138px; }
-.pad-info-right-stick { right: 24px; top: 138px; }
-.pad-info-menu { right: 24px; top: 62px; }
 
 .header-row {
     height: 34px;
@@ -221,7 +157,8 @@
     min-height: 46px;
     padding: 3px 10px;
     border-bottom-width: 1px;
-    border-bottom-color: rgba(210, 200, 160, 0.12);
+    border-bottom-color: rgba(133, 235, 183, 0.16);
+    border-radius: 10px;
     background-color: var(--er-row);
 }
 
@@ -246,22 +183,25 @@
 .rebind-button {
     width: 92%;
     height: 34px;
-    color: var(--er-text);
-    background-color: rgba(8, 8, 6, 0.58);
-    border-width: 1px;
-    border-color: rgba(226, 218, 180, 0.34);
+    color: rgb(8, 65, 52);
+    background-color: rgb(228, 250, 206);
+    border-width: 2px;
+    border-color: rgba(128, 228, 148, 0.72);
+    border-radius: 12px;
     font-size: 15px;
     -unity-text-align: middle-center;
 }
 
 .rebind-button:hover,
 .rebind-button:focus {
-    background-color: var(--er-highlight);
-    border-color: var(--er-highlight-border);
+    color: rgb(70, 54, 7);
+    background-color: rgb(255, 202, 64);
+    border-color: rgb(255, 246, 176);
     border-width: 2px;
 }
 
 .rebinding {
+    color: rgb(67, 38, 5);
     background-color: rgba(190, 174, 110, 0.42);
     border-color: rgb(255, 242, 189);
 }
@@ -343,28 +283,60 @@
 }
 
 .action-button {
-    min-width: 118px;
-    height: 34px;
+    min-width: 140px;
+    height: 42px;
     margin-left: 8px;
-    color: var(--er-text);
-    background-color: rgba(30, 29, 24, 0.86);
-    border-width: 1px;
-    border-color: var(--er-line);
+    color: rgb(9, 65, 49);
+    background-color: rgb(255, 202, 64);
+    border-width: 2px;
+    border-color: rgb(255, 241, 157);
+    border-radius: 14px;
     font-size: 14px;
 }
 
 .action-button:hover,
 .action-button:focus {
-    background-color: var(--er-highlight);
-    border-color: var(--er-highlight-border);
+    background-color: rgb(255, 249, 218);
+    border-color: rgb(91, 224, 229);
+    color: rgb(9, 65, 49);
 }
 
 .reset-button {
-    background-color: rgba(92, 50, 46, 0.85);
+    color: rgb(255, 249, 218);
+    background-color: rgb(207, 94, 70);
+    border-color: rgb(255, 173, 139);
+}
+
+.reset-button:hover,
+.reset-button:focus {
+    color: rgb(78, 32, 25);
+    background-color: rgb(255, 173, 139);
+    border-color: rgb(255, 249, 218);
+}
+
+.back-button {
+    color: rgb(255, 249, 218);
+    background-color: rgb(25, 144, 105);
+    border-color: rgb(103, 232, 171);
+}
+
+.back-button:hover,
+.back-button:focus {
+    color: rgb(9, 65, 49);
+    background-color: rgb(228, 250, 206);
+    border-color: rgb(91, 224, 229);
 }
 
 .confirm-button {
-    background-color: rgba(71, 88, 57, 0.9);
+    background-color: rgb(255, 202, 64);
+    color: rgb(9, 65, 49);
+}
+
+.confirm-button:hover,
+.confirm-button:focus {
+    color: rgb(9, 65, 49);
+    background-color: rgb(255, 249, 218);
+    border-color: rgb(91, 224, 229);
 }
 
 .modal-overlay {
@@ -373,7 +345,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.74);
+    background-color: rgba(2, 26, 25, 0.84);
     align-items: center;
     justify-content: center;
 }
@@ -381,16 +353,18 @@
 .modal-content {
     min-width: 520px;
     max-width: 720px;
-    padding: 30px 38px;
-    background-color: rgba(20, 19, 15, 0.96);
-    border-width: 1px;
-    border-color: var(--er-line-strong);
+    padding: 32px 40px;
+    background-color: rgba(10, 70, 62, 0.94);
+    border-width: 3px;
+    border-color: rgb(255, 202, 64);
+    border-radius: 24px;
     align-items: center;
 }
 
 .modal-prompt {
-    color: var(--er-text);
-    font-size: 20px;
+    color: rgb(255, 249, 218);
+    font-size: 21px;
+    -unity-font-style: bold;
     -unity-text-align: middle-center;
     margin-bottom: 18px;
 }

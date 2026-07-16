@@ -1,70 +1,37 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" engine="UnityEngine.UIElements" editor="UnityEngine.UIElements" noNamespaceSchemaLocation="../../../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <ui:Style src="InputSettingsPanel.uss" />
+    <Style src="project://database/Assets/_Game/UI/InputSettings/InputSettingsPanel.uss?fileID=7433441132597879392&amp;guid=d8ee345c9225f2248b7a02a8737daeb6&amp;type=3#InputSettingsPanel" />
     <ui:VisualElement name="panel-overlay" class="panel-overlay hidden">
         <ui:VisualElement name="panel-container" class="panel-container">
             <ui:VisualElement class="title-row">
-                <ui:VisualElement class="title-emblem" />
+                <ui:VisualElement class="title-emblem">
+                    <ui:Label text="*" class="emblem-text" />
+                </ui:VisualElement>
                 <ui:Label name="title" text="Key Bindings" class="title" />
             </ui:VisualElement>
-
-            <ui:VisualElement name="device-mode-section" class="device-mode-section">
-                <ui:Label text="Controller Settings" class="section-label" />
-                <ui:Label name="tab-switch-hint" text="LB / RB (L1 / R1) : Switch tab" class="tab-switch-hint" />
-                <ui:VisualElement name="device-mode-buttons" class="device-mode-buttons">
-                    <ui:Button name="btn-mode-keyboard" text="Keyboard / Mouse" class="mode-button mode-active" focusable="true" tabindex="1" />
-                    <ui:Button name="btn-mode-gamepad" text="Gamepad" class="mode-button" focusable="true" tabindex="2" />
-                </ui:VisualElement>
+            <ui:VisualElement name="device-mode-buttons" class="device-mode-buttons">
+                <ui:Button name="btn-mode-keyboard" text="Keyboard / Mouse" focusable="true" tabindex="1" class="mode-button mode-active" />
+                <ui:Button name="btn-mode-gamepad" text="Gamepad" focusable="true" tabindex="2" class="mode-button" />
             </ui:VisualElement>
-
             <ui:VisualElement name="gamepad-map" class="gamepad-map hidden">
                 <ui:VisualElement class="gamepad-diagram">
-                    <ui:VisualElement class="gamepad-image" />
-                    <ui:VisualElement class="connector connector-lb" />
-                    <ui:VisualElement class="connector connector-rb" />
-                    <ui:VisualElement class="connector connector-lt" />
-                    <ui:VisualElement class="connector connector-rt" />
-                    <ui:VisualElement class="connector connector-dpad-left" />
-                    <ui:VisualElement class="connector connector-dpad-right" />
-                    <ui:VisualElement class="connector connector-left-stick" />
-                    <ui:VisualElement class="connector connector-right-stick" />
-                    <ui:VisualElement class="connector connector-face" />
-                    <ui:VisualElement class="connector connector-menu" />
-                    <ui:Label text="LB / L1  Unassigned" class="pad-info pad-info-lb" />
-                    <ui:Label text="RB / R1  Unassigned" class="pad-info pad-info-rb" />
-                    <ui:Label text="LT  Unassigned" class="pad-info pad-info-lt" />
-                    <ui:Label text="RT  Unassigned" class="pad-info pad-info-rt" />
-                    <ui:Label text="L Stick  Movement (fixed)" class="pad-info pad-info-left-stick" />
-                    <ui:Label text="R Stick  Camera (fixed)" class="pad-info pad-info-right-stick" />
-                    <ui:Label text="Menu  Pause (fixed)" class="pad-info pad-info-menu" />
-                    <ui:Button name="pad-dpad-left" text="D-Pad Left\nPrevious Item" class="pad-binding pad-binding-dpad-left" focusable="true" />
-                    <ui:Button name="pad-dpad-right" text="D-Pad Right\nNext Item" class="pad-binding pad-binding-dpad-right" focusable="true" />
-                    <ui:Button name="pad-y" text="Y\nInteract" class="pad-binding pad-binding-y" focusable="true" />
-                    <ui:Button name="pad-x" text="X\nAttack" class="pad-binding pad-binding-x" focusable="true" />
-                    <ui:Button name="pad-b" text="B\nCrouch / Dodge" class="pad-binding pad-binding-b" focusable="true" />
-                    <ui:Button name="pad-a" text="A\nJump" class="pad-binding pad-binding-a" focusable="true" />
-                    <ui:Button name="pad-left-stick" text="LS Click\nSprint" class="pad-binding pad-binding-left-stick" focusable="true" />
+                    <ui:VisualElement class="gamepad-image" style="translate: 37px 0;" />
                 </ui:VisualElement>
             </ui:VisualElement>
-
             <ui:VisualElement name="header-row" class="rebind-row header-row">
-                <ui:Label text="" class="col-action" />
+                <ui:Label class="col-action" />
                 <ui:Label name="header-keyboard" text="Keyboard" class="col-binding col-header" />
                 <ui:Label name="header-mouse" text="Mouse" class="col-binding col-header" />
                 <ui:Label name="header-gamepad" text="Gamepad" class="col-binding col-header hidden" />
             </ui:VisualElement>
-
             <ui:ScrollView name="rebind-list" class="rebind-list" />
-
             <ui:VisualElement name="sensitivity-section" class="sensitivity-section">
                 <ui:Label text="Gamepad Camera Sensitivity" class="setting-label" />
-                <ui:Slider name="gamepad-sensitivity" low-value="0.1" high-value="3" value="1" class="sensitivity-slider" focusable="true" tabindex="100" />
+                <ui:Slider name="gamepad-sensitivity" low-value="0.1" high-value="3" value="1" focusable="true" tabindex="100" class="sensitivity-slider" />
                 <ui:Label name="sensitivity-value" text="100%" class="sensitivity-value-label" />
             </ui:VisualElement>
-
             <ui:VisualElement class="description-panel">
                 <ui:Label text="Select which action to assign" class="description-text" />
             </ui:VisualElement>
-
             <ui:VisualElement name="button-row" class="button-row">
                 <ui:VisualElement class="footer-hints">
                     <ui:Label name="footer-ok-hint" text="A : OK" class="footer-hint ok-hint" />
@@ -74,26 +41,24 @@
                     <ui:Label name="footer-cancel-hint" text="Menu : Cancel rebind" class="footer-hint" />
                 </ui:VisualElement>
                 <ui:VisualElement class="footer-buttons">
-                    <ui:Button name="btn-reset-all" text="Reset All" class="action-button reset-button" focusable="true" tabindex="200" />
-                    <ui:Button name="btn-back" text="Back" class="action-button back-button" focusable="true" tabindex="201" />
+                    <ui:Button name="btn-reset-all" text="Reset All" focusable="true" tabindex="200" class="action-button reset-button" />
+                    <ui:Button name="btn-back" text="Back" focusable="true" tabindex="201" class="action-button back-button" />
                 </ui:VisualElement>
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
-
     <ui:VisualElement name="rebind-overlay" class="modal-overlay hidden">
         <ui:VisualElement class="modal-content">
             <ui:Label name="rebind-prompt" text="Press any key..." class="modal-prompt" />
-            <ui:Button name="btn-cancel-rebind" text="Cancel" class="action-button back-button" focusable="true" />
+            <ui:Button name="btn-cancel-rebind" text="Cancel" focusable="true" class="action-button back-button" />
         </ui:VisualElement>
     </ui:VisualElement>
-
     <ui:VisualElement name="conflict-overlay" class="modal-overlay hidden">
         <ui:VisualElement class="modal-content">
             <ui:Label name="conflict-prompt" text="Conflict" class="modal-prompt" />
             <ui:VisualElement class="modal-button-row">
-                <ui:Button name="btn-confirm-conflict" text="Swap" class="action-button confirm-button" focusable="true" />
-                <ui:Button name="btn-cancel-conflict" text="Cancel" class="action-button back-button" focusable="true" />
+                <ui:Button name="btn-confirm-conflict" text="Swap" focusable="true" class="action-button confirm-button" />
+                <ui:Button name="btn-cancel-conflict" text="Cancel" focusable="true" class="action-button back-button" />
             </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
