@@ -51,4 +51,11 @@ Dự án tận dụng những tính năng mới nhất và mạnh mẽ nhất c�
 *   **Tình trạng:** Đang phát triển
 
 ---
+
+## Generated asset manifest
+
+| Name | Description | In-game Size | Path | Cost |
+|------|-------------|--------------|------|------|
+| Monkey sticker sets | 16 player emote stickers across two selectable sets | 180x180 px world-space HUD | `Assets/_Game/GeneratedAssets/Resources/Stickers/` | $0 (user source + ChatGPT image generation) |
+
 © 2026 Team Doro. All rights reserved.
