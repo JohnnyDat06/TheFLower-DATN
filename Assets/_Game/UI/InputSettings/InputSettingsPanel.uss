@@ -201,6 +201,7 @@
 }
 
 .rebinding {
+    color: rgb(67, 38, 5);
     background-color: rgba(190, 174, 110, 0.42);
     border-color: rgb(255, 242, 189);
 }
@@ -285,7 +286,7 @@
     min-width: 140px;
     height: 42px;
     margin-left: 8px;
-    color: var(--er-text);
+    color: rgb(9, 65, 49);
     background-color: rgb(255, 202, 64);
     border-width: 2px;
     border-color: rgb(255, 241, 157);
@@ -297,6 +298,7 @@
 .action-button:focus {
     background-color: rgb(255, 249, 218);
     border-color: rgb(91, 224, 229);
+    color: rgb(9, 65, 49);
 }
 
 .reset-button {
@@ -305,8 +307,36 @@
     border-color: rgb(255, 173, 139);
 }
 
+.reset-button:hover,
+.reset-button:focus {
+    color: rgb(78, 32, 25);
+    background-color: rgb(255, 173, 139);
+    border-color: rgb(255, 249, 218);
+}
+
+.back-button {
+    color: rgb(255, 249, 218);
+    background-color: rgb(25, 144, 105);
+    border-color: rgb(103, 232, 171);
+}
+
+.back-button:hover,
+.back-button:focus {
+    color: rgb(9, 65, 49);
+    background-color: rgb(228, 250, 206);
+    border-color: rgb(91, 224, 229);
+}
+
 .confirm-button {
     background-color: rgb(255, 202, 64);
+    color: rgb(9, 65, 49);
+}
+
+.confirm-button:hover,
+.confirm-button:focus {
+    color: rgb(9, 65, 49);
+    background-color: rgb(255, 249, 218);
+    border-color: rgb(91, 224, 229);
 }
 
 .modal-overlay {
