@@ -1,32 +1,50 @@
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class VoiceInputController : NetworkBehaviour
+public class VoiceInputController : MonoBehaviour
 {
-    private bool _isMuted = false;
+    private const string MicMutedPreferenceKey = "Vivox.MicMuted";
+    private static VoiceInputController _instance;
 
-    public override void OnNetworkSpawn()
+    public static bool IsMutedByUser { get; private set; }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Install()
     {
-        if (!IsOwner)
+        if (FindFirstObjectByType<VoiceInputController>() != null) return;
+        new GameObject("VoiceInputController").AddComponent<VoiceInputController>();
+    }
+
+    private void Awake()
+    {
+        if (_instance != null && _instance != this)
         {
-            enabled = false;
+            Destroy(this);
             return;
         }
+
+        _instance = this;
+        IsMutedByUser = PlayerPrefs.GetInt(MicMutedPreferenceKey, 0) != 0;
+        if (transform.parent == null) DontDestroyOnLoad(gameObject);
+    }
+
+    private void OnDestroy()
+    {
+        if (_instance == this) _instance = null;
     }
 
     private void Update()
     {
-        if (!IsOwner) return;
-
-        if (Keyboard.current != null && Keyboard.current.hKey.wasPressedThisFrame)
+        if (Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame)
         {
-            _isMuted = !_isMuted;
-            if (VivoxManager.Instance != null)
-            {
-                VivoxManager.Instance.SetMicrophoneMute(_isMuted);
-            }
-            Debug.Log($"[VoiceInputController] Microphone: {(_isMuted ? "OFF" : "ON")}");
+            IsMutedByUser = !IsMutedByUser;
+            PlayerPrefs.SetInt(MicMutedPreferenceKey, IsMutedByUser ? 1 : 0);
+            PlayerPrefs.Save();
+
+            if (VivoxManager.Instance != null && VivoxManager.Instance.IsLoggedIn)
+                VivoxManager.Instance.SetMicrophoneMute(IsMutedByUser);
+
+            Debug.Log($"[VoiceInputController] Microphone requested: {(IsMutedByUser ? "OFF" : "ON")}");
         }
     }
 }

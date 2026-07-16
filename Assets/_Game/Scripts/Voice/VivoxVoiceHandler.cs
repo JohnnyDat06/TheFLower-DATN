@@ -36,7 +36,6 @@ public class VivoxVoiceHandler : NetworkBehaviour
             }
             
             // JoinVoiceChannel đã có sẵn logic đợi khởi tạo bên trong
-            JoinVoiceChannel();
         }
 
         // Register current ID if already set
@@ -71,10 +70,6 @@ public class VivoxVoiceHandler : NetworkBehaviour
             }
         }
 
-        if (IsOwner && VivoxManager.Instance != null)
-        {
-            _ = VivoxManager.Instance.LeaveChannelAsync();
-        }
     }
 
     private async void JoinVoiceChannel()
@@ -162,6 +157,7 @@ public class VivoxVoiceHandler : NetworkBehaviour
     private void Update()
     {
         if (!IsSpawned) return;
+        if (VivoxManager.Instance == null || !VivoxManager.Instance.IsCurrentChannelPositional) return;
 
         // Cập nhật vị trí 3D cho chính mình (Speaker) và tai nghe (Listener)
         UpdatePositions();
@@ -179,7 +175,7 @@ public class VivoxVoiceHandler : NetworkBehaviour
         // Nếu chạy trên Proxy nó sẽ liên tục đưa vị trí mic của bản thân tới vị trí của người khác!
         if (!IsOwner) return;
 
-        if (VivoxManager.Instance == null || string.IsNullOrEmpty(VivoxManager.Instance.JoinedChannelName)) return;
+        if (VivoxManager.Instance == null || !VivoxManager.Instance.IsCurrentChannelPositional || string.IsNullOrEmpty(VivoxManager.Instance.JoinedChannelName)) return;
         if (!VivoxManager.Instance.IsLoggedIn) return;
 
         Vector3 speakerPos = transform.position + Vector3.up * 1.5f;
