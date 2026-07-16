@@ -225,12 +225,6 @@ public class InputSettingsPanelController : MonoBehaviour
         else if (focused == _btnCancelRebind) OnCancelRebindClicked();
         else if (focused == _btnConfirmConflict) OnConfirmConflictClicked();
         else if (focused == _btnCancelConflict) OnCancelConflictClicked();
-        else if (focused is Button diagramButton && diagramButton.ClassListContains("pad-binding"))
-        {
-            string actionName = GetDiagramActionName(diagramButton.name);
-            if (!string.IsNullOrEmpty(actionName))
-                OnRebindClicked(actionName, InputBindingTarget.Gamepad);
-        }
         else
         {
             foreach (RebindRowController row in _rows)
@@ -355,7 +349,6 @@ public class InputSettingsPanelController : MonoBehaviour
         _sensitivitySlider?.RegisterValueChangedCallback(OnSensitivityChanged);
         _panelOverlay?.RegisterCallback(_navigationCancel);
         _panelOverlay?.RegisterCallback(_focusChanged);
-        _gamepadMap?.RegisterCallback<ClickEvent>(OnPadBindingClicked);
     }
 
     private void UnbindCallbacks()
@@ -370,7 +363,6 @@ public class InputSettingsPanelController : MonoBehaviour
         _sensitivitySlider?.UnregisterValueChangedCallback(OnSensitivityChanged);
         _panelOverlay?.UnregisterCallback(_navigationCancel);
         _panelOverlay?.UnregisterCallback(_focusChanged);
-        _gamepadMap?.UnregisterCallback<ClickEvent>(OnPadBindingClicked);
     }
 
     private void BuildRebindRows()
