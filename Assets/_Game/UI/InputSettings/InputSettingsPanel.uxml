@@ -3,7 +3,7 @@
     <ui:VisualElement name="panel-overlay" class="panel-overlay hidden">
         <ui:VisualElement name="panel-container" class="panel-container">
             <ui:VisualElement class="title-row">
-                <ui:VisualElement class="title-emblem" />
+                <ui:VisualElement class="title-emblem"><ui:Label text="*" class="emblem-text" /></ui:VisualElement>
                 <ui:Label name="title" text="Key Bindings" class="title" />
             </ui:VisualElement>
 

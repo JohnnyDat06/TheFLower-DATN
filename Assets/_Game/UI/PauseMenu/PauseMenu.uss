@@ -4,7 +4,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    background-color: rgba(8, 10, 13, 0.72);
+    background-color: rgba(2, 30, 29, 0.72);
     align-items: center;
     justify-content: center;
     padding: 28px;
@@ -15,32 +15,33 @@
 }
 
 .pause-panel {
-    width: 760px;
+    width: 820px;
     max-width: 94%;
     max-height: 92%;
-    background-color: rgba(22, 27, 31, 0.96);
-    border-width: 1px;
-    border-color: rgba(190, 210, 205, 0.28);
-    border-radius: 8px;
-    padding: 24px;
+    background-color: rgba(5, 47, 44, 0.96);
+    border-width: 3px;
+    border-color: rgba(255, 211, 82, 0.78);
+    border-radius: 28px;
+    padding: 30px 34px 26px 34px;
 }
 
 .pause-header {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 18px;
+    margin-bottom: 22px;
 }
 
 .pause-title {
-    font-size: 34px;
+    font-size: 36px;
     unity-font-style: bold;
-    color: rgb(240, 245, 242);
+    color: rgb(255, 202, 64);
+    letter-spacing: 3px;
 }
 
 .pause-hint {
     font-size: 14px;
-    color: rgba(220, 230, 226, 0.72);
+    color: rgb(91, 224, 229);
 }
 
 .pause-body {
@@ -48,35 +49,38 @@
 }
 
 .pause-actions {
-    width: 300px;
-    margin-right: 22px;
+    width: 330px;
+    margin-right: 26px;
 }
 
 .menu-button {
-    height: 46px;
-    margin-bottom: 10px;
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: rgba(205, 220, 215, 0.24);
-    background-color: rgba(49, 59, 64, 0.96);
-    color: rgb(239, 244, 241);
-    font-size: 16px;
+    height: 50px;
+    margin-bottom: 12px;
+    border-radius: 14px;
+    border-width: 2px;
+    border-color: rgba(128, 228, 148, 0.52);
+    background-color: rgba(16, 92, 76, 0.88);
+    color: rgb(255, 249, 218);
+    font-size: 15px;
     unity-font-style: bold;
     -unity-text-align: middle-center;
 }
 
 .menu-button:hover,
 .menu-button:focus {
-    background-color: rgb(72, 96, 94);
-    border-color: rgb(138, 205, 190);
+    background-color: rgb(255, 202, 64);
+    border-color: rgb(255, 246, 176);
+    color: rgb(13, 75, 57);
 }
 
 .primary {
-    background-color: rgb(60, 111, 96);
+    background-color: rgb(255, 202, 64);
+    color: rgb(13, 75, 57);
 }
 
 .danger {
-    background-color: rgb(104, 57, 57);
+    background-color: rgb(207, 94, 70);
+    border-color: rgb(255, 173, 139);
 }
 
 .compact {
@@ -88,16 +92,16 @@
     flex-grow: 1;
     min-width: 330px;
     padding: 16px;
-    background-color: rgba(12, 15, 18, 0.48);
-    border-width: 1px;
-    border-color: rgba(200, 218, 211, 0.16);
-    border-radius: 6px;
+    background-color: rgba(3, 42, 39, 0.72);
+    border-width: 2px;
+    border-color: rgba(92, 225, 167, 0.35);
+    border-radius: 18px;
 }
 
 .section-title {
     font-size: 20px;
     unity-font-style: bold;
-    color: rgb(236, 242, 239);
+    color: rgb(91, 224, 229);
     margin-bottom: 10px;
 }
 
@@ -109,7 +113,7 @@
 
 .setting-label {
     width: 84px;
-    color: rgba(236, 242, 239, 0.9);
+    color: rgba(255, 249, 218, 0.9);
     font-size: 14px;
 }
 
@@ -120,5 +124,5 @@
 .setting-toggle {
     margin-top: 6px;
     margin-bottom: 10px;
-    color: rgb(236, 242, 239);
+    color: rgb(255, 249, 218);
 }
