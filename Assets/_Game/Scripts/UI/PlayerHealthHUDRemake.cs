@@ -39,6 +39,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
     private RectTransform _canvasRect;
     private Camera _worldCamera;
     private float _searchTimer;
+    private bool _worldNameplatesHiddenByMenu;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InstallForGameplayScenes()
@@ -76,6 +77,12 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         BuildInterface();
     }
 
+    private void OnEnable()
+    {
+        EventBus.OnGamePaused += HideWorldNameplates;
+        EventBus.OnGameResumed += ShowWorldNameplates;
+    }
+
     private void Update()
     {
         _searchTimer -= Time.unscaledDeltaTime;
@@ -87,14 +94,42 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
 
         AnimateBar(_host);
         AnimateBar(_client);
+
+        if (_worldNameplatesHiddenByMenu)
+        {
+            SetWorldNameplateActive(_host, false);
+            SetWorldNameplateActive(_client, false);
+            return;
+        }
+
         UpdateWorldNameplate(_host);
         UpdateWorldNameplate(_client);
     }
 
     private void OnDestroy()
     {
+        EventBus.OnGamePaused -= HideWorldNameplates;
+        EventBus.OnGameResumed -= ShowWorldNameplates;
         Unbind(_host);
         Unbind(_client);
+    }
+
+    private void HideWorldNameplates()
+    {
+        _worldNameplatesHiddenByMenu = true;
+        SetWorldNameplateActive(_host, false);
+        SetWorldNameplateActive(_client, false);
+    }
+
+    private void ShowWorldNameplates()
+    {
+        _worldNameplatesHiddenByMenu = false;
+    }
+
+    private static void SetWorldNameplateActive(PlayerBar bar, bool active)
+    {
+        if (bar?.WorldNameRoot != null)
+            bar.WorldNameRoot.SetActive(active);
     }
 
     private void BuildInterface()

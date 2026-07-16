@@ -42,6 +42,8 @@ public class CameraManager : MonoBehaviour
     private Dictionary<CameraPreset, CinemachineCamera> _vcamMap;
     private Dictionary<CameraPreset, SOCameraConfig> _configMap;
     private Dictionary<CameraPreset, Vector3> _flightCameraBaseOffsets;
+    private readonly Dictionary<CinemachineInputAxisController, bool> _menuAxisStates = new();
+    private bool _menuCameraLocked;
 
     [Header("Flight Camera Chase")]
     [SerializeField, Min(0f)] private float _flightLookSensitivity = 0.08f;
@@ -352,7 +354,7 @@ public class CameraManager : MonoBehaviour
 
         if (_inputHandler != null)
         {
-            if (lockMouse) _inputHandler.DisableCameraLook();
+            if (lockMouse || _menuCameraLocked) _inputHandler.DisableCameraLook();
             else _inputHandler.EnableCameraLook();
         }
     }
@@ -368,17 +370,49 @@ public class CameraManager : MonoBehaviour
     {
         Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
-        _inputHandler?.DisableCameraLook();
+        SetMenuCameraLock(true);
     }
 
     private void HandleGameResumed()
     {
-        if (!ShouldLockCameraLook(_currentPreset))
+        SetMenuCameraLock(false);
+        if (ShouldLockCameraLook(_currentPreset)) return;
+
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+        _inputHandler?.EnableCameraLook();
+    }
+
+    /// <summary>
+    /// Blocks Cinemachine axis input while a gameplay menu is open. PlayerInputHandler
+    /// alone cannot stop CinemachineInputAxisController from consuming device input.
+    /// </summary>
+    private void SetMenuCameraLock(bool locked)
+    {
+        ResolvePlayerInputIfNeeded();
+        _menuCameraLocked = locked;
+
+        if (locked)
         {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-            _inputHandler?.EnableCameraLook();
+            _inputHandler?.DisableCameraLook();
+            _menuAxisStates.Clear();
+            foreach (CinemachineInputAxisController controller in
+                     FindObjectsByType<CinemachineInputAxisController>(FindObjectsSortMode.None))
+            {
+                if (controller == null) continue;
+                _menuAxisStates[controller] = controller.enabled;
+                controller.enabled = false;
+            }
+            return;
         }
+
+        foreach (var pair in _menuAxisStates)
+        {
+            if (pair.Key != null)
+                pair.Key.enabled = pair.Value;
+        }
+        _menuAxisStates.Clear();
+        UpdateInputState(_currentPreset);
     }
 
     private void HandleCutSceneStarted() => SwitchCamera(CameraPreset.Cutscene);
