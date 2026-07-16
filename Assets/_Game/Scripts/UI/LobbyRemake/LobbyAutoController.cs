@@ -305,7 +305,10 @@ namespace Game.UI.LobbyAuto
             {
                 await _lobbyManager.SetPlayerReady(next);
                 _localReady = next;
-                SetStatus(next ? "Ready - waiting for your companion" : "Not ready", next ? Green : Red);
+                bool soloLobby = (_currentLobby?.Players?.Count ?? 0) == 1;
+                SetStatus(next
+                    ? (soloLobby ? "Ready - solo start enabled" : "Ready - waiting for your companion")
+                    : "Not ready", next ? Green : Red);
             }
             catch (Exception exception) { SetStatus(FriendlyError(exception), Red); }
             finally { SetBusy(false); }
@@ -314,7 +317,10 @@ namespace Game.UI.LobbyAuto
         private void StartJourney()
         {
             if (!CanStartJourney()) return;
-            SetStatus("Both players ready. Starting journey...", Gold);
+            int playerCount = _currentLobby?.Players?.Count ?? 0;
+            SetStatus(playerCount == 1
+                ? "Starting solo test journey..."
+                : "Both players ready. Starting journey...", Gold);
             _lobbyManager.StartGame(_gameSceneName);
         }
 
@@ -340,7 +346,7 @@ namespace Game.UI.LobbyAuto
             _roomCodeText.text = GetRoomCode(lobby);
             ShowRoom();
             SetStatus(lobby.HostId == _lobbyManager.GetPlayerId()
-                ? "Room created - waiting for player two"
+                ? "Room created - ready up to test solo or invite a friend"
                 : "Connected - choose Ready when prepared", Paper);
         }
 
@@ -382,16 +388,25 @@ namespace Game.UI.LobbyAuto
 
             bool isHost = NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost;
             _startButton.gameObject.SetActive(isHost);
-            _startButton.interactable = CanStartJourney();
-            _startButtonText.text = players.Count < 2 ? "WAITING FOR PLAYER 2" : CanStartJourney() ? "START GAME" : "WAITING FOR READY";
-            ApplyButtonArt(_startButton, CanStartJourney() ? _config?.RoomStartButton : _config?.RoomWaitingButton);
+            bool canStart = CanStartJourney();
+            _startButton.interactable = canStart;
+            _startButtonText.text = canStart
+                ? (players.Count == 1 ? "START SOLO" : "START GAME")
+                : "READY UP TO START";
+            ApplyButtonArt(_startButton, canStart ? _config?.RoomStartButton : _config?.RoomWaitingButton);
         }
 
         private bool CanStartJourney()
         {
             NetworkManager manager = NetworkManager.Singleton;
-            return manager != null && manager.IsHost && manager.ConnectedClientsIds.Count == 2
-                && _currentLobby?.Players?.Count == 2 && _currentLobby.Players.All(IsReady);
+            int lobbyPlayerCount = _currentLobby?.Players?.Count ?? 0;
+            int connectedPlayerCount = manager?.ConnectedClientsIds.Count ?? 0;
+            return manager != null
+                && manager.IsHost
+                && lobbyPlayerCount >= 1
+                && lobbyPlayerCount <= 2
+                && connectedPlayerCount == lobbyPlayerCount
+                && _currentLobby.Players.All(IsReady);
         }
 
         private void UpdatePlayerCard(int index, LobbyPlayerModel player)
@@ -701,7 +716,7 @@ namespace Game.UI.LobbyAuto
             _readyButtonText = _readyButton.GetComponentInChildren<TMP_Text>();
             ApplyButtonArt(_readyButton, _config?.RoomReadyButton);
             _readyButton.onClick.AddListener(ToggleReady);
-            _startButton = CreateButton(panel, "WAITING FOR PLAYER 2", Gold, new Vector2(200f, 12f), 520f, 90f, 18f, Paper, new Vector2(0.5f, 0f));
+            _startButton = CreateButton(panel, "READY UP TO START", Gold, new Vector2(200f, 12f), 520f, 90f, 18f, Paper, new Vector2(0.5f, 0f));
             _startButtonText = _startButton.GetComponentInChildren<TMP_Text>();
             ApplyButtonArt(_startButton, _config?.RoomWaitingButton);
             _startButton.onClick.AddListener(StartJourney);
