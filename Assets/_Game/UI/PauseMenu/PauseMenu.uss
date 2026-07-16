@@ -15,9 +15,9 @@
 }
 
 .pause-panel {
-    width: 820px;
+    width: 860px;
     max-width: 94%;
-    max-height: 92%;
+    max-height: 94%;
     background-color: rgba(5, 47, 44, 0.96);
     border-width: 3px;
     border-color: rgba(255, 211, 82, 0.78);

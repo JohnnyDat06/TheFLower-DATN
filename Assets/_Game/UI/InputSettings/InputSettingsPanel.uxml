@@ -19,23 +19,6 @@
             <ui:VisualElement name="gamepad-map" class="gamepad-map hidden">
                 <ui:VisualElement class="gamepad-diagram">
                     <ui:VisualElement class="gamepad-image" />
-                    <ui:VisualElement class="connector connector-lb" />
-                    <ui:VisualElement class="connector connector-rb" />
-                    <ui:VisualElement class="connector connector-lt" />
-                    <ui:VisualElement class="connector connector-rt" />
-                    <ui:VisualElement class="connector connector-dpad-left" />
-                    <ui:VisualElement class="connector connector-dpad-right" />
-                    <ui:VisualElement class="connector connector-left-stick" />
-                    <ui:VisualElement class="connector connector-right-stick" />
-                    <ui:VisualElement class="connector connector-face" />
-                    <ui:VisualElement class="connector connector-menu" />
-                    <ui:Label text="LB / L1  Unassigned" class="pad-info pad-info-lb" />
-                    <ui:Label text="RB / R1  Unassigned" class="pad-info pad-info-rb" />
-                    <ui:Label text="LT  Unassigned" class="pad-info pad-info-lt" />
-                    <ui:Label text="RT  Unassigned" class="pad-info pad-info-rt" />
-                    <ui:Label text="L Stick  Movement (fixed)" class="pad-info pad-info-left-stick" />
-                    <ui:Label text="R Stick  Camera (fixed)" class="pad-info pad-info-right-stick" />
-                    <ui:Label text="Menu  Pause (fixed)" class="pad-info pad-info-menu" />
                     <ui:Button name="pad-dpad-left" text="D-Pad Left\nPrevious Item" class="pad-binding pad-binding-dpad-left" focusable="true" />
                     <ui:Button name="pad-dpad-right" text="D-Pad Right\nNext Item" class="pad-binding pad-binding-dpad-right" focusable="true" />
                     <ui:Button name="pad-y" text="Y\nInteract" class="pad-binding pad-binding-y" focusable="true" />
