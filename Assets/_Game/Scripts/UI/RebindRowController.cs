@@ -89,6 +89,21 @@ public class RebindRowController
         ScrollIntoView();
     }
 
+    public bool TryActivate(VisualElement focusedElement)
+    {
+        if (focusedElement == null) return false;
+        if (focusedElement == _keyboardButton)
+            _onRebindClicked?.Invoke(ActionName, InputBindingTarget.Keyboard);
+        else if (focusedElement == _mouseButton)
+            _onRebindClicked?.Invoke(ActionName, InputBindingTarget.Mouse);
+        else if (focusedElement == _gamepadButton)
+            _onRebindClicked?.Invoke(ActionName, InputBindingTarget.Gamepad);
+        else
+            return false;
+
+        return true;
+    }
+
     public static void ResetTabIndex()
     {
         _tabIndexCounter = 10;

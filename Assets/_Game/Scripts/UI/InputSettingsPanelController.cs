@@ -60,8 +60,12 @@ public class InputSettingsPanelController : MonoBehaviour
     private EventCallback<ClickEvent> _confirmConflictClicked;
     private EventCallback<ClickEvent> _cancelConflictClicked;
     private EventCallback<NavigationCancelEvent> _navigationCancel;
+    private EventCallback<FocusInEvent> _focusChanged;
     private RebindRowController _activeRow;
     private InputBindingTarget _activeTarget;
+    private VisualElement _focusedElement;
+    private bool _gamepadNavigationActive;
+    private int _suppressGamepadActionsThroughFrame = -1;
 
     private static readonly InputBindingTarget[] KeyboardMouseTargets =
     {
@@ -112,6 +116,7 @@ public class InputSettingsPanelController : MonoBehaviour
         _confirmConflictClicked = _ => OnConfirmConflictClicked();
         _cancelConflictClicked = _ => OnCancelConflictClicked();
         _navigationCancel = _ => OnNavigationCancel();
+        _focusChanged = evt => _focusedElement = evt.target as VisualElement;
     }
 
     private void OnEnable()
@@ -167,7 +172,70 @@ public class InputSettingsPanelController : MonoBehaviour
         }
 
         if (_isVisible)
+        {
+            HandleDirectGamepadActions();
             HandleGamepadTabSwitch();
+        }
+    }
+
+    private void HandleDirectGamepadActions()
+    {
+        Gamepad gamepad = Gamepad.current;
+        if (gamepad == null || Time.frameCount <= _suppressGamepadActionsThroughFrame) return;
+
+        if (IsRebinding)
+        {
+            if (gamepad.startButton.wasPressedThisFrame)
+                OnCancelRebindClicked();
+            return;
+        }
+
+        if (_rebindService != null && _rebindService.HasPendingConflict)
+        {
+            if (gamepad.buttonEast.wasPressedThisFrame)
+                OnCancelConflictClicked();
+            else if (gamepad.buttonSouth.wasPressedThisFrame)
+            {
+                if (_focusedElement == _btnCancelConflict)
+                    OnCancelConflictClicked();
+                else
+                    OnConfirmConflictClicked();
+            }
+            return;
+        }
+
+        if (gamepad.buttonEast.wasPressedThisFrame)
+        {
+            OnNavigationCancel();
+            return;
+        }
+
+        if (!gamepad.buttonSouth.wasPressedThisFrame) return;
+        ActivateFocusedElement(_focusedElement);
+    }
+
+    private void ActivateFocusedElement(VisualElement focused)
+    {
+        if (focused == null) return;
+
+        if (focused == _btnModeKeyboard) SelectDeviceTab(false);
+        else if (focused == _btnModeGamepad) SelectDeviceTab(true);
+        else if (focused == _btnResetAll) OnResetAllClicked();
+        else if (focused == _btnBack) Hide();
+        else if (focused == _btnCancelRebind) OnCancelRebindClicked();
+        else if (focused == _btnConfirmConflict) OnConfirmConflictClicked();
+        else if (focused == _btnCancelConflict) OnCancelConflictClicked();
+        else if (focused is Button diagramButton && diagramButton.ClassListContains("pad-binding"))
+        {
+            string actionName = GetDiagramActionName(diagramButton.name);
+            if (!string.IsNullOrEmpty(actionName))
+                OnRebindClicked(actionName, InputBindingTarget.Gamepad);
+        }
+        else
+        {
+            foreach (RebindRowController row in _rows)
+                if (row.TryActivate(focused)) return;
+        }
     }
 
     public void Show(Action onClosed = null, bool managePlayerInput = true)
@@ -181,6 +249,7 @@ public class InputSettingsPanelController : MonoBehaviour
         _onClosed = onClosed;
         _managesPlayerInput = managePlayerInput;
         _showGamepadTab = IsCurrentDeviceGamepad();
+        _gamepadNavigationActive = _showGamepadTab;
         _isVisible = true;
         _panelOverlay.RemoveFromClassList("hidden");
         _panelOverlay.style.display = DisplayStyle.Flex;
@@ -193,6 +262,7 @@ public class InputSettingsPanelController : MonoBehaviour
         RefreshAllBindings();
         RefreshSensitivitySlider();
         RefreshInputHints();
+        ApplyGamepadNavigationClass();
 
         _root.schedule.Execute(FocusFirstBinding).ExecuteLater(50);
     }
@@ -284,6 +354,8 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnCancelConflict?.RegisterCallback(_cancelConflictClicked);
         _sensitivitySlider?.RegisterValueChangedCallback(OnSensitivityChanged);
         _panelOverlay?.RegisterCallback(_navigationCancel);
+        _panelOverlay?.RegisterCallback(_focusChanged);
+        _gamepadMap?.RegisterCallback<ClickEvent>(OnPadBindingClicked);
     }
 
     private void UnbindCallbacks()
@@ -297,6 +369,8 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnCancelConflict?.UnregisterCallback(_cancelConflictClicked);
         _sensitivitySlider?.UnregisterValueChangedCallback(OnSensitivityChanged);
         _panelOverlay?.UnregisterCallback(_navigationCancel);
+        _panelOverlay?.UnregisterCallback(_focusChanged);
+        _gamepadMap?.UnregisterCallback<ClickEvent>(OnPadBindingClicked);
     }
 
     private void BuildRebindRows()
@@ -334,6 +408,7 @@ public class InputSettingsPanelController : MonoBehaviour
         _rebindService.StartRebind(actionName, target,
             onComplete: (_, _) =>
             {
+                _suppressGamepadActionsThroughFrame = Time.frameCount;
                 HideRebindOverlay();
                 _activeRow?.SetRebindingState(target, false);
                 RefreshAllBindings();
@@ -341,6 +416,7 @@ public class InputSettingsPanelController : MonoBehaviour
             },
             onConflict: conflict =>
             {
+                _suppressGamepadActionsThroughFrame = Time.frameCount;
                 _activeRow?.SetRebindingState(target, false);
                 HideRebindOverlay();
                 RefreshAllBindings();
@@ -422,10 +498,18 @@ public class InputSettingsPanelController : MonoBehaviour
     {
         if (!_isVisible) return;
 
+        _gamepadNavigationActive = Gamepad.current != null;
+        ApplyGamepadNavigationClass();
         RefreshInputHints();
         if ((_showGamepadTab && deviceType == InputDeviceType.Gamepad)
             || (!_showGamepadTab && deviceType == InputDeviceType.KeyboardMouse))
             RefreshAllBindings();
+    }
+
+    private void ApplyGamepadNavigationClass()
+    {
+        bool focusFramesEnabled = PlayerPrefs.GetInt("UI.GamepadFocusVisible", 1) != 0;
+        _panelOverlay?.EnableInClassList("gamepad-navigation", _gamepadNavigationActive && focusFramesEnabled);
     }
 
     private void RefreshAllBindings()
@@ -506,13 +590,15 @@ public class InputSettingsPanelController : MonoBehaviour
         if (_rebindPrompt != null)
             _rebindPrompt.text = $"Press any {deviceLabel} for '{actionName}'\n{cancelHint}";
 
-        _rebindOverlay.RemoveFromClassList("hidden");
+        SetModalVisible(_conflictOverlay, false);
+        SetModalVisible(_rebindOverlay, true);
+        _focusedElement = _btnCancelRebind;
         _root.schedule.Execute(() => _btnCancelRebind?.Focus()).ExecuteLater(50);
     }
 
     private void HideRebindOverlay()
     {
-        _rebindOverlay?.AddToClassList("hidden");
+        SetModalVisible(_rebindOverlay, false);
     }
 
     private void ShowConflictOverlay(InputRebindConflict conflict)
@@ -526,13 +612,23 @@ public class InputSettingsPanelController : MonoBehaviour
                 $"Swap it with '{conflict.ActionName}'?";
         }
 
-        _conflictOverlay.RemoveFromClassList("hidden");
+        SetModalVisible(_rebindOverlay, false);
+        SetModalVisible(_conflictOverlay, true);
+        _focusedElement = _btnConfirmConflict;
         _root.schedule.Execute(() => _btnConfirmConflict?.Focus()).ExecuteLater(50);
     }
 
     private void HideConflictOverlay()
     {
-        _conflictOverlay?.AddToClassList("hidden");
+        SetModalVisible(_conflictOverlay, false);
+    }
+
+    private static void SetModalVisible(VisualElement modal, bool visible)
+    {
+        if (modal == null) return;
+        modal.EnableInClassList("hidden", !visible);
+        modal.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        modal.pickingMode = visible ? PickingMode.Position : PickingMode.Ignore;
     }
 
     private void OnNavigationCancel()
@@ -561,8 +657,7 @@ public class InputSettingsPanelController : MonoBehaviour
 
     private static bool IsCurrentDeviceGamepad()
     {
-        return InputDeviceDetector.Instance != null
-            && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
+        return Gamepad.current != null;
     }
 
     private void SetPlayerInputLocked(bool locked)

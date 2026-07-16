@@ -301,6 +301,16 @@
     color: rgb(9, 65, 49);
 }
 
+.gamepad-navigation .mode-button:focus,
+.gamepad-navigation .pad-binding:focus,
+.gamepad-navigation .rebind-button:focus,
+.gamepad-navigation .action-button:focus,
+.gamepad-navigation .sensitivity-slider:focus {
+    border-width: 4px;
+    border-color: rgb(255, 255, 255);
+    background-color: rgba(235, 242, 224, 0.22);
+}
+
 .reset-button {
     color: rgb(255, 249, 218);
     background-color: rgb(207, 94, 70);
