@@ -69,63 +69,10 @@
     -unity-font-style: bold;
 }
 
-.device-mode-section {
-    width: 680px;
-    align-self: center;
-    margin-bottom: 12px;
-}
-
-.section-label {
-    color: rgb(91, 224, 229);
-    font-size: 14px;
-    -unity-font-style: bold;
-    letter-spacing: 2px;
-    -unity-text-align: middle-center;
-    margin-bottom: 4px;
-}
-
-.tab-switch-hint {
-    color: var(--er-muted);
-    font-size: 13px;
-    -unity-text-align: middle-center;
-    margin-bottom: 6px;
-}
-
-.device-mode-buttons {
-    flex-direction: row;
-    height: 46px;
-    padding: 3px;
-    background-color: rgba(3, 37, 36, 0.78);
-    border-radius: 23px;
-}
-
-.mode-button {
-    flex-grow: 1;
-    height: 40px;
-    margin: 0 3px;
-    background-color: rgba(0, 0, 0, 0);
-    color: var(--er-muted);
-    border-width: 0;
-    border-radius: 20px;
-    font-size: 14px;
-    -unity-font-style: bold;
-}
-
-.mode-button:hover,
-.mode-button:focus,
-.mode-active {
-    color: var(--er-text);
-    background-color: var(--er-highlight);
-    border-color: var(--er-highlight-border);
-}
-
-.mode-active {
-    color: rgb(13, 75, 57);
-    background-color: rgb(255, 202, 64);
-}
-
 .gamepad-map {
     height: 310px;
+    min-height: 310px;
+    flex-shrink: 0;
     margin-bottom: 10px;
     align-items: center;
     justify-content: center;
@@ -135,12 +82,14 @@
 .gamepad-diagram {
     width: 920px;
     height: 300px;
+    min-height: 300px;
+    flex-shrink: 0;
     align-self: center;
     position: relative;
     overflow: hidden;
-    background-color: rgba(3, 42, 39, 0.72);
+    background-color: rgb(224, 250, 225);
     border-width: 2px;
-    border-color: rgba(92, 225, 167, 0.45);
+    border-color: rgba(59, 211, 132, 0.72);
     border-radius: 18px;
 }
 
@@ -150,6 +99,7 @@
     top: 0px;
     width: 432px;
     height: 300px;
+    flex-shrink: 0;
     background-image: url("xbox.png");
     -unity-background-scale-mode: scale-to-fit;
 }
