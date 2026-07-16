@@ -452,6 +452,7 @@ namespace Networking.LobbySystem
             var allocation = await RelayService.Instance.CreateAllocationAsync(Constants.Gameplay.MAX_RELAY_PLAYERS - 1);
             string relayCode = await RelayService.Instance.GetJoinCodeAsync(allocation.AllocationId);
             transport.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, "dtls"));
+            VivoxManager.Instance?.SetChannelName(relayCode);
             if (!manager.StartHost()) throw new InvalidOperationException("NetworkManager failed to start the host.");
             return relayCode;
         }
@@ -474,6 +475,7 @@ namespace Networking.LobbySystem
             {
                 var allocation = await RelayService.Instance.JoinAllocationAsync(relayData.Value);
                 transport.SetRelayServerData(AllocationUtils.ToRelayServerData(allocation, "dtls"));
+                VivoxManager.Instance?.SetChannelName(relayData.Value);
                 if (!manager.StartClient()) throw new InvalidOperationException("NetworkManager failed to start the client.");
             }
             finally

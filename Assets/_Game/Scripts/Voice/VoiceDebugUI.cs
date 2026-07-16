@@ -67,7 +67,7 @@ public class VoiceDebugUI : MonoBehaviour
         string muteStatus = isMuted ? "<color=red>MUTED</color>" : "<color=green>UNMUTED</color>";
 
         if (_statusText != null) 
-            _statusText.text = $"Status: {status}\nChannel: {channel}\nMic: {muteStatus}\nKey: [V] Debug, [H] Mute";
+            _statusText.text = $"Status: {status}\nChannel: {channel}\nMic: {muteStatus}\nKey: [V] Debug, [K] Mute";
     }
 
     private void UpdateEnergy()

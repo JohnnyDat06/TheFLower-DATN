@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
+using Unity.Netcode;
 using Unity.Services.Authentication;
 using Unity.Services.Core;
 using Unity.Services.Vivox;
@@ -41,10 +41,22 @@ public class VivoxManager : MonoBehaviour
     private string _joinedChannelName;
     private Task _initializeTask;
     private Task _loginTask;
+    private bool _sessionOperationInProgress;
+    private bool _wasNetworkListening;
+    private bool _joinedChannelIsPositional;
+    private float _nextPositionUpdate;
 
     public bool IsLoggedIn => _isLoggedIn;
+    public bool IsCurrentChannelPositional => _joinedChannelIsPositional;
     public string JoinedChannelName => _joinedChannelName;
     public string DefaultChannelName => _channelName;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void Install()
+    {
+        if (FindFirstObjectByType<VivoxManager>() != null) return;
+        new GameObject("VivoxManager").AddComponent<VivoxManager>();
+    }
 
     public void SetChannelName(string newName)
     {
@@ -86,6 +98,105 @@ public class VivoxManager : MonoBehaviour
         if (_autoLogin)
         {
             await InitializeAsync();
+        }
+    }
+
+    private void Update()
+    {
+        NetworkManager networkManager = NetworkManager.Singleton;
+        bool networkListening = networkManager != null && networkManager.IsListening;
+
+        if (networkListening)
+        {
+            if (HasRoomChannel() &&
+                (_joinedChannelName != _channelName || _joinedChannelIsPositional) &&
+                !_sessionOperationInProgress)
+                _ = ConnectToRoomVoiceAsync();
+
+            if (_joinedChannelIsPositional && !string.IsNullOrEmpty(_joinedChannelName) && Time.unscaledTime >= _nextPositionUpdate)
+            {
+                _nextPositionUpdate = Time.unscaledTime + 0.1f;
+                UpdateLocal3DPosition(networkManager);
+            }
+        }
+        else if (_wasNetworkListening && !string.IsNullOrEmpty(_joinedChannelName) && !_sessionOperationInProgress)
+        {
+            _ = DisconnectFromRoomVoiceAsync();
+        }
+
+        _wasNetworkListening = networkListening;
+    }
+
+    private bool HasRoomChannel()
+    {
+        return !string.IsNullOrWhiteSpace(_channelName) &&
+               !string.Equals(_channelName, "MainLobby", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task ConnectToRoomVoiceAsync()
+    {
+        _sessionOperationInProgress = true;
+        try
+        {
+            string displayName = PlayerPrefs.GetString(Constants.PlayerPrefsKeys.PLAYER_NAME, "Traveler");
+            await LoginAsync(displayName);
+
+            NetworkManager networkManager = NetworkManager.Singleton;
+            if (!_isLoggedIn || networkManager == null || !networkManager.IsListening || !HasRoomChannel()) return;
+
+            string requestedChannel = _channelName;
+            await JoinChannelAsync(requestedChannel, false);
+
+            networkManager = NetworkManager.Singleton;
+            if (networkManager == null || !networkManager.IsListening)
+                await LeaveChannelAsync();
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"[VivoxManager] Room voice connection failed: {exception.Message}");
+        }
+        finally
+        {
+            _sessionOperationInProgress = false;
+        }
+    }
+
+    private async Task DisconnectFromRoomVoiceAsync()
+    {
+        _sessionOperationInProgress = true;
+        try
+        {
+            await LeaveChannelAsync();
+        }
+        finally
+        {
+            _sessionOperationInProgress = false;
+        }
+    }
+
+    private void UpdateLocal3DPosition(NetworkManager networkManager)
+    {
+        if (!_isLoggedIn || string.IsNullOrEmpty(_joinedChannelName)) return;
+
+        NetworkObject playerObject = networkManager.LocalClient?.PlayerObject;
+        Transform playerTransform = playerObject != null ? playerObject.transform : null;
+        if (playerTransform == null) return;
+
+        Transform listener = Camera.main != null ? Camera.main.transform : playerTransform;
+        Vector3 speakerPosition = playerTransform.position + Vector3.up * 1.5f;
+
+        try
+        {
+            VivoxService.Instance.Set3DPosition(
+                speakerPosition,
+                listener.position,
+                listener.forward,
+                listener.up,
+                _joinedChannelName);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning($"[VivoxManager] Could not update voice position: {exception.Message}");
         }
     }
 
@@ -265,7 +376,7 @@ public class VivoxManager : MonoBehaviour
             _isLoggedIn = true;
             
             ApplyVolumeSettings();
-            VivoxService.Instance.UnmuteInputDevice();
+            SetMicrophoneMute(VoiceInputController.IsMutedByUser);
             
             Debug.Log($"[VivoxManager] Logged in successfully to Vivox as {playerId}.");
         }
@@ -291,13 +402,14 @@ public class VivoxManager : MonoBehaviour
         }
 
         // Nếu đang ở trong một channel khác, hãy thoát ra trước
-        if (!string.IsNullOrEmpty(_joinedChannelName) && _joinedChannelName != channelName)
+        if (!string.IsNullOrEmpty(_joinedChannelName) &&
+            (_joinedChannelName != channelName || _joinedChannelIsPositional != isPositional))
         {
             Debug.Log($"[VivoxManager] Leaving current channel {_joinedChannelName} to join {channelName}");
             await LeaveChannelAsync();
         }
 
-        if (_joinedChannelName == channelName)
+        if (_joinedChannelName == channelName && _joinedChannelIsPositional == isPositional)
         {
             Debug.Log($"[VivoxManager] Already in channel: {channelName}");
             return;
@@ -317,12 +429,14 @@ public class VivoxManager : MonoBehaviour
             }
 
             _joinedChannelName = channelName;
+            _joinedChannelIsPositional = isPositional;
             Debug.Log($"[VivoxManager] Successfully joined channel: {channelName}");
         }
         catch (Exception e)
         {
             Debug.LogError($"[VivoxManager] Join channel failed: {e.Message}");
             _joinedChannelName = null;
+            _joinedChannelIsPositional = false;
         }
     }
 
@@ -335,6 +449,7 @@ public class VivoxManager : MonoBehaviour
             await VivoxService.Instance.LeaveChannelAsync(_joinedChannelName);
             Debug.Log($"[VivoxManager] Left channel: {_joinedChannelName}");
             _joinedChannelName = null;
+            _joinedChannelIsPositional = false;
         }
         catch (Exception e)
         {
