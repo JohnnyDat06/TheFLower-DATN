@@ -69,6 +69,41 @@
     -unity-font-style: bold;
 }
 
+.device-mode-buttons {
+    width: 560px;
+    height: 40px;
+    align-self: center;
+    flex-direction: row;
+    padding: 2px;
+    margin-bottom: 10px;
+    background-color: rgba(3, 37, 36, 0.78);
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+
+.mode-button {
+    flex-grow: 1;
+    height: 36px;
+    margin: 0 2px;
+    background-color: rgba(0, 0, 0, 0);
+    color: var(--er-muted);
+    border-width: 0;
+    border-radius: 18px;
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.mode-button:hover,
+.mode-button:focus {
+    color: var(--er-text);
+    background-color: var(--er-highlight);
+}
+
+.mode-active {
+    color: rgb(13, 75, 57);
+    background-color: rgb(255, 202, 64);
+}
+
 .gamepad-map {
     height: 310px;
     min-height: 310px;

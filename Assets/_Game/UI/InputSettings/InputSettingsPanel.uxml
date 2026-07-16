@@ -7,6 +7,11 @@
                 <ui:Label name="title" text="Key Bindings" class="title" />
             </ui:VisualElement>
 
+            <ui:VisualElement name="device-mode-buttons" class="device-mode-buttons">
+                <ui:Button name="btn-mode-keyboard" text="Keyboard / Mouse" class="mode-button mode-active" focusable="true" tabindex="1" />
+                <ui:Button name="btn-mode-gamepad" text="Gamepad" class="mode-button" focusable="true" tabindex="2" />
+            </ui:VisualElement>
+
             <ui:VisualElement name="gamepad-map" class="gamepad-map hidden">
                 <ui:VisualElement class="gamepad-diagram">
                     <ui:VisualElement class="gamepad-image" />
