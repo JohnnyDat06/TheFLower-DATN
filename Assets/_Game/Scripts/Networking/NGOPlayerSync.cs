@@ -26,6 +26,7 @@ public class NGOPlayerSync : NetworkBehaviour
 
     private bool _isTeleporting; 
     private bool _isFrozenBySystem = true; // Trạng thái đóng băng hệ thống khi đổi màn
+    private Coroutine _readyReportRoutine;
 
     public bool IsTeleporting => _isTeleporting || _isFrozenBySystem;
 
@@ -60,18 +61,39 @@ public class NGOPlayerSync : NetworkBehaviour
         // Nếu là Owner, hãy báo cáo cho Server ngay khi Spawn
         if (IsOwner && !IsTestMode())
         {
-            StartCoroutine(DelayedInitialReport());
+            BeginReadyReporting();
         }
     }
 
-    private IEnumerator DelayedInitialReport()
+    private void BeginReadyReporting()
     {
-        yield return new WaitForSeconds(0.1f);
-        ReportReadyToServerRpc();
+        if (_readyReportRoutine != null || !IsSpawned || !IsOwner || IsTestMode()) return;
+        _readyReportRoutine = StartCoroutine(ReadyReportRoutine());
+    }
+
+    private IEnumerator ReadyReportRoutine()
+    {
+        yield return new WaitForEndOfFrame();
+
+        while (IsSpawned && IsOwner && _isFrozenBySystem)
+        {
+            ReportReadyToServerRpc();
+            yield return new WaitForSecondsRealtime(1f);
+        }
+
+        _readyReportRoutine = null;
+    }
+
+    private void StopReadyReporting()
+    {
+        if (_readyReportRoutine == null) return;
+        StopCoroutine(_readyReportRoutine);
+        _readyReportRoutine = null;
     }
 
     public override void OnNetworkDespawn()
     {
+        StopReadyReporting();
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null)
         {
             NetworkManager.Singleton.SceneManager.OnLoadComplete -= HandleSceneLoaded;
@@ -90,7 +112,7 @@ public class NGOPlayerSync : NetworkBehaviour
         // Báo cho Server biết tôi đã nạp xong Map
         if (IsOwner && !IsTestMode())
         {
-            ReportReadyToServerRpc();
+            BeginReadyReporting();
         }
     }
 
@@ -125,6 +147,7 @@ public class NGOPlayerSync : NetworkBehaviour
     {
         Debug.Log($"[NGOPlayerSync] System Released Player {OwnerClientId}. Game starts now!");
         _isFrozenBySystem = false;
+        StopReadyReporting();
         ApplyAuthorityState();
     }
 
