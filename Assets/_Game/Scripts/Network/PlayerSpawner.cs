@@ -44,6 +44,7 @@ namespace Game.Network
         public override void OnNetworkSpawn()
         {
             if (!IsServer) return;
+            NetworkManager.OnClientDisconnectCallback += HandleClientDisconnected;
             Debug.Log($"[PlayerSpawner] OnNetworkSpawn called on Server. Connected clients count: {NetworkManager.Singleton.ConnectedClientsList.Count}");
             _readyPlayers.Clear();
             _spawnedPlayers.Clear();
@@ -64,12 +65,18 @@ namespace Game.Network
 
             Debug.Log($"[PlayerSpawner] OnNetworkSpawn initial ready players count: {_readyPlayers.Count}");
 
-            // Kiểm tra xem đã đủ tất cả người chơi trong session hiện tại chưa
-            if (_readyPlayers.Count >= NetworkManager.Singleton.ConnectedClientsList.Count)
+            TryStartSynchronizedSpawn();
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            if (NetworkManager != null)
             {
-                Debug.Log("[PlayerSpawner] All players ready during OnNetworkSpawn, launching ExecuteSynchronizedSpawn.");
-                StartCoroutine(ExecuteSynchronizedSpawn());
+                NetworkManager.OnClientDisconnectCallback -= HandleClientDisconnected;
             }
+
+            if (Instance == this) Instance = null;
+            base.OnNetworkDespawn();
         }
 
         /// <summary>
@@ -82,11 +89,33 @@ namespace Game.Network
             Debug.Log($"[PlayerSpawner] Player {clientId} reported READY.");
             _readyPlayers.Add(clientId);
 
-            // Kiểm tra xem đã đủ tất cả người chơi trong session hiện tại chưa
-            if (_readyPlayers.Count >= NetworkManager.Singleton.ConnectedClientsList.Count)
+            TryStartSynchronizedSpawn();
+        }
+
+        private void HandleClientDisconnected(ulong clientId)
+        {
+            if (!IsServer || _isSpawningFinished) return;
+
+            _readyPlayers.Remove(clientId);
+            _spawnedPlayers.Remove(clientId);
+            Debug.Log($"[PlayerSpawner] Client {clientId} disconnected while loading. Rechecking barrier.");
+            TryStartSynchronizedSpawn();
+        }
+
+        private void TryStartSynchronizedSpawn()
+        {
+            if (!IsServer || _isSpawningFinished || NetworkManager == null) return;
+
+            var connectedIds = NetworkManager.ConnectedClientsIds;
+            if (connectedIds.Count == 0) return;
+
+            foreach (ulong id in connectedIds)
             {
-                StartCoroutine(ExecuteSynchronizedSpawn());
+                if (!_readyPlayers.Contains(id)) return;
             }
+
+            Debug.Log("[PlayerSpawner] Every connected client is ready. Starting synchronized spawn.");
+            StartCoroutine(ExecuteSynchronizedSpawn());
         }
 
         private System.Collections.IEnumerator ExecuteSynchronizedSpawn()
@@ -94,8 +123,15 @@ namespace Game.Network
             _isSpawningFinished = true;
             Debug.Log("<color=green>[PlayerSpawner] ALL PLAYERS READY. Executing synchronized teleport...</color>");
 
+            if (spawnPoints == null || spawnPoints.Length == 0)
+            {
+                Debug.LogError("[PlayerSpawner] No spawn points configured. Releasing loading overlay without teleporting.");
+                ReleasePlayersAndLoadingOverlay(new List<ulong>(NetworkManager.ConnectedClientsIds));
+                yield break;
+            }
+
             // 1. Sắp xếp danh sách người chơi để gán spawn point cố định
-            var clientIds = new List<ulong>(_readyPlayers);
+            var clientIds = new List<ulong>(NetworkManager.ConnectedClientsIds);
             clientIds.Sort();
 
             // 2. Thực hiện Teleport cho từng người
@@ -122,6 +158,11 @@ namespace Game.Network
             // 3. Đợi vài frame để đảm bảo lệnh Teleport đã tới Client và Physics đã ổn định
             yield return new WaitForSeconds(0.5f);
 
+            ReleasePlayersAndLoadingOverlay(clientIds);
+        }
+
+        private void ReleasePlayersAndLoadingOverlay(List<ulong> clientIds)
+        {
             // 4. Kiểm tra xem có TrailerManager không, nếu có thì kích hoạt Trailer
             if (Game.Core.TrailerManager.Instance != null)
             {
