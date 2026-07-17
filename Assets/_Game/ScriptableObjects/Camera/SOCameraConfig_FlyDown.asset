@@ -15,7 +15,7 @@ MonoBehaviour:
   BlendTime: 0.5
   BlendStyle: 1
   ArmLength: 5
-  MinPitch: -30
+  MinPitch: -60
   MaxPitch: 60
   BodyDamping: 0.5
   AimDamping: 0.3
