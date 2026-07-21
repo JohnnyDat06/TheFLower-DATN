@@ -143,6 +143,8 @@ namespace Game.UI.LobbyAuto
             _usingGamepad = Gamepad.current != null;
             _lastNavigationWasGamepad = _usingGamepad;
             _showGamepadFocusFrames = PlayerPrefs.GetInt(GamepadFocusVisiblePref, 1) != 0;
+            GameObject staticPreview = GameObject.Find("LobbyBackground_StaticPreview");
+            if (staticPreview != null) staticPreview.SetActive(false);
             BuildInterface();
             StartLobbyMusic();
             ShowLanding();

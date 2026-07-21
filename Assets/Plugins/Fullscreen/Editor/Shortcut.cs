@@ -31,8 +31,9 @@ namespace FullscreenEditor {
         [DynamicMenuItem(true)] public const string FULLSCREEN_ON_PLAY_PATH = "Fullscreen/Fullscreen On Play ";
         [DynamicMenuItem(true)] public const string PREFERENCES_PATH = "Fullscreen/Preferences... ";
         [DynamicMenuItem(false)] public const string CURRENT_VIEW_PATH = "Fullscreen/Focused View _F9";
-        [DynamicMenuItem(false)] public const string GAME_VIEW_PATH = "Fullscreen/Game View _F10";
-        [DynamicMenuItem(false)] public const string SCENE_VIEW_PATH = "Fullscreen/Scene View _F11";
+        // Keep F11 on the playable Game View. The original binding sent F11 to Scene View.
+        [DynamicMenuItem(false)] public const string GAME_VIEW_PATH = "Fullscreen/Game View _F11";
+        [DynamicMenuItem(false)] public const string SCENE_VIEW_PATH = "Fullscreen/Scene View ";
         [DynamicMenuItem(false)] public const string MAIN_VIEW_PATH = "Fullscreen/Main View _F12";
         [DynamicMenuItem(false)] public const string MOSAIC_PATH = "Fullscreen/Mosaic %F10";
         [DynamicMenuItem(true)] public const string CLOSE_ALL_FULLSCREEN = "Fullscreen/Close All %F12";
