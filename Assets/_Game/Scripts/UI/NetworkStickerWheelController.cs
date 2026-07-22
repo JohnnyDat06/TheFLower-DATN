@@ -53,6 +53,7 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
     private bool _isOpen;
     private int _selectedIndex = NoSelection;
     private int _currentSetIndex;
+    private PlayerInputHandler _inputHandler;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Install()
@@ -83,13 +84,26 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
             return;
         }
 
+        ResolveInputHandler();
         Keyboard keyboard = Keyboard.current;
-        if (keyboard == null) return;
+        bool keyboardHeld = keyboard != null && keyboard.gKey.isPressed;
+        bool stickerBindingHeld = _inputHandler != null && _inputHandler.IsOwner
+            ? _inputHandler.StickerWheelHeld
+            : keyboardHeld;
 
         if (_isOpen)
         {
+            if (WasStickerCancelPressed())
+            {
+                SetWheelOpen(false);
+                return;
+            }
+
+            if (WasPreviousSetPressed()) ChangeStickerSet(-1);
+            else if (WasNextSetPressed()) ChangeStickerSet(1);
+
             UpdateSelection();
-            if (keyboard.gKey.wasReleasedThisFrame)
+            if (!stickerBindingHeld)
             {
                 ApplySelection();
                 SetWheelOpen(false);
@@ -97,8 +111,35 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
             return;
         }
 
-        if (!keyboard.gKey.wasPressedThisFrame || IsAnotherTextFieldSelected()) return;
+        bool stickerPressed = _inputHandler != null && _inputHandler.IsOwner
+            ? _inputHandler.StickerWheelHeld
+            : keyboard != null && keyboard.gKey.wasPressedThisFrame;
+        if (!stickerPressed || IsAnotherTextFieldSelected()) return;
         if (CanUseStickerWheel()) SetWheelOpen(true);
+    }
+
+    private bool WasStickerCancelPressed()
+    {
+        if (_inputHandler != null && _inputHandler.IsOwner)
+            return _inputHandler.StickerCancelPressed;
+
+        return Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame;
+    }
+
+    private bool WasPreviousSetPressed()
+    {
+        if (_inputHandler != null && _inputHandler.IsOwner)
+            return _inputHandler.StickerPreviousSetPressed;
+
+        return Gamepad.current != null && Gamepad.current.dpad.left.wasPressedThisFrame;
+    }
+
+    private bool WasNextSetPressed()
+    {
+        if (_inputHandler != null && _inputHandler.IsOwner)
+            return _inputHandler.StickerNextSetPressed;
+
+        return Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame;
     }
 
     private void OnDestroy()
@@ -113,6 +154,8 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
         if (sceneName.Contains("Lobby", System.StringComparison.OrdinalIgnoreCase) ||
             sceneName.Contains("Menu", System.StringComparison.OrdinalIgnoreCase))
             return false;
+
+        if (UICursorLockService.HasOtherOwner(this)) return false;
 
         NetworkManager networkManager = NetworkManager.Singleton;
         return networkManager != null && networkManager.IsListening &&
@@ -135,17 +178,32 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
         if (open)
         {
             LockGameplayInput();
+            CameraManager.Instance?.SetGameplayCameraLocked(true);
             UICursorLockService.Request(this);
         }
         else
         {
             UnlockGameplayInput();
+            CameraManager.Instance?.SetGameplayCameraLocked(false);
             UICursorLockService.Release(this);
         }
     }
 
     private void UpdateSelection()
     {
+        ResolveInputHandler();
+        Vector2 stick = _inputHandler != null && _inputHandler.IsOwner
+            ? _inputHandler.StickerNavigateInput
+            : Gamepad.current != null ? Gamepad.current.rightStick.ReadValue() : Vector2.zero;
+        if (stick.sqrMagnitude >= 0.16f)
+        {
+            float angle = Mathf.Atan2(stick.y, stick.x) * Mathf.Rad2Deg;
+            int index = Mathf.RoundToInt((90f - angle) / 45f);
+            _selectedIndex = (index + 8) % 8;
+            UpdateHighlights();
+            return;
+        }
+
         if (Mouse.current == null) return;
         Vector2 pointer = Mouse.current.position.ReadValue();
         int closestIndex = NoSelection;
@@ -375,6 +433,20 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
         _lockedInputs.Clear();
     }
 
+    private void ResolveInputHandler()
+    {
+        if (_inputHandler != null && _inputHandler.IsSpawned && _inputHandler.IsOwner) return;
+
+        foreach (PlayerInputHandler handler in FindObjectsByType<PlayerInputHandler>(FindObjectsSortMode.None))
+        {
+            if (!handler.IsOwner) continue;
+            _inputHandler = handler;
+            return;
+        }
+
+        _inputHandler = null;
+    }
+
     private void LoadSprites()
     {
         _spriteSets = new Sprite[StickerSets.Length][];
@@ -462,7 +534,7 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
         _cancelImage.sprite = circleSprite;
         _cancelImage.color = new Color(0.025f, 0.20f, 0.16f, 0.98f);
 
-        TMP_Text key = CreateText(_cancelRect, "G", 52f, Color.white);
+        TMP_Text key = CreateText(_cancelRect, "G / LB", 34f, Color.white);
         key.fontStyle = FontStyles.Bold;
         key.rectTransform.anchorMin = Vector2.zero;
         key.rectTransform.anchorMax = Vector2.one;

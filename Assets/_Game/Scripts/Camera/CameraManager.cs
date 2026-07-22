@@ -370,12 +370,12 @@ public class CameraManager : MonoBehaviour
     {
         Cursor.lockState = CursorLockMode.Confined;
         Cursor.visible = true;
-        SetMenuCameraLock(true);
+        SetGameplayCameraLocked(true);
     }
 
     private void HandleGameResumed()
     {
-        SetMenuCameraLock(false);
+        SetGameplayCameraLocked(false);
         if (ShouldLockCameraLook(_currentPreset)) return;
 
         Cursor.lockState = CursorLockMode.Locked;
@@ -387,7 +387,7 @@ public class CameraManager : MonoBehaviour
     /// Blocks Cinemachine axis input while a gameplay menu is open. PlayerInputHandler
     /// alone cannot stop CinemachineInputAxisController from consuming device input.
     /// </summary>
-    private void SetMenuCameraLock(bool locked)
+    public void SetGameplayCameraLocked(bool locked)
     {
         ResolvePlayerInputIfNeeded();
         _menuCameraLocked = locked;

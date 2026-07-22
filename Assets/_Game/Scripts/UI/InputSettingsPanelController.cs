@@ -374,7 +374,8 @@ public class InputSettingsPanelController : MonoBehaviour
         if (_rebindService == null || _rebindList == null) return;
 
         var targets = _showGamepadTab ? GamepadTargets : KeyboardMouseTargets;
-        var actionNames = _rebindService.GetRebindableActionNames();
+        var target = _showGamepadTab ? InputBindingTarget.Gamepad : InputBindingTarget.Keyboard;
+        var actionNames = _rebindService.GetRebindableActionNames(target);
         for (int i = 0; i < actionNames.Count; i++)
         {
             _rows.Add(new RebindRowController(

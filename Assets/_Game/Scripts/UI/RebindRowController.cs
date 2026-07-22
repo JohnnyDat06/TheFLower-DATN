@@ -161,6 +161,13 @@ public class RebindRowController
         "Interact" => "Event Action",
         "Attack" => "Attack",
         "Sprint" => "Sprint / Guard",
+        "Chat" => "Open Chat",
+        "VoiceMute" => "Toggle Microphone",
+        "StickerWheel" => "Sticker Wheel",
+        "StickerNavigate" => "Select Sticker",
+        "StickerPreviousSet" => "Previous Sticker Set",
+        "StickerNextSet" => "Next Sticker Set",
+        "StickerCancel" => "Cancel Sticker Wheel",
         _ => actionName
     };
 }
