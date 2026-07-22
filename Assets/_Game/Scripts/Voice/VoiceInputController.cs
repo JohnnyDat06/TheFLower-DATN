@@ -5,6 +5,7 @@ public class VoiceInputController : MonoBehaviour
 {
     private const string MicMutedPreferenceKey = "Vivox.MicMuted";
     private static VoiceInputController _instance;
+    private PlayerInputHandler _inputHandler;
 
     public static bool IsMutedByUser { get; private set; }
 
@@ -35,7 +36,12 @@ public class VoiceInputController : MonoBehaviour
 
     private void Update()
     {
-        if (Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame)
+        ResolveInputHandler();
+        bool pressed = _inputHandler != null && _inputHandler.IsOwner
+            ? _inputHandler.VoiceMutePressed
+            : Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame;
+
+        if (pressed)
         {
             IsMutedByUser = !IsMutedByUser;
             PlayerPrefs.SetInt(MicMutedPreferenceKey, IsMutedByUser ? 1 : 0);
@@ -46,5 +52,19 @@ public class VoiceInputController : MonoBehaviour
 
             Debug.Log($"[VoiceInputController] Microphone requested: {(IsMutedByUser ? "OFF" : "ON")}");
         }
+    }
+
+    private void ResolveInputHandler()
+    {
+        if (_inputHandler != null && _inputHandler.IsSpawned && _inputHandler.IsOwner) return;
+
+        foreach (PlayerInputHandler handler in FindObjectsByType<PlayerInputHandler>(FindObjectsSortMode.None))
+        {
+            if (!handler.IsOwner) continue;
+            _inputHandler = handler;
+            return;
+        }
+
+        _inputHandler = null;
     }
 }

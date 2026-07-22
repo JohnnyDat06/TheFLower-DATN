@@ -28,6 +28,10 @@ public class PlayerInputHandler : NetworkBehaviour
     private InputAction _cameraLookAction;
     private InputAction _dashAction;
     private InputAction _attackAction;
+    private InputAction _chatAction;
+    private InputAction _voiceMuteAction;
+    private InputAction _stickerWheelAction;
+    private InputAction _stickerNavigateAction;
 
     private bool  _inputLocked;
     private float _jumpBufferTimer;
@@ -66,6 +70,18 @@ public class PlayerInputHandler : NetworkBehaviour
 
     /// <summary>Attack pressed this frame.</summary>
     public bool AttackPressed { get; private set; }
+
+    /// <summary>True for one frame when the chat shortcut is pressed.</summary>
+    public bool ChatPressed { get; private set; }
+
+    /// <summary>True for one frame when the voice mute shortcut is pressed.</summary>
+    public bool VoiceMutePressed { get; private set; }
+
+    /// <summary>True while the sticker wheel binding is held.</summary>
+    public bool StickerWheelHeld { get; private set; }
+
+    /// <summary>Raw stick direction used to select a sticker while the wheel is open.</summary>
+    public Vector2 StickerNavigateInput { get; private set; }
 
     // ─── Camera Properties ───────────────────────────────────────────────────
 
@@ -111,6 +127,10 @@ public class PlayerInputHandler : NetworkBehaviour
         _cameraLookAction = playerMap.FindAction("CameraLook");
         _dashAction       = playerMap.FindAction("Dash");
         _attackAction     = playerMap.FindAction("Attack");
+        _chatAction       = playerMap.FindAction("Chat");
+        _voiceMuteAction  = playerMap.FindAction("VoiceMute");
+        _stickerWheelAction = playerMap.FindAction("StickerWheel");
+        _stickerNavigateAction = playerMap.FindAction("StickerNavigate");
     }
 
     public override void OnNetworkSpawn()
@@ -140,9 +160,16 @@ public class PlayerInputHandler : NetworkBehaviour
         if (!IsSpawned || !IsOwner) return;
 
         // CHẶN INPUT TRONG LOBBY
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby") || _inputLocked)
+        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby"))
         {
             ClearAllInput();
+            return;
+        }
+
+        if (_inputLocked)
+        {
+            ReadMenuInput();
+            ClearGameplayInput();
             return;
         }
 
@@ -157,6 +184,8 @@ public class PlayerInputHandler : NetworkBehaviour
         InteractPressed = false;
         PausePressed    = false;
         AttackPressed   = false;
+        ChatPressed     = false;
+        VoiceMutePressed = false;
     }
 
     // ─── Input Reading ───────────────────────────────────────────────────────
@@ -204,6 +233,8 @@ public class PlayerInputHandler : NetworkBehaviour
         if (_attackAction != null && _attackAction.WasPressedThisFrame())
             AttackPressed = true;
 
+        ReadMenuInput();
+
         // Camera — scale gamepad stick input bằng sensitivity multiplier
         var rawLook = _cameraLookAction?.ReadValue<Vector2>() ?? Vector2.zero;
         if (CameraLookEnabled)
@@ -218,7 +249,15 @@ public class PlayerInputHandler : NetworkBehaviour
         }
     }
 
-    private void ClearAllInput()
+    private void ReadMenuInput()
+    {
+        ChatPressed = _chatAction?.WasPressedThisFrame() ?? false;
+        VoiceMutePressed = _voiceMuteAction?.WasPressedThisFrame() ?? false;
+        StickerWheelHeld = _stickerWheelAction?.IsPressed() ?? false;
+        StickerNavigateInput = _stickerNavigateAction?.ReadValue<Vector2>() ?? Vector2.zero;
+    }
+
+    private void ClearGameplayInput()
     {
         MoveInput        = Vector2.zero;
         IsMoving         = false;
@@ -233,6 +272,15 @@ public class PlayerInputHandler : NetworkBehaviour
         PausePressed     = false;
         AttackPressed    = false;
         CameraLookDelta  = Vector2.zero;
+    }
+
+    private void ClearAllInput()
+    {
+        ClearGameplayInput();
+        ChatPressed = false;
+        VoiceMutePressed = false;
+        StickerWheelHeld = false;
+        StickerNavigateInput = Vector2.zero;
     }
 
     // ─── Public Methods ──────────────────────────────────────────────────────

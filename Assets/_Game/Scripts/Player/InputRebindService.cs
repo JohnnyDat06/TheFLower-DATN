@@ -222,6 +222,9 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
     }
 
     public IReadOnlyList<string> GetRebindableActionNames()
+        => GetRebindableActionNames(InputBindingTarget.Keyboard);
+
+    public IReadOnlyList<string> GetRebindableActionNames(InputBindingTarget target)
     {
         var list = new List<string>();
         var playerMap = _inputActions.FindActionMap("Player");
@@ -229,11 +232,24 @@ public class InputRebindService : MonoBehaviour, IInputRebindService
 
         foreach (var action in playerMap)
         {
-            if (!NON_REBINDABLE.Contains(action.name))
+            if (!NON_REBINDABLE.Contains(action.name) && HasBindingForTarget(action, target))
                 list.Add(action.name);
         }
 
         return list;
+    }
+
+    private static bool HasBindingForTarget(InputAction action, InputBindingTarget target)
+    {
+        string group = GetGroupName(target);
+        foreach (var binding in action.bindings)
+        {
+            if (!binding.isComposite && !binding.isPartOfComposite &&
+                !string.IsNullOrEmpty(binding.groups) && binding.groups.Contains(group))
+                return true;
+        }
+
+        return false;
     }
 
     private static void ConfigureTargetFilters(InputActionRebindingExtensions.RebindingOperation rebindBuilder, InputBindingTarget target)

@@ -45,6 +45,7 @@ public sealed class NetworkChatController : MonoBehaviour
     private bool _collapsed;
     private bool _announcedConnection;
     private bool _isTyping;
+    private PlayerInputHandler _inputHandler;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Install()
@@ -76,7 +77,8 @@ public sealed class NetworkChatController : MonoBehaviour
                 AddSystemMessage("Chat connected.");
             }
 
-            HandleKeyboardShortcuts();
+            ResolveInputHandler();
+            HandleInputShortcuts();
         }
         else
         {
@@ -142,14 +144,13 @@ public sealed class NetworkChatController : MonoBehaviour
         _inputField.ActivateInputField();
     }
 
-    private void HandleKeyboardShortcuts()
+    private void HandleInputShortcuts()
     {
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard == null) return;
+        ResolveInputHandler();
 
         if (_isTyping)
         {
-            if (keyboard.escapeKey.wasPressedThisFrame)
+            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 _inputField.SetTextWithoutNotify(string.Empty);
                 SetCollapsed(true);
@@ -158,11 +159,29 @@ public sealed class NetworkChatController : MonoBehaviour
         }
 
         if (IsAnotherTextFieldSelected()) return;
-        if (keyboard.tKey.wasPressedThisFrame || keyboard.slashKey.wasPressedThisFrame)
+        bool chatPressed = _inputHandler != null && _inputHandler.IsOwner
+            ? _inputHandler.ChatPressed
+            : Keyboard.current != null &&
+              (Keyboard.current.tKey.wasPressedThisFrame || Keyboard.current.slashKey.wasPressedThisFrame);
+        if (chatPressed)
         {
             if (_collapsed) StartTyping();
             else SetCollapsed(true);
         }
+    }
+
+    private void ResolveInputHandler()
+    {
+        if (_inputHandler != null && _inputHandler.IsSpawned && _inputHandler.IsOwner) return;
+
+        foreach (PlayerInputHandler handler in FindObjectsByType<PlayerInputHandler>(FindObjectsSortMode.None))
+        {
+            if (!handler.IsOwner) continue;
+            _inputHandler = handler;
+            return;
+        }
+
+        _inputHandler = null;
     }
 
     private bool IsAnotherTextFieldSelected()
