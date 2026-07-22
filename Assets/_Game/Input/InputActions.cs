@@ -172,6 +172,69 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""Chat"",
+                    ""type"": ""Button"",
+                    ""id"": ""0f99f6cf-a9e6-47cf-a0e3-29a254fa27dd"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""VoiceMute"",
+                    ""type"": ""Button"",
+                    ""id"": ""e7acb4c0-e4a4-49f6-bd83-62043f7c70d8"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""StickerWheel"",
+                    ""type"": ""Button"",
+                    ""id"": ""41bcac5b-6e4d-4a9c-bce4-05b419ff0ea8"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""StickerNavigate"",
+                    ""type"": ""Value"",
+                    ""id"": ""f72e75bd-a204-4d16-8ca3-85ef7dc8003e"",
+                    ""expectedControlType"": ""Vector2"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""StickerPreviousSet"",
+                    ""type"": ""Button"",
+                    ""id"": ""0e98bb3c-527c-45cb-bcb8-3563ccf8a1b4"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""StickerNextSet"",
+                    ""type"": ""Button"",
+                    ""id"": ""3c10a85c-30f8-49bf-85df-53ddcf5fb411"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""StickerCancel"",
+                    ""type"": ""Button"",
+                    ""id"": ""b5774ccf-9fcd-4e5e-a7c1-8f92b0c0f9b7"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -471,6 +534,116 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
                     ""action"": ""CameraLook"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a4c0acb7-d6d2-4f74-8da9-e4f0f5481d7b"",
+                    ""path"": ""<Keyboard>/t"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""Chat"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""fbf76923-5f8d-4e9f-ae58-8f6a4698e9bb"",
+                    ""path"": ""<Keyboard>/slash"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""Chat"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a8fe2ec5-1a6e-4e8b-9c41-9e7b3b7b4a64"",
+                    ""path"": ""<Keyboard>/k"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""VoiceMute"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""f4a5b9e1-56a1-4b4a-a1ce-5cc2a0b7284e"",
+                    ""path"": ""<Keyboard>/g"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""StickerWheel"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""c8e59621-3ff3-44f7-b6d8-14a4b3c3fd39"",
+                    ""path"": ""<Gamepad>/leftShoulder"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""StickerWheel"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""9af04f4d-a142-4bb5-87ca-7e3cc65021a8"",
+                    ""path"": ""<Gamepad>/rightStick"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""StickerNavigate"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a8d4cb80-23c5-4c3a-bb22-6e8c881331be"",
+                    ""path"": ""<Gamepad>/rightStickPress"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""VoiceMute"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""ed8dc117-1a05-4f39-afbd-71373ae2c5b3"",
+                    ""path"": ""<Gamepad>/dpad/left"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""StickerPreviousSet"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a51e8189-a7a5-4207-bc2f-d40395cd8e49"",
+                    ""path"": ""<Gamepad>/dpad/right"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""StickerNextSet"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""c4aae1eb-3ea0-4e2d-ae9f-6e523886a258"",
+                    ""path"": ""<Gamepad>/buttonEast"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""StickerCancel"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -516,6 +689,13 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
         m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
         m_Player_Pause = m_Player.FindAction("Pause", throwIfNotFound: true);
         m_Player_CameraLook = m_Player.FindAction("CameraLook", throwIfNotFound: true);
+        m_Player_Chat = m_Player.FindAction("Chat", throwIfNotFound: true);
+        m_Player_VoiceMute = m_Player.FindAction("VoiceMute", throwIfNotFound: true);
+        m_Player_StickerWheel = m_Player.FindAction("StickerWheel", throwIfNotFound: true);
+        m_Player_StickerNavigate = m_Player.FindAction("StickerNavigate", throwIfNotFound: true);
+        m_Player_StickerPreviousSet = m_Player.FindAction("StickerPreviousSet", throwIfNotFound: true);
+        m_Player_StickerNextSet = m_Player.FindAction("StickerNextSet", throwIfNotFound: true);
+        m_Player_StickerCancel = m_Player.FindAction("StickerCancel", throwIfNotFound: true);
     }
 
     ~@InputActions()
@@ -605,6 +785,13 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_Attack;
     private readonly InputAction m_Player_Pause;
     private readonly InputAction m_Player_CameraLook;
+    private readonly InputAction m_Player_Chat;
+    private readonly InputAction m_Player_VoiceMute;
+    private readonly InputAction m_Player_StickerWheel;
+    private readonly InputAction m_Player_StickerNavigate;
+    private readonly InputAction m_Player_StickerPreviousSet;
+    private readonly InputAction m_Player_StickerNextSet;
+    private readonly InputAction m_Player_StickerCancel;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -652,6 +839,34 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Player/CameraLook".
         /// </summary>
         public InputAction @CameraLook => m_Wrapper.m_Player_CameraLook;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/Chat".
+        /// </summary>
+        public InputAction @Chat => m_Wrapper.m_Player_Chat;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/VoiceMute".
+        /// </summary>
+        public InputAction @VoiceMute => m_Wrapper.m_Player_VoiceMute;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/StickerWheel".
+        /// </summary>
+        public InputAction @StickerWheel => m_Wrapper.m_Player_StickerWheel;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/StickerNavigate".
+        /// </summary>
+        public InputAction @StickerNavigate => m_Wrapper.m_Player_StickerNavigate;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/StickerPreviousSet".
+        /// </summary>
+        public InputAction @StickerPreviousSet => m_Wrapper.m_Player_StickerPreviousSet;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/StickerNextSet".
+        /// </summary>
+        public InputAction @StickerNextSet => m_Wrapper.m_Player_StickerNextSet;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/StickerCancel".
+        /// </summary>
+        public InputAction @StickerCancel => m_Wrapper.m_Player_StickerCancel;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -705,6 +920,27 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
             @CameraLook.started += instance.OnCameraLook;
             @CameraLook.performed += instance.OnCameraLook;
             @CameraLook.canceled += instance.OnCameraLook;
+            @Chat.started += instance.OnChat;
+            @Chat.performed += instance.OnChat;
+            @Chat.canceled += instance.OnChat;
+            @VoiceMute.started += instance.OnVoiceMute;
+            @VoiceMute.performed += instance.OnVoiceMute;
+            @VoiceMute.canceled += instance.OnVoiceMute;
+            @StickerWheel.started += instance.OnStickerWheel;
+            @StickerWheel.performed += instance.OnStickerWheel;
+            @StickerWheel.canceled += instance.OnStickerWheel;
+            @StickerNavigate.started += instance.OnStickerNavigate;
+            @StickerNavigate.performed += instance.OnStickerNavigate;
+            @StickerNavigate.canceled += instance.OnStickerNavigate;
+            @StickerPreviousSet.started += instance.OnStickerPreviousSet;
+            @StickerPreviousSet.performed += instance.OnStickerPreviousSet;
+            @StickerPreviousSet.canceled += instance.OnStickerPreviousSet;
+            @StickerNextSet.started += instance.OnStickerNextSet;
+            @StickerNextSet.performed += instance.OnStickerNextSet;
+            @StickerNextSet.canceled += instance.OnStickerNextSet;
+            @StickerCancel.started += instance.OnStickerCancel;
+            @StickerCancel.performed += instance.OnStickerCancel;
+            @StickerCancel.canceled += instance.OnStickerCancel;
         }
 
         /// <summary>
@@ -743,6 +979,27 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
             @CameraLook.started -= instance.OnCameraLook;
             @CameraLook.performed -= instance.OnCameraLook;
             @CameraLook.canceled -= instance.OnCameraLook;
+            @Chat.started -= instance.OnChat;
+            @Chat.performed -= instance.OnChat;
+            @Chat.canceled -= instance.OnChat;
+            @VoiceMute.started -= instance.OnVoiceMute;
+            @VoiceMute.performed -= instance.OnVoiceMute;
+            @VoiceMute.canceled -= instance.OnVoiceMute;
+            @StickerWheel.started -= instance.OnStickerWheel;
+            @StickerWheel.performed -= instance.OnStickerWheel;
+            @StickerWheel.canceled -= instance.OnStickerWheel;
+            @StickerNavigate.started -= instance.OnStickerNavigate;
+            @StickerNavigate.performed -= instance.OnStickerNavigate;
+            @StickerNavigate.canceled -= instance.OnStickerNavigate;
+            @StickerPreviousSet.started -= instance.OnStickerPreviousSet;
+            @StickerPreviousSet.performed -= instance.OnStickerPreviousSet;
+            @StickerPreviousSet.canceled -= instance.OnStickerPreviousSet;
+            @StickerNextSet.started -= instance.OnStickerNextSet;
+            @StickerNextSet.performed -= instance.OnStickerNextSet;
+            @StickerNextSet.canceled -= instance.OnStickerNextSet;
+            @StickerCancel.started -= instance.OnStickerCancel;
+            @StickerCancel.performed -= instance.OnStickerCancel;
+            @StickerCancel.canceled -= instance.OnStickerCancel;
         }
 
         /// <summary>
@@ -872,5 +1129,45 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnCameraLook(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Chat" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnChat(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "VoiceMute" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnVoiceMute(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "StickerWheel" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnStickerWheel(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "StickerNavigate" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnStickerNavigate(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "StickerPreviousSet" changes state.
+        /// </summary>
+        void OnStickerPreviousSet(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "StickerNextSet" changes state.
+        /// </summary>
+        void OnStickerNextSet(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "StickerCancel" changes state.
+        /// </summary>
+        void OnStickerCancel(InputAction.CallbackContext context);
     }
 }

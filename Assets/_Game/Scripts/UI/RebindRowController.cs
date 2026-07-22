@@ -165,6 +165,9 @@ public class RebindRowController
         "VoiceMute" => "Toggle Microphone",
         "StickerWheel" => "Sticker Wheel",
         "StickerNavigate" => "Select Sticker",
+        "StickerPreviousSet" => "Previous Sticker Set",
+        "StickerNextSet" => "Next Sticker Set",
+        "StickerCancel" => "Cancel Sticker Wheel",
         _ => actionName
     };
 }

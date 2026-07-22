@@ -32,6 +32,9 @@ public class PlayerInputHandler : NetworkBehaviour
     private InputAction _voiceMuteAction;
     private InputAction _stickerWheelAction;
     private InputAction _stickerNavigateAction;
+    private InputAction _stickerPreviousSetAction;
+    private InputAction _stickerNextSetAction;
+    private InputAction _stickerCancelAction;
 
     private bool  _inputLocked;
     private float _jumpBufferTimer;
@@ -83,6 +86,17 @@ public class PlayerInputHandler : NetworkBehaviour
     /// <summary>Raw stick direction used to select a sticker while the wheel is open.</summary>
     public Vector2 StickerNavigateInput { get; private set; }
 
+    /// <summary>True for one frame when the previous sticker set is requested.</summary>
+    public bool StickerPreviousSetPressed { get; private set; }
+
+    /// <summary>True for one frame when the next sticker set is requested.</summary>
+    public bool StickerNextSetPressed { get; private set; }
+
+    /// <summary>True for one frame when the sticker wheel is canceled.</summary>
+    public bool StickerCancelPressed { get; private set; }
+
+    public bool IsInputLocked => _inputLocked;
+
     // ─── Camera Properties ───────────────────────────────────────────────────
 
     /// <summary>Mouse delta.</summary>
@@ -131,6 +145,9 @@ public class PlayerInputHandler : NetworkBehaviour
         _voiceMuteAction  = playerMap.FindAction("VoiceMute");
         _stickerWheelAction = playerMap.FindAction("StickerWheel");
         _stickerNavigateAction = playerMap.FindAction("StickerNavigate");
+        _stickerPreviousSetAction = playerMap.FindAction("StickerPreviousSet");
+        _stickerNextSetAction = playerMap.FindAction("StickerNextSet");
+        _stickerCancelAction = playerMap.FindAction("StickerCancel");
     }
 
     public override void OnNetworkSpawn()
@@ -186,6 +203,9 @@ public class PlayerInputHandler : NetworkBehaviour
         AttackPressed   = false;
         ChatPressed     = false;
         VoiceMutePressed = false;
+        StickerPreviousSetPressed = false;
+        StickerNextSetPressed = false;
+        StickerCancelPressed = false;
     }
 
     // ─── Input Reading ───────────────────────────────────────────────────────
@@ -255,6 +275,9 @@ public class PlayerInputHandler : NetworkBehaviour
         VoiceMutePressed = _voiceMuteAction?.WasPressedThisFrame() ?? false;
         StickerWheelHeld = _stickerWheelAction?.IsPressed() ?? false;
         StickerNavigateInput = _stickerNavigateAction?.ReadValue<Vector2>() ?? Vector2.zero;
+        StickerPreviousSetPressed = _stickerPreviousSetAction?.WasPressedThisFrame() ?? false;
+        StickerNextSetPressed = _stickerNextSetAction?.WasPressedThisFrame() ?? false;
+        StickerCancelPressed = _stickerCancelAction?.WasPressedThisFrame() ?? false;
     }
 
     private void ClearGameplayInput()
@@ -281,6 +304,9 @@ public class PlayerInputHandler : NetworkBehaviour
         VoiceMutePressed = false;
         StickerWheelHeld = false;
         StickerNavigateInput = Vector2.zero;
+        StickerPreviousSetPressed = false;
+        StickerNextSetPressed = false;
+        StickerCancelPressed = false;
     }
 
     // ─── Public Methods ──────────────────────────────────────────────────────

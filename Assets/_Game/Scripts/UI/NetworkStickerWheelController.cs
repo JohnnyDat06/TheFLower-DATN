@@ -93,6 +93,15 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
 
         if (_isOpen)
         {
+            if (WasStickerCancelPressed())
+            {
+                SetWheelOpen(false);
+                return;
+            }
+
+            if (WasPreviousSetPressed()) ChangeStickerSet(-1);
+            else if (WasNextSetPressed()) ChangeStickerSet(1);
+
             UpdateSelection();
             if (!stickerBindingHeld)
             {
@@ -109,6 +118,30 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
         if (CanUseStickerWheel()) SetWheelOpen(true);
     }
 
+    private bool WasStickerCancelPressed()
+    {
+        if (_inputHandler != null && _inputHandler.IsOwner)
+            return _inputHandler.StickerCancelPressed;
+
+        return Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame;
+    }
+
+    private bool WasPreviousSetPressed()
+    {
+        if (_inputHandler != null && _inputHandler.IsOwner)
+            return _inputHandler.StickerPreviousSetPressed;
+
+        return Gamepad.current != null && Gamepad.current.dpad.left.wasPressedThisFrame;
+    }
+
+    private bool WasNextSetPressed()
+    {
+        if (_inputHandler != null && _inputHandler.IsOwner)
+            return _inputHandler.StickerNextSetPressed;
+
+        return Gamepad.current != null && Gamepad.current.dpad.right.wasPressedThisFrame;
+    }
+
     private void OnDestroy()
     {
         SetWheelOpen(false);
@@ -121,6 +154,8 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
         if (sceneName.Contains("Lobby", System.StringComparison.OrdinalIgnoreCase) ||
             sceneName.Contains("Menu", System.StringComparison.OrdinalIgnoreCase))
             return false;
+
+        if (UICursorLockService.HasOtherOwner(this)) return false;
 
         NetworkManager networkManager = NetworkManager.Singleton;
         return networkManager != null && networkManager.IsListening &&
@@ -143,11 +178,13 @@ public sealed class NetworkStickerWheelController : MonoBehaviour
         if (open)
         {
             LockGameplayInput();
+            CameraManager.Instance?.SetGameplayCameraLocked(true);
             UICursorLockService.Request(this);
         }
         else
         {
             UnlockGameplayInput();
+            CameraManager.Instance?.SetGameplayCameraLocked(false);
             UICursorLockService.Release(this);
         }
     }

@@ -110,6 +110,13 @@ public class PlayerController : NetworkBehaviour
         // Từ đoạn này trở xuống: Liên quan đến tác động vật lý (thay đổi vận tốc, ép lực), CHỈ OWNER được làm:
         if (!IsOwner) return;
 
+        if (_input != null && _input.IsInputLocked)
+        {
+            _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
+            _rb.angularVelocity = Vector3.zero;
+            return;
+        }
+
         // Update timers
         if (_knockbackTimer > 0f) _knockbackTimer -= Time.fixedDeltaTime;
 

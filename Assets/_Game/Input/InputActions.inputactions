@@ -122,6 +122,33 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": true
+                },
+                {
+                    "name": "StickerPreviousSet",
+                    "type": "Button",
+                    "id": "0e98bb3c-527c-45cb-bcb8-3563ccf8a1b4",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "StickerNextSet",
+                    "type": "Button",
+                    "id": "3c10a85c-30f8-49bf-85df-53ddcf5fb411",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "StickerCancel",
+                    "type": "Button",
+                    "id": "b5774ccf-9fcd-4e5e-a7c1-8f92b0c0f9b7",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -485,6 +512,50 @@
                     "processors": "",
                     "groups": "Gamepad",
                     "action": "StickerNavigate",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a8d4cb80-23c5-4c3a-bb22-6e8c881331be",
+                    "path": "<Gamepad>/rightStickPress",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "VoiceMute",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "ed8dc117-1a05-4f39-afbd-71373ae2c5b3",
+                    "path": "<Gamepad>/dpad/left",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "StickerPreviousSet",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a51e8189-a7a5-4207-bc2f-d40395cd8e49",
+                    "path": "<Gamepad>/dpad/right",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "StickerNextSet",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "c4aae1eb-3ea0-4e2d-ae9f-6e523886a258",
+                    "path": "<Gamepad>/buttonEast",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "Gamepad",
+                    "action": "StickerCancel",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

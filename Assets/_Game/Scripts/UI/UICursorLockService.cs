@@ -21,6 +21,18 @@ public static class UICursorLockService
 
     public static bool IsCursorReleased => Owners.Count > 0;
 
+    public static bool HasOtherOwner(object owner)
+    {
+        RemoveDestroyedOwners();
+
+        foreach (object candidate in Owners)
+        {
+            if (!ReferenceEquals(candidate, owner)) return true;
+        }
+
+        return false;
+    }
+
     public static void Request(object owner)
     {
         if (owner == null) return;
@@ -45,10 +57,15 @@ public static class UICursorLockService
 
     private static void Apply()
     {
-        Owners.RemoveWhere(owner => owner is Object unityObject && unityObject == null);
+        RemoveDestroyedOwners();
         bool showCursor = Owners.Count > 0 || IsMenuScene(SceneManager.GetActiveScene().name);
         Cursor.lockState = showCursor ? CursorLockMode.None : CursorLockMode.Locked;
         Cursor.visible = showCursor;
+    }
+
+    private static void RemoveDestroyedOwners()
+    {
+        Owners.RemoveWhere(owner => owner is Object unityObject && unityObject == null);
     }
 
     private static bool IsMenuScene(string sceneName)
