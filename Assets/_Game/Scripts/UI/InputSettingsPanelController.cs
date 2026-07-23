@@ -15,6 +15,7 @@ public class InputSettingsPanelController : MonoBehaviour
     [SerializeField] private InputIconMap _iconProvider;
     [SerializeField] private UIDocument _uiDocument;
     [SerializeField] private PlayerInputHandler _inputHandler;
+    [SerializeField] private CameraSettingsService _cameraSettings;
 
     [Header("Fallback Toggle")]
     [SerializeField] private bool _enableKeyboardToggle = false;
@@ -33,11 +34,15 @@ public class InputSettingsPanelController : MonoBehaviour
     private Label _keyboardHeader;
     private Label _mouseHeader;
     private Label _gamepadHeader;
-    private Label _sensitivityValueLabel;
+    private Label _mouseSensitivityValueLabel;
+    private Label _gamepadSensitivityValueLabel;
     private Label _footerOkHint;
     private Label _footerBackHint;
     private Label _footerCancelHint;
-    private Slider _sensitivitySlider;
+    private VisualElement _mouseSensitivitySection;
+    private VisualElement _gamepadSensitivitySection;
+    private Slider _mouseSensitivitySlider;
+    private Slider _gamepadSensitivitySlider;
     private Button _btnModeKeyboard;
     private Button _btnModeGamepad;
     private Button _btnResetAll;
@@ -94,6 +99,7 @@ public class InputSettingsPanelController : MonoBehaviour
         _uiDocument ??= GetComponent<UIDocument>();
         _rebindService ??= FindFirstObjectByType<InputRebindService>();
         _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
+        _cameraSettings ??= FindFirstObjectByType<CameraSettingsService>();
 
         if (_uiDocument == null)
         {
@@ -254,7 +260,7 @@ public class InputSettingsPanelController : MonoBehaviour
         RefreshDeviceModeButtons();
         BuildRebindRows();
         RefreshAllBindings();
-        RefreshSensitivitySlider();
+        RefreshSensitivitySliders();
         RefreshInputHints();
         ApplyGamepadNavigationClass();
 
@@ -323,8 +329,12 @@ public class InputSettingsPanelController : MonoBehaviour
         _keyboardHeader = _root.Q<Label>("header-keyboard");
         _mouseHeader = _root.Q<Label>("header-mouse");
         _gamepadHeader = _root.Q<Label>("header-gamepad");
-        _sensitivitySlider = _root.Q<Slider>("gamepad-sensitivity");
-        _sensitivityValueLabel = _root.Q<Label>("sensitivity-value");
+        _mouseSensitivitySection = _root.Q<VisualElement>("mouse-sensitivity-section");
+        _gamepadSensitivitySection = _root.Q<VisualElement>("gamepad-sensitivity-section");
+        _mouseSensitivitySlider = _root.Q<Slider>("mouse-sensitivity");
+        _gamepadSensitivitySlider = _root.Q<Slider>("gamepad-sensitivity");
+        _mouseSensitivityValueLabel = _root.Q<Label>("mouse-sensitivity-value");
+        _gamepadSensitivityValueLabel = _root.Q<Label>("gamepad-sensitivity-value");
         _footerOkHint = _root.Q<Label>("footer-ok-hint");
         _footerBackHint = _root.Q<Label>("footer-back-hint");
         _footerCancelHint = _root.Q<Label>("footer-cancel-hint");
@@ -346,7 +356,8 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnCancelRebind?.RegisterCallback(_cancelRebindClicked);
         _btnConfirmConflict?.RegisterCallback(_confirmConflictClicked);
         _btnCancelConflict?.RegisterCallback(_cancelConflictClicked);
-        _sensitivitySlider?.RegisterValueChangedCallback(OnSensitivityChanged);
+        _mouseSensitivitySlider?.RegisterValueChangedCallback(OnMouseSensitivityChanged);
+        _gamepadSensitivitySlider?.RegisterValueChangedCallback(OnGamepadSensitivityChanged);
         _panelOverlay?.RegisterCallback(_navigationCancel);
         _panelOverlay?.RegisterCallback(_focusChanged);
     }
@@ -360,7 +371,8 @@ public class InputSettingsPanelController : MonoBehaviour
         _btnCancelRebind?.UnregisterCallback(_cancelRebindClicked);
         _btnConfirmConflict?.UnregisterCallback(_confirmConflictClicked);
         _btnCancelConflict?.UnregisterCallback(_cancelConflictClicked);
-        _sensitivitySlider?.UnregisterValueChangedCallback(OnSensitivityChanged);
+        _mouseSensitivitySlider?.UnregisterValueChangedCallback(OnMouseSensitivityChanged);
+        _gamepadSensitivitySlider?.UnregisterValueChangedCallback(OnGamepadSensitivityChanged);
         _panelOverlay?.UnregisterCallback(_navigationCancel);
         _panelOverlay?.UnregisterCallback(_focusChanged);
     }
@@ -456,6 +468,7 @@ public class InputSettingsPanelController : MonoBehaviour
         RefreshDeviceModeButtons();
         BuildRebindRows();
         RefreshAllBindings();
+        RefreshSensitivitySliders();
         RefreshInputHints();
         _root.schedule.Execute(FocusFirstBinding).ExecuteLater(50);
     }
@@ -474,17 +487,56 @@ public class InputSettingsPanelController : MonoBehaviour
             SelectDeviceTab(true);
     }
 
-    private void OnSensitivityChanged(ChangeEvent<float> evt)
+    private void OnMouseSensitivityChanged(ChangeEvent<float> evt)
     {
-        if (_sensitivityValueLabel != null)
-            _sensitivityValueLabel.text = $"{Mathf.RoundToInt(evt.newValue * 100)}%";
+        ApplyMouseSensitivity(evt.newValue);
+    }
 
-        PlayerPrefs.SetFloat(Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY, evt.newValue);
-        PlayerPrefs.Save();
+    private void OnGamepadSensitivityChanged(ChangeEvent<float> evt)
+    {
+        ApplyGamepadSensitivity(evt.newValue);
+    }
+
+    private void ApplyMouseSensitivity(float value)
+    {
+        value = Mathf.Clamp(
+            value,
+            Constants.Camera.MIN_DEVICE_SENSITIVITY,
+            Constants.Camera.MAX_DEVICE_SENSITIVITY);
+        UpdateSensitivityLabel(_mouseSensitivityValueLabel, value);
 
         _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
         if (_inputHandler != null)
-            _inputHandler.GamepadCameraSensitivity = evt.newValue;
+            _inputHandler.MouseCameraSensitivity = value;
+
+        CameraSettingsService cameraSettings = ResolveCameraSettings();
+        if (cameraSettings != null)
+            cameraSettings.SetMouseSensitivity(value);
+        else
+            PlayerPrefs.SetFloat(Constants.PlayerPrefsKeys.MOUSE_CAMERA_SENSITIVITY, value);
+
+        PlayerPrefs.Save();
+    }
+
+    private void ApplyGamepadSensitivity(float value)
+    {
+        value = Mathf.Clamp(
+            value,
+            Constants.Camera.MIN_DEVICE_SENSITIVITY,
+            Constants.Camera.MAX_DEVICE_SENSITIVITY);
+        UpdateSensitivityLabel(_gamepadSensitivityValueLabel, value);
+
+        _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
+        if (_inputHandler != null)
+            _inputHandler.GamepadCameraSensitivity = value;
+
+        CameraSettingsService cameraSettings = ResolveCameraSettings();
+        if (cameraSettings != null)
+            cameraSettings.SetGamepadSensitivity(value);
+        else
+            PlayerPrefs.SetFloat(Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY, value);
+
+        PlayerPrefs.Save();
     }
 
     private void OnDeviceChanged(InputDeviceType deviceType)
@@ -522,8 +574,8 @@ public class InputSettingsPanelController : MonoBehaviour
         SetElementVisible(_mouseHeader, !_showGamepadTab);
         SetElementVisible(_gamepadHeader, _showGamepadTab);
         SetElementVisible(_gamepadMap, _showGamepadTab);
-        // This is a shared saved setting, so it can be configured from either tab.
-        _sensitivitySlider?.SetEnabled(true);
+        SetElementVisible(_mouseSensitivitySection, !_showGamepadTab);
+        SetElementVisible(_gamepadSensitivitySection, _showGamepadTab);
     }
 
     private static void SetModeButtonActive(Button btn, bool active)
@@ -541,20 +593,36 @@ public class InputSettingsPanelController : MonoBehaviour
         element.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
-    private void RefreshSensitivitySlider()
+    private void RefreshSensitivitySliders()
     {
-        if (_sensitivitySlider == null) return;
-
         _inputHandler ??= FindFirstObjectByType<PlayerInputHandler>();
-        float value = _inputHandler != null
+        float mouseValue = _inputHandler != null
+            ? _inputHandler.MouseCameraSensitivity
+            : PlayerPrefs.GetFloat(
+                Constants.PlayerPrefsKeys.MOUSE_CAMERA_SENSITIVITY,
+                _mouseSensitivitySlider?.value ?? 1f);
+        float gamepadValue = _inputHandler != null
             ? _inputHandler.GamepadCameraSensitivity
             : PlayerPrefs.GetFloat(
                 Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY,
-                _sensitivitySlider.value);
-        _sensitivitySlider.SetValueWithoutNotify(value);
+                _gamepadSensitivitySlider?.value ?? 1f);
 
-        if (_sensitivityValueLabel != null)
-            _sensitivityValueLabel.text = $"{Mathf.RoundToInt(value * 100)}%";
+        _mouseSensitivitySlider?.SetValueWithoutNotify(mouseValue);
+        _gamepadSensitivitySlider?.SetValueWithoutNotify(gamepadValue);
+        UpdateSensitivityLabel(_mouseSensitivityValueLabel, mouseValue);
+        UpdateSensitivityLabel(_gamepadSensitivityValueLabel, gamepadValue);
+    }
+
+    private CameraSettingsService ResolveCameraSettings()
+    {
+        _cameraSettings ??= FindFirstObjectByType<CameraSettingsService>();
+        return _cameraSettings;
+    }
+
+    private static void UpdateSensitivityLabel(Label label, float value)
+    {
+        if (label != null)
+            label.text = $"{Mathf.RoundToInt(value * 100)}%";
     }
 
     private void RefreshInputHints()

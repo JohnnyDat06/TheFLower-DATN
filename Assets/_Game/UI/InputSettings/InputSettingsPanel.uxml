@@ -24,10 +24,15 @@
                 <ui:Label name="header-gamepad" text="Gamepad" class="col-binding col-header hidden" />
             </ui:VisualElement>
             <ui:ScrollView name="rebind-list" class="rebind-list" />
-            <ui:VisualElement name="sensitivity-section" class="sensitivity-section">
+            <ui:VisualElement name="mouse-sensitivity-section" class="sensitivity-section">
+                <ui:Label text="Mouse Camera Sensitivity" class="setting-label" />
+                <ui:Slider name="mouse-sensitivity" low-value="0.1" high-value="3" value="1" focusable="true" tabindex="100" class="sensitivity-slider" />
+                <ui:Label name="mouse-sensitivity-value" text="100%" class="sensitivity-value-label" />
+            </ui:VisualElement>
+            <ui:VisualElement name="gamepad-sensitivity-section" class="sensitivity-section">
                 <ui:Label text="Gamepad Camera Sensitivity" class="setting-label" />
-                <ui:Slider name="gamepad-sensitivity" low-value="0.1" high-value="3" value="1" focusable="true" tabindex="100" class="sensitivity-slider" />
-                <ui:Label name="sensitivity-value" text="100%" class="sensitivity-value-label" />
+                <ui:Slider name="gamepad-sensitivity" low-value="0.1" high-value="3" value="1" focusable="true" tabindex="101" class="sensitivity-slider" />
+                <ui:Label name="gamepad-sensitivity-value" text="100%" class="sensitivity-value-label" />
             </ui:VisualElement>
             <ui:VisualElement class="description-panel">
                 <ui:Label text="Select which action to assign" class="description-text" />

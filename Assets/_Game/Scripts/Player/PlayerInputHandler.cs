@@ -15,8 +15,11 @@ public class PlayerInputHandler : NetworkBehaviour
     [SerializeField, Min(0f)] private float _jumpBufferDuration = 0.12f;
     [SerializeField] private SOPlayerConfig _config;
 
-    [Header("Gamepad")]
-    [SerializeField, Range(0.1f, 3f)] private float _gamepadCameraSensitivity = 1f;
+    [Header("Camera Sensitivity")]
+    [SerializeField, Range(Constants.Camera.MIN_DEVICE_SENSITIVITY, Constants.Camera.MAX_DEVICE_SENSITIVITY)]
+    private float _mouseCameraSensitivity = 1f;
+    [SerializeField, Range(Constants.Camera.MIN_DEVICE_SENSITIVITY, Constants.Camera.MAX_DEVICE_SENSITIVITY)]
+    private float _gamepadCameraSensitivity = 1f;
 
     // Cached InputActions
     private InputAction _moveAction;
@@ -108,13 +111,28 @@ public class PlayerInputHandler : NetworkBehaviour
     public float GamepadCameraSensitivity
     {
         get => _gamepadCameraSensitivity;
-        set => _gamepadCameraSensitivity = Mathf.Clamp(value, 0.1f, 3f);
+        set => _gamepadCameraSensitivity = Mathf.Clamp(
+            value,
+            Constants.Camera.MIN_DEVICE_SENSITIVITY,
+            Constants.Camera.MAX_DEVICE_SENSITIVITY);
+    }
+
+    public float MouseCameraSensitivity
+    {
+        get => _mouseCameraSensitivity;
+        set => _mouseCameraSensitivity = Mathf.Clamp(
+            value,
+            Constants.Camera.MIN_DEVICE_SENSITIVITY,
+            Constants.Camera.MAX_DEVICE_SENSITIVITY);
     }
 
     // ─── Lifecycle ───────────────────────────────────────────────────────────
 
     private void Awake()
     {
+        _mouseCameraSensitivity = PlayerPrefs.GetFloat(
+            Constants.PlayerPrefsKeys.MOUSE_CAMERA_SENSITIVITY,
+            _mouseCameraSensitivity);
         _gamepadCameraSensitivity = PlayerPrefs.GetFloat(
             Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY,
             _gamepadCameraSensitivity);
@@ -255,13 +273,14 @@ public class PlayerInputHandler : NetworkBehaviour
 
         ReadMenuInput();
 
-        // Camera — scale gamepad stick input bằng sensitivity multiplier
+        // Camera sensitivity follows the active input device.
         var rawLook = _cameraLookAction?.ReadValue<Vector2>() ?? Vector2.zero;
         if (CameraLookEnabled)
         {
             bool isGamepad = InputDeviceDetector.Instance != null
                 && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
-            CameraLookDelta = isGamepad ? rawLook * _gamepadCameraSensitivity : rawLook;
+            float sensitivity = isGamepad ? _gamepadCameraSensitivity : _mouseCameraSensitivity;
+            CameraLookDelta = rawLook * sensitivity;
         }
         else
         {
