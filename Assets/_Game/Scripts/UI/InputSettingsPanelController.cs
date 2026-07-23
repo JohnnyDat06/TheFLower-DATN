@@ -10,6 +10,11 @@ using UnityEngine.UIElements;
 /// </summary>
 public class InputSettingsPanelController : MonoBehaviour
 {
+    private const float GAMEPAD_SLIDER_DEAD_ZONE = 0.35f;
+    private const float GAMEPAD_SLIDER_REPEAT_INTERVAL = 0.08f;
+    private const float GAMEPAD_SLIDER_MIN_STEP = 0.07f;
+    private const float GAMEPAD_SLIDER_MAX_STEP = 0.15f;
+
     [Header("Dependencies")]
     [SerializeField] private InputRebindService _rebindService;
     [SerializeField] private InputIconMap _iconProvider;
@@ -71,6 +76,7 @@ public class InputSettingsPanelController : MonoBehaviour
     private VisualElement _focusedElement;
     private bool _gamepadNavigationActive;
     private int _suppressGamepadActionsThroughFrame = -1;
+    private float _nextGamepadSliderAdjustmentTime;
 
     private static readonly InputBindingTarget[] KeyboardMouseTargets =
     {
@@ -180,6 +186,7 @@ public class InputSettingsPanelController : MonoBehaviour
         if (_isVisible)
         {
             HandleDirectGamepadActions();
+            HandleGamepadSensitivitySlider();
             HandleGamepadTabSwitch();
         }
     }
@@ -218,6 +225,59 @@ public class InputSettingsPanelController : MonoBehaviour
 
         if (!gamepad.buttonSouth.wasPressedThisFrame) return;
         ActivateFocusedElement(_focusedElement);
+    }
+
+    private void HandleGamepadSensitivitySlider()
+    {
+        if (IsRebinding
+            || (_rebindService != null && _rebindService.HasPendingConflict)
+            || Time.frameCount <= _suppressGamepadActionsThroughFrame)
+            return;
+
+        Slider slider = GetFocusedSensitivitySlider();
+        Gamepad gamepad = Gamepad.current;
+        if (slider == null || gamepad == null)
+        {
+            _nextGamepadSliderAdjustmentTime = 0f;
+            return;
+        }
+
+        float horizontalInput = gamepad.leftStick.ReadValue().x;
+        float magnitude = Mathf.Abs(horizontalInput);
+        if (magnitude < GAMEPAD_SLIDER_DEAD_ZONE)
+        {
+            _nextGamepadSliderAdjustmentTime = 0f;
+            return;
+        }
+
+        if (Time.unscaledTime < _nextGamepadSliderAdjustmentTime)
+            return;
+
+        float normalizedMagnitude = Mathf.InverseLerp(
+            GAMEPAD_SLIDER_DEAD_ZONE,
+            1f,
+            magnitude);
+        float step = Mathf.Lerp(
+            GAMEPAD_SLIDER_MIN_STEP,
+            GAMEPAD_SLIDER_MAX_STEP,
+            normalizedMagnitude);
+        float direction = Mathf.Sign(horizontalInput);
+        slider.value = Mathf.Clamp(slider.value + direction * step, slider.lowValue, slider.highValue);
+        _nextGamepadSliderAdjustmentTime = Time.unscaledTime + GAMEPAD_SLIDER_REPEAT_INTERVAL;
+    }
+
+    private Slider GetFocusedSensitivitySlider()
+    {
+        if (IsElementWithin(_mouseSensitivitySlider, _focusedElement))
+            return _mouseSensitivitySlider;
+        if (IsElementWithin(_gamepadSensitivitySlider, _focusedElement))
+            return _gamepadSensitivitySlider;
+        return null;
+    }
+
+    private static bool IsElementWithin(VisualElement parent, VisualElement child)
+    {
+        return parent != null && child != null && (parent == child || parent.Contains(child));
     }
 
     private void ActivateFocusedElement(VisualElement focused)
