@@ -107,6 +107,7 @@ public class SceneLoader : MonoBehaviour
 
     public void LoadMainMenu()
     {
+        NetworkDisconnectCoordinator.PrepareForLocalExit();
         try { if (NetworkManager.Singleton != null) NetworkManager.Singleton.Shutdown(); } catch { }
 
         if (!CanLoadScene(Constants.Scenes.MAIN_MENU)) return;

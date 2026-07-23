@@ -235,6 +235,16 @@ namespace Game.UI.LobbyAuto
             SetStatus("Choose how you want to play", Paper);
         }
 
+        public void ReturnToDisconnectedLanding()
+        {
+            _currentLobby = null;
+            _localReady = false;
+            _busy = false;
+            foreach (Button button in _buttons)
+                if (button != null) button.interactable = true;
+            ShowModeSelection();
+            SetStatus("The host left. Create or join a new room.", Gold);
+        }
         private void ShowCreate()
         {
             SyncSavedNames();
@@ -1767,8 +1777,16 @@ namespace Game.UI.LobbyAuto
 
         private static void EnsureEventSystem()
         {
-            if (EventSystem.current != null) return;
-            new GameObject("EventSystem", typeof(EventSystem), typeof(UnityEngine.InputSystem.UI.InputSystemUIInputModule));
+            EventSystem current = EventSystem.current;
+            if (current != null)
+            {
+                current.enabled = true;
+                InputSystemUIInputModule module = current.GetComponent<InputSystemUIInputModule>();
+                if (module != null) module.enabled = true;
+                return;
+            }
+
+            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
         }
     }
 }

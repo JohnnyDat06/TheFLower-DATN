@@ -197,7 +197,8 @@ public class PlayerInputHandler : NetworkBehaviour
         // CHẶN INPUT TRONG LOBBY
         if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby"))
         {
-            ClearAllInput();
+            ReadMenuInput();
+            ClearGameplayInput();
             return;
         }
 
