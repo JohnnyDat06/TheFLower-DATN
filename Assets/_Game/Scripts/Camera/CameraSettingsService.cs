@@ -11,6 +11,8 @@ public class CameraSettingsService : MonoBehaviour
 
     public float SensitivityX { get; private set; }
     public float SensitivityY { get; private set; }
+    public float MouseSensitivity { get; private set; }
+    public float GamepadSensitivity { get; private set; }
     public bool InvertY { get; private set; }
     public float ArmLength { get; private set; }
 
@@ -24,11 +26,13 @@ public class CameraSettingsService : MonoBehaviour
     private void OnEnable()
     {
         EventBus.OnSettingsChanged += ApplySettings;
+        EventBus.OnInputDeviceChanged += OnInputDeviceChanged;
     }
 
     private void OnDisable()
     {
         EventBus.OnSettingsChanged -= ApplySettings;
+        EventBus.OnInputDeviceChanged -= OnInputDeviceChanged;
     }
 
     private void InitializeReferences()
@@ -45,6 +49,12 @@ public class CameraSettingsService : MonoBehaviour
     {
         SensitivityX = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.CAM_SENSITIVITY_X, Constants.Camera.DEFAULT_SENSITIVITY_X);
         SensitivityY = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.CAM_SENSITIVITY_Y, Constants.Camera.DEFAULT_SENSITIVITY_Y);
+        MouseSensitivity = PlayerPrefs.GetFloat(
+            Constants.PlayerPrefsKeys.MOUSE_CAMERA_SENSITIVITY,
+            1f);
+        GamepadSensitivity = PlayerPrefs.GetFloat(
+            Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY,
+            1f);
         InvertY = PlayerPrefs.GetInt(Constants.PlayerPrefsKeys.CAM_INVERT_Y, 0) == 1;
         ArmLength = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.CAM_DISTANCE, Constants.Camera.DEFAULT_ARM_LENGTH);
     }
@@ -65,23 +75,19 @@ public class CameraSettingsService : MonoBehaviour
 
         if (_axisController != null)
         {
+            float deviceSensitivity = GetActiveDeviceSensitivity();
             foreach (var controller in _axisController.Controllers)
             {
                 string axisName = controller.Name;
                 string lowerName = axisName.ToLower();
-                
-                Debug.Log($"[CameraSettings] Found Axis: {axisName}");
 
                 if (lowerName.Contains("orbit x") || lowerName.Contains("pan") || lowerName.Contains("horizontal") || lowerName == "x")
                 {
-                    controller.Input.Gain = SensitivityX;
-                    Debug.Log($"[CameraSettings] Applied SensitivityX {SensitivityX} to {axisName}");
+                    controller.Input.Gain = SensitivityX * deviceSensitivity;
                 }
                 else if (lowerName.Contains("orbit y") || lowerName.Contains("tilt") || lowerName.Contains("vertical") || lowerName == "y")
                 {
-                    // Cinemachine orbit Y thường cần gain âm cho hướng look "bình thường".
-                    controller.Input.Gain = InvertY ? SensitivityY : -SensitivityY;
-                    Debug.Log($"[CameraSettings] Applied SensitivityY {SensitivityY} (invert={InvertY}) to {axisName}");
+                    controller.Input.Gain = (InvertY ? SensitivityY : -SensitivityY) * deviceSensitivity;
                 }
             }
         }
@@ -103,6 +109,26 @@ public class CameraSettingsService : MonoBehaviour
         ApplySettings();
     }
 
+    public void SetMouseSensitivity(float value)
+    {
+        MouseSensitivity = Mathf.Clamp(
+            value,
+            Constants.Camera.MIN_DEVICE_SENSITIVITY,
+            Constants.Camera.MAX_DEVICE_SENSITIVITY);
+        PlayerPrefs.SetFloat(Constants.PlayerPrefsKeys.MOUSE_CAMERA_SENSITIVITY, MouseSensitivity);
+        ApplySettings();
+    }
+
+    public void SetGamepadSensitivity(float value)
+    {
+        GamepadSensitivity = Mathf.Clamp(
+            value,
+            Constants.Camera.MIN_DEVICE_SENSITIVITY,
+            Constants.Camera.MAX_DEVICE_SENSITIVITY);
+        PlayerPrefs.SetFloat(Constants.PlayerPrefsKeys.GAMEPAD_CAMERA_SENSITIVITY, GamepadSensitivity);
+        ApplySettings();
+    }
+
     public void SetInvertY(bool invert)
     {
         InvertY = invert;
@@ -114,6 +140,18 @@ public class CameraSettingsService : MonoBehaviour
     {
         ArmLength = Mathf.Clamp(length, Constants.Camera.MIN_ARM_LENGTH, Constants.Camera.MAX_ARM_LENGTH);
         PlayerPrefs.SetFloat(Constants.PlayerPrefsKeys.CAM_DISTANCE, ArmLength);
+        ApplySettings();
+    }
+
+    private float GetActiveDeviceSensitivity()
+    {
+        bool isGamepad = InputDeviceDetector.Instance != null
+            && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
+        return isGamepad ? GamepadSensitivity : MouseSensitivity;
+    }
+
+    private void OnInputDeviceChanged(InputDeviceType _)
+    {
         ApplySettings();
     }
 }

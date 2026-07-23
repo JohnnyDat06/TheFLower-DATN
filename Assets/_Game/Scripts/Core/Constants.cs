@@ -39,6 +39,7 @@ public static class Constants
         public const string INPUT_BINDINGS_KEYBOARD    = "inputBindings_keyboard";
         public const string INPUT_BINDINGS_GAMEPAD     = "inputBindings_gamepad";
         public const string INPUT_PREFERRED_DEVICE     = "inputPreferredDevice";
+        public const string MOUSE_CAMERA_SENSITIVITY   = "mouseCameraSensitivity";
         public const string GAMEPAD_CAMERA_SENSITIVITY = "gamepadCameraSensitivity";
 
         // Auth (T0-4)
@@ -92,6 +93,8 @@ public static class Constants
         public const float DEFAULT_SENSITIVITY_Y = 5f;
         public const float MIN_SENSITIVITY       = 0.01f;
         public const float MAX_SENSITIVITY       = 100f; // Tăng giới hạn lên cao để test
+        public const float MIN_DEVICE_SENSITIVITY = 0.1f;
+        public const float MAX_DEVICE_SENSITIVITY = 3f;
         public const float MIN_ARM_LENGTH        = 3f;
         public const float MAX_ARM_LENGTH        = 7f;
         public const float DEFAULT_ARM_LENGTH    = 5f;
