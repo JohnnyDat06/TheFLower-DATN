@@ -37,9 +37,9 @@ public class VoiceInputController : MonoBehaviour
     private void Update()
     {
         ResolveInputHandler();
-        bool pressed = _inputHandler != null && _inputHandler.IsOwner
-            ? _inputHandler.VoiceMutePressed
-            : Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame;
+        bool pressed = Keyboard.current != null && Keyboard.current.kKey.wasPressedThisFrame;
+        if (_inputHandler != null && _inputHandler.IsOwner)
+            pressed |= _inputHandler.VoiceMutePressed;
 
         if (pressed)
         {

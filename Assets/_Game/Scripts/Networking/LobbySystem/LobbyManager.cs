@@ -275,7 +275,8 @@ namespace Networking.LobbySystem
                 Count = Mathf.Clamp(count, 1, 100),
                 Filters = new List<QueryFilter>
                 {
-                    new(QueryFilter.FieldOptions.AvailableSlots, "0", QueryFilter.OpOptions.GT)
+                    new(QueryFilter.FieldOptions.AvailableSlots, "0", QueryFilter.OpOptions.GT),
+                    new(QueryFilter.FieldOptions.IsLocked, "0", QueryFilter.OpOptions.EQ)
                 },
                 Order = new List<QueryOrder>
                 {
@@ -299,7 +300,8 @@ namespace Networking.LobbySystem
                 Filters = new List<QueryFilter>
                 {
                     new(QueryFilter.FieldOptions.Name, normalizedName, QueryFilter.OpOptions.EQ),
-                    new(QueryFilter.FieldOptions.AvailableSlots, "0", QueryFilter.OpOptions.GT)
+                    new(QueryFilter.FieldOptions.AvailableSlots, "0", QueryFilter.OpOptions.GT),
+                    new(QueryFilter.FieldOptions.IsLocked, "0", QueryFilter.OpOptions.EQ)
                 }
             });
 
@@ -486,10 +488,27 @@ namespace Networking.LobbySystem
 
         private IEnumerator StartGameWithFade(string sceneName)
         {
+            Task lockTask = LockLobbyForGame();
+            while (!lockTask.IsCompleted) yield return null;
             if (LoadingSyncManager.Instance != null) LoadingSyncManager.Instance.StartLoadingFadeClientRpc();
             yield return new WaitForSecondsRealtime(0.8f);
             if (SceneLoader.Instance != null) SceneLoader.Instance.LoadScene(sceneName);
             else NetworkManager.Singleton.SceneManager.LoadScene(sceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
+        }
+
+        private async Task LockLobbyForGame()
+        {
+            if (_currentLobby == null || string.IsNullOrEmpty(_currentLobby.Id)) return;
+            try
+            {
+                _currentLobby = await LobbyService.Instance.UpdateLobbyAsync(
+                    _currentLobby.Id,
+                    new UpdateLobbyOptions { IsLocked = true });
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"[LobbyManager] Could not lock lobby before game: {exception.Message}");
+            }
         }
 
         private void SetCurrentLobby(Lobby lobby)
@@ -497,6 +516,20 @@ namespace Networking.LobbySystem
             _currentLobby = lobby;
             _pollTimer = PollInterval;
             _heartbeatTimer = HeartbeatInterval;
+        }
+
+        /// <summary>Clears local state after transport loss so a new Lobby scene is interactive.</summary>
+        public void ResetAfterDisconnect()
+        {
+            bool hadLobby = _currentLobby != null;
+            _currentLobby = null;
+            _pollTimer = 0f;
+            _heartbeatTimer = 0f;
+            _isAuthenticating = false;
+            _isJoiningRelay = false;
+            _isPolling = false;
+            _isLeaving = false;
+            if (hadLobby) OnLobbyLeft?.Invoke();
         }
 
         private void ForceLeave()
