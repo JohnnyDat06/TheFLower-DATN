@@ -7,7 +7,7 @@ public class PlayerInteractor : NetworkBehaviour
 {
     [Header("Detection")]
     [Tooltip("Khoang cach raycast toi da tu tam camera toi vat the tuong tac.")]
-    [SerializeField] private float _interactRadius = 2f;
+    [SerializeField] private float _interactRadius = 2.2f;
 
     [Tooltip("Layer mask cua cac vat the Interactable.")]
     [SerializeField] private LayerMask _interactableLayerMask;
@@ -63,17 +63,25 @@ public class PlayerInteractor : NetworkBehaviour
 
     private void DetectLookTarget()
     {
-        Ray ray = _mainCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
         IInteractable nextTarget = null;
-        
-        float finaledDistanceInteract = 5 + _interactRadius;
-        
-        if (Physics.Raycast(ray, out RaycastHit hit, finaledDistanceInteract, _interactableLayerMask, QueryTriggerInteraction.Collide))
+        float nearestDistance = float.MaxValue;
+        Collider[] hits = Physics.OverlapSphere(transform.position, _interactRadius, _interactableLayerMask, QueryTriggerInteraction.Collide);
+
+        foreach (Collider hit in hits)
         {
-            nextTarget = hit.collider.GetComponentInParent<IInteractable>();
-            if (nextTarget != null && !nextTarget.CanInteract)
+            IInteractable candidate = hit.GetComponentInParent<IInteractable>();
+            if (candidate == null || !candidate.CanInteract) continue;
+            if (candidate is CoopInteractable coop && !coop.IsPlayerInInteractionZone(OwnerClientId)) continue;
+
+            Transform prompt = candidate is CoopInteractable coopTarget
+                ? coopTarget.GetPromptTransformForPlayer(OwnerClientId)
+                : candidate.GetPromptTransform();
+            if (prompt == null) continue;
+            float distance = Vector3.Distance(transform.position, prompt.position);
+            if (distance < nearestDistance)
             {
-                nextTarget = null;
+                nearestDistance = distance;
+                nextTarget = candidate;
             }
         }
 

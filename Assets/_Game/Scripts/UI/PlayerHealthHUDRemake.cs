@@ -213,6 +213,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
 
     private void RefreshPlayerBindings()
     {
+        if (_host == null || _client == null) return;
         if (_host.Health == null || !_host.Health.IsSpawned) Unbind(_host);
         if (_client.Health == null || !_client.Health.IsSpawned) Unbind(_client);
 
@@ -337,9 +338,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         }
 
         Vector3 screenPoint = _worldCamera.WorldToScreenPoint(bar.Health.transform.position + bar.WorldNameOffset);
-        bool isVisible = screenPoint.z > 0f
-            && screenPoint.x >= 0f && screenPoint.x <= Screen.width
-            && screenPoint.y >= 0f && screenPoint.y <= Screen.height;
+        bool isVisible = screenPoint.z > 0f;
         bar.WorldNameRoot.SetActive(isVisible);
         if (!isVisible) return;
 

@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// InteractPromptHUD — Prompt UI duy nhất nằm trên Canvas HUD (Screen Space - Overlay).
@@ -48,15 +49,49 @@ public class InteractPromptHUD : MonoBehaviour
     private Transform     _currentTargetTransform;
     private Camera        _mainCamera;
     private Canvas        _parentCanvas;
+    private float _lastCanvasScale = -1f;
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
     private void Awake()
     {
-        _mainCamera   = Camera.main;
+        _mainCamera = Camera.main;
         _parentCanvas = GetComponentInParent<Canvas>();
 
-        // Ẩn ngay lúc khởi động
+        RectTransform panel = _promptPanel;
+        if (panel != null)
+        {
+            panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0.5f);
+            panel.anchoredPosition = Vector2.zero;
+            panel.sizeDelta = new Vector2(190f, 72f);
+            panel.localScale = GetPromptScale();
+            Image background = panel.GetComponent<Image>();
+            if (background != null)
+            {
+                background.color = new Color(0.015f, 0.08f, 0.09f, 0.88f);
+                background.raycastTarget = false;
+            }
+            UnityEngine.UI.Outline outline = panel.GetComponent<UnityEngine.UI.Outline>() ?? panel.gameObject.AddComponent<UnityEngine.UI.Outline>();
+            outline.effectColor = new Color(0.1f, 0.9f, 0.85f, 0.8f);
+            outline.effectDistance = new Vector2(2f, 2f);
+        }
+        if (_keyLabel != null)
+        {
+            _keyLabel.fontSize = 24f;
+            _keyLabel.alignment = TextAlignmentOptions.Center;
+            _keyLabel.rectTransform.localScale = Vector3.one;
+            _keyLabel.rectTransform.anchoredPosition = new Vector2(0f, 13f);
+            _keyLabel.rectTransform.sizeDelta = new Vector2(170f, 32f);
+        }
+        if (_actionLabel != null)
+        {
+            _actionLabel.fontSize = 15f;
+            _actionLabel.alignment = TextAlignmentOptions.Center;
+            _actionLabel.rectTransform.localScale = Vector3.one;
+            _actionLabel.rectTransform.anchoredPosition = new Vector2(0f, -17f);
+            _actionLabel.rectTransform.sizeDelta = new Vector2(170f, 24f);
+        }
+
         SetVisible(false);
     }
 
@@ -85,6 +120,7 @@ public class InteractPromptHUD : MonoBehaviour
 
     private void LateUpdate()
     {
+        RefreshPromptScale();
         if (_currentTarget == null || _currentTargetTransform == null) return;
         if (_mainCamera == null)
         {
@@ -166,10 +202,23 @@ public class InteractPromptHUD : MonoBehaviour
     private void SetVisible(bool visible)
     {
         if (_promptPanel != null)
-        {
+            _promptPanel.localScale = visible ? GetPromptScale() : Vector3.zero;
+    }
 
-            _promptPanel.localScale = visible ? Vector3.one : Vector3.zero;
-        }
+    private void RefreshPromptScale()
+    {
+        if (_promptPanel == null || _parentCanvas == null) return;
+        float scale = Mathf.Max(0.01f, _parentCanvas.scaleFactor);
+        if (Mathf.Abs(scale - _lastCanvasScale) < 0.001f) return;
+        _lastCanvasScale = scale;
+        if (_promptPanel.localScale != Vector3.zero)
+            _promptPanel.localScale = GetPromptScale();
+    }
+
+    private Vector3 GetPromptScale()
+    {
+        float scale = _parentCanvas == null ? 1f : Mathf.Max(0.01f, _parentCanvas.scaleFactor);
+        return Vector3.one / scale;
     }
 
     /// <summary>
