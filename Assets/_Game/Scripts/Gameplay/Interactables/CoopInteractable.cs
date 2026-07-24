@@ -18,6 +18,22 @@ public class CoopInteractable : InteractableBase
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
 
+
+    public bool PlayerAReady => _playerAReady.Value;
+    public bool PlayerBReady => _playerBReady.Value;
+
+    public bool IsPlayerInInteractionZone(ulong playerId)
+    {
+        if (!TryGetPlayerObject(playerId, out NetworkObject playerObject)) return false;
+        Transform point = playerId == NetworkManager.ServerClientId ? _pointA : _pointB;
+        return point == null || Vector3.Distance(playerObject.transform.position, point.position) <= _validDistance;
+    }
+
+    public Transform GetPromptTransformForPlayer(ulong playerId)
+    {
+        return playerId == NetworkManager.ServerClientId ? _pointA : _pointB;
+    }
+
     private readonly NetworkVariable<bool> _playerBReady = new(
         false,
         NetworkVariableReadPermission.Everyone,

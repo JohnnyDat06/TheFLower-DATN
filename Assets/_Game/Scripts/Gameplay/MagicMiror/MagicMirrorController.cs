@@ -21,7 +21,12 @@ public class MagicMirrorController : NetworkBehaviour
     private NetworkVariable<bool> isMirrorActive = new NetworkVariable<bool>(false, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
     private float transitionF, lightF;
-    private Material mirrorMat, mirrorEffectMat;
+    private Material mirrorMat;
+    private Renderer _symbolRenderer;
+    private MaterialPropertyBlock _mirrorProperties;
+    private MaterialPropertyBlock _effectProperties;
+    private MaterialPropertyBlock _symbolProperties;
+
     private Vector3 symbolStartPos;
 
     private Coroutine transitionCor, symbolMovementCor;
@@ -30,33 +35,41 @@ public class MagicMirrorController : NetworkBehaviour
     {
         Debug.Log($"[MagicMirror] OnNetworkSpawn called. IsServer: {IsServer}");
 
-        // Initial setup
         if (mirrorRenderer == null || symbolTF == null || mirrorLight == null)
         {
             Debug.LogError("[MagicMirror] Missing references in Inspector! Please assign all fields.");
             return;
         }
 
-        Material[] mats = mirrorRenderer.materials;
-        if (mats.Length < 2)
+        // Never use Renderer.materials here: it creates unique material instances and
+        // duplicates every referenced texture for each network peer.
+        Material[] sharedMats = mirrorRenderer.sharedMaterials;
+        if (sharedMats.Length < 2 || sharedMats[0] == null || sharedMats[1] == null)
         {
-            Debug.LogError("[MagicMirror] Renderer must have at least 2 materials!");
+            Debug.LogError("[MagicMirror] Renderer must have at least 2 shared materials!");
             return;
         }
 
-        mirrorMat = mats[0];
-        mirrorEffectMat = mats[1];
+        mirrorMat = sharedMats[0];
+        _mirrorProperties = new MaterialPropertyBlock();
+        _effectProperties = new MaterialPropertyBlock();
+        _symbolProperties = new MaterialPropertyBlock();
 
-        mirrorMat.SetColor("_EmissionColor", mirrorEffectColor);
-        mirrorMat.SetFloat("_EmissionStrength", 0);
-        mirrorEffectMat.SetColor("_ColorMain", mirrorEffectColor);
-        mirrorEffectMat.SetFloat("_PortalFade", 0f);
+        _mirrorProperties.SetColor("_EmissionColor", mirrorEffectColor);
+        _mirrorProperties.SetFloat("_EmissionStrength", 0f);
+        _effectProperties.SetColor("_ColorMain", mirrorEffectColor);
+        _effectProperties.SetFloat("_PortalFade", 0f);
+        mirrorRenderer.SetPropertyBlock(_mirrorProperties, 0);
+        mirrorRenderer.SetPropertyBlock(_effectProperties, 1);
 
         symbolStartPos = symbolTF.localPosition;
-        
-        if (symbolTF.TryGetComponent<Renderer>(out var symbolRenderer))
+        _symbolRenderer = symbolTF.GetComponent<Renderer>();
+        if (_symbolRenderer != null)
         {
-            symbolRenderer.material = mirrorMat;
+            _symbolRenderer.sharedMaterial = mirrorMat;
+            _symbolProperties.SetColor("_EmissionColor", mirrorEffectColor);
+            _symbolProperties.SetFloat("_EmissionStrength", 0f);
+            _symbolRenderer.SetPropertyBlock(_symbolProperties);
         }
 
         mirrorLight.color = mirrorEffectColor;
@@ -70,11 +83,9 @@ public class MagicMirrorController : NetworkBehaviour
             mod.startColor = mirrorEffectColor;
         }
 
-        // Subscribe to value changes
         isMirrorActive.OnValueChanged += OnMirrorStateChanged;
         Debug.Log("[MagicMirror] Subscribed to NetworkVariable changes.");
 
-        // Apply initial state
         if (isMirrorActive.Value)
         {
             ApplyMirrorState(true, true);
@@ -164,8 +175,20 @@ public class MagicMirrorController : NetworkBehaviour
 
     private void UpdateVisuals(float value)
     {
-        if (mirrorMat != null) mirrorMat.SetFloat("_EmissionStrength", value);
-        if (mirrorEffectMat != null) mirrorEffectMat.SetFloat("_PortalFade", value * 0.4f);
+        if (mirrorRenderer != null && _mirrorProperties != null)
+        {
+            _mirrorProperties.SetFloat("_EmissionStrength", value);
+            mirrorRenderer.SetPropertyBlock(_mirrorProperties, 0);
+            _effectProperties.SetFloat("_PortalFade", value * 0.4f);
+            mirrorRenderer.SetPropertyBlock(_effectProperties, 1);
+        }
+
+        if (_symbolRenderer != null && _symbolProperties != null)
+        {
+            _symbolProperties.SetFloat("_EmissionStrength", value);
+            _symbolRenderer.SetPropertyBlock(_symbolProperties);
+        }
+
         if (mirrorLight != null) mirrorLight.intensity = lightF * value;
         if (mirrorAudio != null) mirrorAudio.volume = value * 0.8f;
     }

@@ -34,12 +34,19 @@ namespace Game.Core
 
         private Coroutine _trailerCoroutine;
         private AudioSource _musicSource;
+        private Canvas _subtitleCanvas;
         private bool _isTrailerFinished = false;
 
         private void Awake()
         {
             Instance = this;
             if (_subtitlePanel != null) _subtitlePanel.SetActive(false);
+            _subtitleCanvas = _subtitlePanel != null ? _subtitlePanel.GetComponentInParent<Canvas>() : null;
+            if (_subtitleCanvas != null)
+            {
+                _subtitleCanvas.overrideSorting = true;
+                _subtitleCanvas.sortingOrder = 500;
+            }
             if (_skipButton != null)
             {
                 _skipButton.gameObject.SetActive(false);
@@ -122,6 +129,12 @@ namespace Game.Core
                 _musicSource = AudioManager.Instance.PlayMusicOnce(_backgroundMusic);
             }
 
+            if (_subtitleCanvas != null)
+            {
+                _subtitleCanvas.overrideSorting = true;
+                _subtitleCanvas.sortingOrder = 500;
+                _subtitleCanvas.enabled = true;
+            }
             if (_subtitlePanel != null) _subtitlePanel.SetActive(true);
 
             // 2. MỐC THỜI GIAN THEO YÊU CẦU CỦA BẠN (CỰC KỲ CHÍNH XÁC)
@@ -136,7 +149,13 @@ namespace Game.Core
                 foreach (var s in _steps) if (s.VirtualCamera != null) s.VirtualCamera.Priority = 0;
                 if (step.VirtualCamera != null) step.VirtualCamera.Priority = 1000; 
                 
-                if (_subtitleText != null) _subtitleText.text = step.DialogueText;
+                if (_subtitlePanel != null && !_subtitlePanel.activeSelf) _subtitlePanel.SetActive(true);
+                if (_subtitleText != null)
+                {
+                    _subtitleText.enabled = true;
+                    _subtitleText.text = step.DialogueText;
+                    _subtitleText.ForceMeshUpdate();
+                }
 
                 // ĐỢI ĐẾN ĐÚNG GIÂY YÊU CẦU
                 if (_musicSource != null && _musicSource.clip != null)
