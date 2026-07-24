@@ -23,6 +23,14 @@ public enum Level04Phase : byte
 /// </summary>
 public static class EventBus
 {
+    public static event Action<int, string> OnQuestStepChanged;
+    public static event Action<int, string> OnQuestStepCompleted;
+    public static event Action OnQuestRouteCompleted;
+
+    public static void RaiseQuestStepChanged(int index, string stepId) => OnQuestStepChanged?.Invoke(index, stepId);
+    public static void RaiseQuestStepCompleted(int index, string stepId) => OnQuestStepCompleted?.Invoke(index, stepId);
+    public static void RaiseQuestRouteCompleted() => OnQuestRouteCompleted?.Invoke();
+
     // ─── Player ───────────────────────────────────────────────────────────────
 
     /// <summary>
