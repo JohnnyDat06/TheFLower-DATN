@@ -10,6 +10,8 @@ namespace Networking
     /// </summary>
     public class DirectNetworkStarter : MonoBehaviour
     {
+        private const string AnyIpv4Address = "0.0.0.0";
+
         [Header("Settings")]
         [SerializeField] private string defaultIp = "127.0.0.1";
         [SerializeField] private ushort defaultPort = 7777;
@@ -42,7 +44,7 @@ namespace Networking
 
                 if (GUILayout.Button("Server Only"))
                 {
-                    NetworkManager.Singleton.StartServer();
+                    StartAsServer();
                 }
 
                 GUILayout.Space(10);
@@ -60,9 +62,20 @@ namespace Networking
         public void StartAsHost()
         {
             var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
-            utp.SetConnectionData(defaultIp, defaultPort);
+            // The first address is the endpoint clients connect to. The third
+            // argument is the local interface the server listens on. Binding
+            // to loopback here prevents every other machine from connecting.
+            utp.SetConnectionData(defaultIp, defaultPort, AnyIpv4Address);
             NetworkManager.Singleton.StartHost();
-            Debug.Log($"[DirectNetworkStarter] Started Host on {defaultIp}:{defaultPort}");
+            Debug.Log($"[DirectNetworkStarter] Started Host on {AnyIpv4Address}:{defaultPort}");
+        }
+
+        public void StartAsServer()
+        {
+            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
+            utp.SetConnectionData(defaultIp, defaultPort, AnyIpv4Address);
+            NetworkManager.Singleton.StartServer();
+            Debug.Log($"[DirectNetworkStarter] Started Server on {AnyIpv4Address}:{defaultPort}");
         }
 
         public void StartAsClient()

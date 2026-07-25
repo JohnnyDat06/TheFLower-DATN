@@ -56,9 +56,9 @@ namespace Game.UI.Lobby
 
         private void OnHostDirectClicked()
         {
-            if (_statusLog) _statusLog.text = "Starting Direct Host (Local)...";
+            if (_statusLog) _statusLog.text = "Starting Direct Host...";
             var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
-            utp.SetConnectionData("127.0.0.1", 7777);
+            utp.SetConnectionData("127.0.0.1", 7777, "0.0.0.0");
             NetworkManager.Singleton.StartHost();
             
             LobbyUIManager.Instance.ShowLobbyRoom();
