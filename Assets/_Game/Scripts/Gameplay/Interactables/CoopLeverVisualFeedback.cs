@@ -157,6 +157,7 @@ public sealed class CoopLeverVisualFeedback : MonoBehaviour
     private ParticleSystem CreateCompletionBurst(Transform parent, Vector3 localPosition)
     {
         GameObject burstObject = new("CoopCompletionBurst");
+        burstObject.SetActive(false);
         burstObject.transform.SetParent(parent, false);
         burstObject.transform.localPosition = localPosition;
         ParticleSystem particles = burstObject.AddComponent<ParticleSystem>();
@@ -183,6 +184,7 @@ public sealed class CoopLeverVisualFeedback : MonoBehaviour
             new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
         colorLife.color = gradient;
         particles.GetComponent<ParticleSystemRenderer>().sharedMaterial = _glowMaterial;
+        burstObject.SetActive(true);
         return particles;
     }
 

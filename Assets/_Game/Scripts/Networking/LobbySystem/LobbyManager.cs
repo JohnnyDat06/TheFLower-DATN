@@ -46,6 +46,7 @@ namespace Networking.LobbySystem
         private bool _isAuthenticating;
         private bool _isJoiningRelay;
         private bool _isLeaving;
+        private Task _leaveTask;
         private bool _isPolling;
 
         private void Awake()
@@ -321,7 +322,18 @@ namespace Networking.LobbySystem
             await JoinMatchedLobby(lobbyId, password);
         }
 
-        public async Task LeaveLobby()
+        public Task LeaveLobby()
+        {
+            // Coalesce concurrent leave requests. Disconnect recovery and the UI can
+            // both observe the same NGO shutdown; they must share one cleanup task.
+            if (_leaveTask != null && !_leaveTask.IsCompleted)
+                return _leaveTask;
+
+            _leaveTask = LeaveLobbyInternal();
+            return _leaveTask;
+        }
+
+        private async Task LeaveLobbyInternal()
         {
             if (_isLeaving) return;
             _isLeaving = true;
@@ -359,7 +371,6 @@ namespace Networking.LobbySystem
                 _isLeaving = false;
             }
         }
-
         public void StartGame(string sceneName)
         {
             if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;

@@ -98,6 +98,7 @@ namespace Game.UI.Lobby
 
         private void OnLeaveClicked()
         {
+            NetworkDisconnectCoordinator.PrepareForLocalExit();
             NetworkManager.Singleton.Shutdown();
             LobbyUIManager.Instance.ShowMainMenu();
         }

@@ -138,78 +138,65 @@ public class RespawnManager : NetworkBehaviour
     /// Khi nhân vật bị chết, bắt đầu chạy routine delay để hồi sinh.
     /// Sự kiện này được bắn từ PlayerHealth qua ClientRpc nên sẽ chạy trên cả Host và Client.
     /// </summary>
+    private readonly System.Collections.Generic.HashSet<ulong> _respawningPlayers = new();
+
     private void HandlePlayerDied(ulong clientId)
     {
-        Debug.Log($"<color=red>[RespawnManager] Phát hiện Player {clientId} đã chết! Bắt đầu đếm ngược {_respawnDelay} giây...</color>");
+        // Respawn is server-authoritative. Previously every peer moved its local
+        // copy, racing ClientNetworkTransform/physics and causing players to fling.
+        if (!IsServer || !_respawningPlayers.Add(clientId)) return;
         StartCoroutine(RespawnRoutine(clientId));
     }
 
     private IEnumerator RespawnRoutine(ulong clientId)
     {
-        // 1. Chờ vài giây để player kịp load xong hiệu ứng chết
         yield return new WaitForSeconds(_respawnDelay);
 
-        Debug.Log($"[RespawnManager] Đã ngâm xác đủ thời gian! Đang lôi {clientId} dậy...");
-
-        // 2. Chỉ máy sở hữu nhân vật đã chết mới di chuyển nhân vật local.
-        if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != clientId)
+        if (!IsServer || NetworkManager.Singleton == null ||
+            !NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) ||
+            client.PlayerObject == null)
         {
+            _respawningPlayers.Remove(clientId);
             yield break;
         }
 
-        NetworkObject netObj = NetworkManager.Singleton.LocalClient.PlayerObject;
-        if (netObj == null)
-        {
-            var allHealths = Object.FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None);
-            foreach (var playerHealth in allHealths)
-            {
-                if (playerHealth.OwnerClientId == clientId)
-                {
-                    netObj = playerHealth.NetworkObject;
-                    break;
-                }
-            }
-        }
-
-        if (netObj == null)
-        {
-            Debug.LogError($"[RespawnManager] Lỗi: PlayerObject của Client {clientId} bị rỗng!");
-            yield break;
-        }
-
-        var fsm = netObj.GetComponent<PlayerStateMachine>();
-        var health = netObj.GetComponent<PlayerHealth>();
-        var rb = netObj.GetComponent<Rigidbody>();
-
+        NetworkObject netObj = client.PlayerObject;
         bool isHost = clientId == NetworkManager.ServerClientId;
         Vector3 spawnPos = isHost ? _currentHostSpawnPos.Value : _currentClientSpawnPos.Value;
+        Quaternion spawnRotation = netObj.transform.rotation;
+        Debug.Log($"[RespawnManager] SERVER respawning owner {clientId} at {spawnPos}");
 
-        Debug.Log($"[RespawnManager] HỒI SINH OWNER {clientId}! Đẩy về vị trí Checkpoint: {spawnPos}");
-
-        if (rb != null)
+        if (netObj.TryGetComponent<NGOPlayerSync>(out var playerSync))
         {
-            rb.linearVelocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-            rb.MovePosition(spawnPos);
-            netObj.transform.position = spawnPos;
+            playerSync.Teleport(spawnPos, spawnRotation);
         }
         else
         {
-            netObj.transform.position = spawnPos;
+            netObj.transform.SetPositionAndRotation(spawnPos, spawnRotation);
         }
+
+        PlayerHealth health = netObj.GetComponent<PlayerHealth>();
+        if (health != null) health.RestoreFullHealth();
+        RespawnClientRpc(clientId, spawnPos);
+        _respawningPlayers.Remove(clientId);
+    }
+
+    [ClientRpc]
+    private void RespawnClientRpc(ulong clientId, Vector3 spawnPos)
+    {
+        if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != clientId)
+            return;
 
         EventBus.RaisePlayerRespawned(clientId, spawnPos);
+        NetworkObject netObj = NetworkManager.Singleton.LocalClient?.PlayerObject;
+        PlayerStateMachine fsm = netObj != null ? netObj.GetComponent<PlayerStateMachine>() : null;
+        if (fsm != null) StartCoroutine(ReturnToIdleAfterRespawn(fsm));
+    }
 
-        if (health != null)
-        {
-            health.RestoreFullHealth();
-        }
-
-        if (fsm != null)
-        {
-            fsm.TransitionTo(PlayerStateType.Respawning);
-            yield return new WaitForSeconds(0.5f);
-            fsm.TransitionTo(PlayerStateType.Idle);
-        }
+    private IEnumerator ReturnToIdleAfterRespawn(PlayerStateMachine fsm)
+    {
+        fsm.TransitionTo(PlayerStateType.Respawning);
+        yield return new WaitForSeconds(0.5f);
+        if (fsm != null) fsm.TransitionTo(PlayerStateType.Idle);
     }
 }

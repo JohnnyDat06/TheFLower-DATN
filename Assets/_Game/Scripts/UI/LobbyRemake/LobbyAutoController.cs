@@ -582,6 +582,7 @@ namespace Game.UI.LobbyAuto
         private async void LeaveRoom()
         {
             if (_busy) return;
+            NetworkDisconnectCoordinator.PrepareForLocalExit();
             SetBusy(true, "Leaving room...");
             try { if (_lobbyManager != null) await _lobbyManager.LeaveLobby(); }
             finally

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections;
 using Unity.Netcode;
 using Unity.Netcode.Components;
@@ -26,6 +27,8 @@ public class NGOPlayerSync : NetworkBehaviour
 
     private bool _isTeleporting; 
     private bool _isFrozenBySystem = true; // Trạng thái đóng băng hệ thống khi đổi màn
+
+    private static readonly HashSet<ulong> MissingSpawnerWarnings = new();
     private Coroutine _readyReportRoutine;
 
     public bool IsTeleporting => _isTeleporting || _isFrozenBySystem;
@@ -49,17 +52,21 @@ public class NGOPlayerSync : NetworkBehaviour
             NetworkManager.Singleton.SceneManager.OnLoadComplete += HandleSceneLoaded;
         }
 
-        // Mặc định đóng băng khi mới sinh ra (trừ khi đang test map trực tiếp)
         _isFrozenBySystem = !IsTestMode();
         if (_rigidbody != null)
         {
-            _rigidbody.linearVelocity = Vector3.zero;
+            if (!_rigidbody.isKinematic)
+            {
+                _rigidbody.linearVelocity = Vector3.zero;
+                _rigidbody.angularVelocity = Vector3.zero;
+            }
             _rigidbody.isKinematic = true;
         }
 
         ApplyAuthorityState();
-        // Nếu là Owner, hãy báo cáo cho Server ngay khi Spawn
-        if (IsOwner && !IsTestMode())
+
+        // Players also exist in the Lobby, where no PlayerSpawner is expected.
+        if (IsOwner && !IsTestMode() && IsGameplayScene())
         {
             BeginReadyReporting();
         }
@@ -67,7 +74,7 @@ public class NGOPlayerSync : NetworkBehaviour
 
     private void BeginReadyReporting()
     {
-        if (_readyReportRoutine != null || !IsSpawned || !IsOwner || IsTestMode()) return;
+        if (_readyReportRoutine != null || !IsSpawned || !IsOwner || IsTestMode() || !IsGameplayScene()) return;
         _readyReportRoutine = StartCoroutine(ReadyReportRoutine());
     }
 
@@ -75,7 +82,7 @@ public class NGOPlayerSync : NetworkBehaviour
     {
         yield return new WaitForEndOfFrame();
 
-        while (IsSpawned && IsOwner && _isFrozenBySystem)
+        while (IsSpawned && IsOwner && _isFrozenBySystem && IsGameplayScene())
         {
             ReportReadyToServerRpc();
             yield return new WaitForSecondsRealtime(1f);
@@ -103,14 +110,12 @@ public class NGOPlayerSync : NetworkBehaviour
 
     private void HandleSceneLoaded(ulong clientId, string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode)
     {
-        if (clientId != NetworkManager.Singleton.LocalClientId) return;
+        if (NetworkManager.Singleton == null || clientId != NetworkManager.Singleton.LocalClientId) return;
 
-        // Khi nạp cảnh mới, đóng băng ngay lập tức (trừ khi test map)
         _isFrozenBySystem = !IsTestMode();
         ApplyAuthorityState();
 
-        // Báo cho Server biết tôi đã nạp xong Map
-        if (IsOwner && !IsTestMode())
+        if (IsOwner && !IsTestMode() && IsGameplayScene(sceneName))
         {
             BeginReadyReporting();
         }
@@ -120,24 +125,29 @@ public class NGOPlayerSync : NetworkBehaviour
     private void ReportReadyToServerRpc(ServerRpcParams rpcParams = default)
     {
         var senderId = rpcParams.Receive.SenderClientId;
-        Debug.Log($"[NGOPlayerSync] Server received Ready from client: {senderId}");
-        
-        // Lưu trạng thái sẵn sàng vào LoadingSyncManager trước
+
         if (LoadingSyncManager.Instance != null)
         {
             LoadingSyncManager.Instance.MarkClientReady(senderId);
         }
 
-        // Gửi tín hiệu cho PlayerSpawner (nếu có sẵn)
         if (Game.Network.PlayerSpawner.Instance != null)
         {
+            MissingSpawnerWarnings.Remove(senderId);
             Game.Network.PlayerSpawner.Instance.ReportPlayerReady(senderId);
         }
-        else
+        else if (MissingSpawnerWarnings.Add(senderId))
         {
             Debug.LogWarning($"[NGOPlayerSync] PlayerSpawner.Instance is NULL on Server! senderId={senderId}");
         }
     }
+
+    private static bool IsGameplayScene(string sceneName = null)
+    {
+        sceneName ??= UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        return !string.IsNullOrEmpty(sceneName) && !sceneName.Contains("Lobby");
+    }
+
 
     /// <summary>
     /// Lệnh từ Server để giải phóng nhân vật sau khi đã dịch chuyển xong.

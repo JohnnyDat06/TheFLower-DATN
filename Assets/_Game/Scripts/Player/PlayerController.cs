@@ -80,6 +80,9 @@ public class PlayerController : NetworkBehaviour
     {
         if (!IsSpawned) return;
 
+        // Proxies and loading/teleporting players are kinematic; do not write velocity.
+        if (_rb.isKinematic) return;
+
         // CHẶN DI CHUYỂN TRONG LOBBY
         if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name.Contains("Lobby"))
         {

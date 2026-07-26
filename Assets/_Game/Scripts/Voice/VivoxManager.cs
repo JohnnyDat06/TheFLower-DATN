@@ -45,8 +45,13 @@ public class VivoxManager : MonoBehaviour
     private bool _wasNetworkListening;
     private bool _joinedChannelIsPositional;
     private float _nextPositionUpdate;
+    private bool _voiceLoginBlocked;
+    private float _nextLoginAttemptTime;
+
+    private const float LoginRetryCooldownSeconds = 10f;
 
     public bool IsLoggedIn => _isLoggedIn;
+    public bool IsVoiceLoginBlocked => _voiceLoginBlocked;
     public bool IsCurrentChannelPositional => _joinedChannelIsPositional;
     public string JoinedChannelName => _joinedChannelName;
     public string DefaultChannelName => _channelName;
@@ -135,6 +140,9 @@ public class VivoxManager : MonoBehaviour
 
     private async Task ConnectToRoomVoiceAsync()
     {
+        if (_voiceLoginBlocked || Time.unscaledTime < _nextLoginAttemptTime)
+            return;
+
         _sessionOperationInProgress = true;
         try
         {
@@ -303,7 +311,14 @@ public class VivoxManager : MonoBehaviour
 
     public async Task LoginAsync(string displayName = null)
     {
-        if (_isLoggedIn) return;
+        if (_isLoggedIn || _voiceLoginBlocked || Time.unscaledTime < _nextLoginAttemptTime) return;
+
+        // Keep the wrapper state in sync when Unity Services survives a Play Mode restart.
+        if (VivoxService.Instance != null && VivoxService.Instance.IsLoggedIn)
+        {
+            _isLoggedIn = true;
+            return;
+        }
 
         // Đảm bảo đã initialized trước khi login
         try 
@@ -385,6 +400,17 @@ public class VivoxManager : MonoBehaviour
             Debug.LogError($"[VivoxManager] Login failed: {e.Message}");
             _isLoggedIn = false;
             _loginTask = null; // Reset để có thể thử lại
+            _nextLoginAttemptTime = Time.unscaledTime + LoginRetryCooldownSeconds;
+
+            string error = e.ToString();
+            if (error.Contains("Invalid Access Token Signature", StringComparison.OrdinalIgnoreCase) ||
+                error.Contains("Access Token Expired", StringComparison.OrdinalIgnoreCase) ||
+                error.Contains("(20122)", StringComparison.OrdinalIgnoreCase) ||
+                error.Contains("(20121)", StringComparison.OrdinalIgnoreCase))
+            {
+                _voiceLoginBlocked = true;
+                Debug.LogError("[VivoxManager] Voice login disabled for this run because Vivox credentials are invalid. Update Project Settings and restart the game.");
+            }
         }
     }
 
