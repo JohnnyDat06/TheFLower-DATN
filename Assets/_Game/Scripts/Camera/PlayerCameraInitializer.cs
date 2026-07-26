@@ -79,7 +79,13 @@ public class PlayerCameraInitializer : NetworkBehaviour
         manager.SetPlayerTarget(targetToUse, targetToUse);
         manager.RefreshLocalCameraInput();
 
-        Debug.Log($"[PlayerCameraInitializer] Camera rebound after scene load for {(IsHost ? "Host" : "Client")} player.");
+                if (!UICursorLockService.IsCursorReleased)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
+
+Debug.Log($"[PlayerCameraInitializer] Camera rebound after scene load for {(IsHost ? "Host" : "Client")} player.");
     }
 
 
