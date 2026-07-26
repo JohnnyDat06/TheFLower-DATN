@@ -33,6 +33,10 @@ namespace Game.Testing
         [SerializeField] private TextMeshProUGUI _pointsListText;
 
         private bool _isUIVisible = false;
+        private CursorLockMode _cursorLockStateBeforeUI;
+        private bool _cursorVisibleBeforeUI;
+        private bool _hasSavedCursorState;
+
         private bool _managesPlayerInput = true;
         private int _selectedPointIndex;
         private Action _onClosed;
@@ -113,6 +117,15 @@ namespace Game.Testing
 
             if (_isUIVisible)
             {
+                // Save the exact gameplay cursor state before the modal UI takes it.
+                // This keeps Tab behaviour identical to the state the player started in.
+                if (_managesPlayerInput)
+                {
+                    _cursorLockStateBeforeUI = Cursor.lockState;
+                    _cursorVisibleBeforeUI = Cursor.visible;
+                    _hasSavedCursorState = true;
+                }
+
                 _selectedPointIndex = Mathf.Clamp(_selectedPointIndex, 0, Mathf.Max(0, _teleportPoints.Count - 1));
                 UpdatePointsListUI();
                 SyncSelectedPointToInputField();
@@ -122,22 +135,41 @@ namespace Game.Testing
                     _idInputField?.ActivateInputField();
                 if (_managesPlayerInput)
                     LockPlayerInput(true);
-                
+
                 UICursorLockService.Request(this);
             }
             else
             {
+                bool restoreCursor = _managesPlayerInput && _hasSavedCursorState;
                 if (_managesPlayerInput)
                     LockPlayerInput(false);
+
                 _managesPlayerInput = true;
-                
                 UICursorLockService.Release(this);
+
+                if (restoreCursor)
+                    StartCoroutine(RestoreSavedCursorState());
 
                 var onClosed = _onClosed;
                 _onClosed = null;
                 onClosed?.Invoke();
             }
         }
+
+
+        private IEnumerator RestoreSavedCursorState()
+        {
+            // UGUI/Input System can apply its pointer state one frame after the panel closes.
+            yield return null;
+
+            if (_hasSavedCursorState)
+            {
+                Cursor.lockState = _cursorLockStateBeforeUI;
+                Cursor.visible = _cursorVisibleBeforeUI;
+                _hasSavedCursorState = false;
+            }
+        }
+
 
         private void UpdatePointsListUI()
         {
