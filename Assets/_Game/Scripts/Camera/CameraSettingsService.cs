@@ -75,7 +75,8 @@ public class CameraSettingsService : MonoBehaviour
 
         if (_axisController != null)
         {
-            float deviceSensitivity = GetActiveDeviceSensitivity();
+            bool isGamepad = IsGamepadActive();
+            float deviceSensitivity = isGamepad ? GamepadSensitivity : MouseSensitivity;
             foreach (var controller in _axisController.Controllers)
             {
                 string axisName = controller.Name;
@@ -89,6 +90,12 @@ public class CameraSettingsService : MonoBehaviour
                 {
                     controller.Input.Gain = (InvertY ? SensitivityY : -SensitivityY) * deviceSensitivity;
                 }
+
+                // Mouse input should react almost immediately.  The old 0.2s
+                // acceleration/deceleration made horizontal camera movement feel
+                // especially delayed whenever a heavy scene dropped frames.
+                controller.Driver.AccelTime = isGamepad ? 0.12f : 0.025f;
+                controller.Driver.DecelTime = isGamepad ? 0.1f : 0.025f;
             }
         }
 
@@ -145,9 +152,13 @@ public class CameraSettingsService : MonoBehaviour
 
     private float GetActiveDeviceSensitivity()
     {
-        bool isGamepad = InputDeviceDetector.Instance != null
+        return IsGamepadActive() ? GamepadSensitivity : MouseSensitivity;
+    }
+
+    private static bool IsGamepadActive()
+    {
+        return InputDeviceDetector.Instance != null
             && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
-        return isGamepad ? GamepadSensitivity : MouseSensitivity;
     }
 
     private void OnInputDeviceChanged(InputDeviceType _)

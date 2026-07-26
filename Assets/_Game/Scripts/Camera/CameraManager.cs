@@ -70,6 +70,7 @@ public class CameraManager : MonoBehaviour
 
     private const int PRIORITY_ACTIVE = 20;
     private const int PRIORITY_INACTIVE = 0;
+    private const float FLIGHT_PITCH_SAFETY_LIMIT = 65f;
 
     public CameraPreset CurrentPreset => _currentPreset;
 
@@ -113,6 +114,7 @@ public class CameraManager : MonoBehaviour
         }
 
         InitializeMaps();
+        ConfigureObstacleAvoidance();
         CacheFlightCameraOffsets();
         SetAllPriorities(PRIORITY_INACTIVE);
 
@@ -212,13 +214,82 @@ public class CameraManager : MonoBehaviour
         if (lookDelta.sqrMagnitude > 0f)
         {
             _flightOrbitYaw += lookDelta.x * _flightLookSensitivity;
-            _flightOrbitPitch = Mathf.Clamp(
-                _flightOrbitPitch - lookDelta.y * _flightLookSensitivity,
-                -_flightMaximumSteeringPitch,
-                -_flightMinimumSteeringPitch);
+            _flightOrbitPitch = ClampFlightPitch(
+                _flightOrbitPitch - lookDelta.y * _flightLookSensitivity);
         }
 
         ApplyFlightCameraOrbit();
+    }
+
+    private float ClampFlightPitch(float pitch)
+    {
+        float minimumPitch = Mathf.Clamp(
+            -_flightMaximumSteeringPitch,
+            -FLIGHT_PITCH_SAFETY_LIMIT,
+            0f);
+        float maximumPitch = Mathf.Clamp(
+            -_flightMinimumSteeringPitch,
+            0f,
+            FLIGHT_PITCH_SAFETY_LIMIT);
+        return Mathf.Clamp(pitch, minimumPitch, maximumPitch);
+    }
+
+    /// <summary>
+    /// Gives gameplay cameras a conventional third-person collision response.
+    /// The follow target is already CameraLookTarget (at head height), therefore
+    /// adding another large Y offset makes the collision ray miss nearby floors
+    /// and ceilings and lets the rendered camera cross geometry.
+    /// </summary>
+    private void ConfigureObstacleAvoidance()
+    {
+        ConfigureCameraObstacleAvoidance(
+            _vcamThirdPerson,
+            CinemachineDeoccluder.ObstacleAvoidance.ResolutionStrategy.PreserveCameraHeight,
+            0.35f);
+
+        ConfigureCameraObstacleAvoidance(
+            _vcamFlyDown,
+            CinemachineDeoccluder.ObstacleAvoidance.ResolutionStrategy.PreserveCameraDistance,
+            0.4f);
+    }
+
+    private static void ConfigureCameraObstacleAvoidance(
+        CinemachineCamera camera,
+        CinemachineDeoccluder.ObstacleAvoidance.ResolutionStrategy strategy,
+        float cameraRadius)
+    {
+        if (camera == null) return;
+
+        CinemachineDeoccluder deoccluder = camera.GetComponent<CinemachineDeoccluder>();
+        if (deoccluder == null)
+        {
+            deoccluder = camera.gameObject.AddComponent<CinemachineDeoccluder>();
+        }
+
+        int collisionMask = LayerMask.GetMask("Default", "Environment", "BoundaryWall");
+        deoccluder.CollideAgainst = collisionMask;
+        deoccluder.IgnoreTag = "Player";
+        deoccluder.TransparentLayers = 0;
+        deoccluder.MinimumDistanceFromTarget = 0.35f;
+
+        CinemachineDeoccluder.ObstacleAvoidance avoidance = deoccluder.AvoidObstacles;
+        avoidance.Enabled = true;
+        avoidance.DistanceLimit = 0f;
+        avoidance.MinimumOcclusionTime = 0f;
+        avoidance.CameraRadius = cameraRadius;
+        avoidance.Strategy = strategy;
+        avoidance.MaximumEffort = 6;
+        avoidance.SmoothingTime = 0.12f;
+        avoidance.Damping = 0.45f;
+        avoidance.DampingWhenOccluded = 0.08f;
+
+        CinemachineDeoccluder.ObstacleAvoidance.FollowTargetSettings followTarget =
+            avoidance.UseFollowTarget;
+        followTarget.Enabled = true;
+        followTarget.YOffset = 0f;
+        avoidance.UseFollowTarget = followTarget;
+
+        deoccluder.AvoidObstacles = avoidance;
     }
 
     private void ApplyFlightCameraOrbit()
@@ -361,8 +432,9 @@ public class CameraManager : MonoBehaviour
 
     private void UpdateCursorState(CameraPreset preset)
     {
-        bool showCursor = preset == CameraPreset.Cutscene || preset == CameraPreset.TopDownController || preset == CameraPreset.TopDownObserver;
-        Cursor.lockState = showCursor ? CursorLockMode.Confined : CursorLockMode.Locked;
+        bool uiOwnsCursor = UICursorLockService.IsCursorReleased;
+        bool showCursor = uiOwnsCursor || preset == CameraPreset.Cutscene || preset == CameraPreset.TopDownController || preset == CameraPreset.TopDownObserver;
+        Cursor.lockState = uiOwnsCursor ? CursorLockMode.None : showCursor ? CursorLockMode.Confined : CursorLockMode.Locked;
         Cursor.visible = showCursor;
     }
 
@@ -376,6 +448,13 @@ public class CameraManager : MonoBehaviour
     private void HandleGameResumed()
     {
         SetGameplayCameraLocked(false);
+        if (UICursorLockService.IsCursorReleased)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            return;
+        }
+
         if (ShouldLockCameraLook(_currentPreset)) return;
 
         Cursor.lockState = CursorLockMode.Locked;
@@ -514,10 +593,7 @@ public class CameraManager : MonoBehaviour
     public void SetDebugFlightView(float yawOffset, float pitch)
     {
         _flightOrbitYaw = yawOffset;
-        _flightOrbitPitch = Mathf.Clamp(
-            pitch,
-            -_flightMaximumSteeringPitch,
-            -_flightMinimumSteeringPitch);
+        _flightOrbitPitch = ClampFlightPitch(pitch);
         ApplyFlightCameraOrbit();
     }
 #endif

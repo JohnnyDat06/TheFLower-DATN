@@ -57,8 +57,11 @@ public class PlayerCameraInitializer : NetworkBehaviour
         CameraManager.Instance.SetPlayerTarget(targetToUse, targetToUse);
 
         // Setup cursor mặc định
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        if (!UICursorLockService.IsCursorReleased)
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
 
         Debug.Log($"[PlayerCameraInitializer] Camera targets initialized for {(IsHost ? "Host" : "Client")} player.");
     }

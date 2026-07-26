@@ -18,7 +18,21 @@ public class HostCientMenuTest : MonoBehaviour
 
     private void OnEnable()
     {
+        UICursorLockService.Request(this);
+        CameraManager.Instance?.SetGameplayCameraLocked(true);
         SelectDefaultButton();
+    }
+
+    private void OnDisable()
+    {
+        UICursorLockService.Release(this);
+        if (!UICursorLockService.IsCursorReleased)
+            CameraManager.Instance?.SetGameplayCameraLocked(false);
+    }
+
+    private void OnDestroy()
+    {
+        UICursorLockService.Release(this);
     }
 
     private void Start()
