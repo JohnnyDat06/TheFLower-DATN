@@ -65,6 +65,12 @@ public class SceneLoader : MonoBehaviour
 
         if (NetworkManager.Singleton.IsServer)
         {
+            // Release unused assets before a heavy scene transition. This avoids a
+            // peak-memory spike when the next map imports textures, navmesh and AI data.
+            yield return Resources.UnloadUnusedAssets();
+            GC.Collect();
+            yield return null;
+
             NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += HandleLoadEventCompleted;
             var status = NetworkManager.Singleton.SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
             
@@ -77,7 +83,8 @@ public class SceneLoader : MonoBehaviour
         }
 
         float fakeProgress = 0f;
-        float timeout = 20f; // Timeout sau 20 giây nếu không load được
+        // Map2 is large and can legitimately take longer than 20 seconds.
+        float timeout = 90f;
         while (!_allClientsReady && timeout > 0)
         {
             fakeProgress = Mathf.MoveTowards(fakeProgress, 0.9f, Time.deltaTime * 0.4f);

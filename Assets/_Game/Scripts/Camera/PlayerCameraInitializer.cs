@@ -15,56 +15,79 @@ public class PlayerCameraInitializer : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
+        if (!IsOwner) return;
 
-        // Chỉ xử lý nếu đây là local player (máy khách sở hữu player này)
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+        StartCameraInitialization();
+    }
+
+
+    public override void OnNetworkDespawn()
+    {
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        StopAllCoroutines();
+        base.OnNetworkDespawn();
+    }
+
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
         if (IsOwner)
         {
-            StartCoroutine(InitializeCameraRoutine());
+            StartCameraInitialization();
         }
     }
 
+    private void StartCameraInitialization()
+    {
+        StopAllCoroutines();
+        StartCoroutine(InitializeCameraRoutine());
+    }
+
+
     private IEnumerator InitializeCameraRoutine()
     {
-        // Chờ tối đa 5 giây để CameraManager xuất hiện (tăng từ 2s)
-        while (CameraManager.Instance == null && IsLobbyScene())
+        // Wait until NGO has finished attaching this owned object to the new scene.
+        while (!IsSpawned || !IsOwner)
         {
-            yield return new WaitForSeconds(0.1f);
+            yield return null;
         }
 
-        float timeout = 5.0f;
-        while (CameraManager.Instance == null && timeout > 0)
+        // Let the new scene finish activating its persistent camera rig and brain.
+        yield return null;
+        yield return new WaitForEndOfFrame();
+
+        float timeout = 5f;
+        while (CameraManager.Instance == null && timeout > 0f)
         {
-            yield return new WaitForSeconds(0.1f);
             timeout -= 0.1f;
+            yield return new WaitForSeconds(0.1f);
         }
 
-        if (CameraManager.Instance == null)
+        CameraManager manager = CameraManager.Instance;
+        if (manager == null)
         {
-            // Kiểm tra xem có đối tượng nào trong scene có script này không nhưng chưa set Instance
-            var foundManager = Object.FindFirstObjectByType<CameraManager>();
-            Debug.LogError($"[PlayerCameraInitializer] Không tìm thấy CameraManager Instance! Found in scene: {foundManager != null}");
+            Debug.LogWarning("[PlayerCameraInitializer] CameraManager is not available after scene load; will retry on the next load.");
             yield break;
         }
 
-        // Tự động tìm LookTarget nếu chưa được gán
-        if (_cameraLookTarget == null)
+        if (_cameraLookTarget == null || !_cameraLookTarget.IsChildOf(transform))
         {
             _cameraLookTarget = FindLookTargetRecursive(transform);
         }
 
-        // Gán target cho CameraManager (Ưu tiên dùng _cameraLookTarget cho cả Follow và LookAt nếu có)
         Transform targetToUse = _cameraLookTarget != null ? _cameraLookTarget : transform;
-        CameraManager.Instance.SetPlayerTarget(targetToUse, targetToUse);
+        manager.SetPlayerTarget(targetToUse, targetToUse);
+        manager.RefreshLocalCameraInput();
 
-        // Setup cursor mặc định
-        if (!UICursorLockService.IsCursorReleased)
+                if (!UICursorLockService.IsCursorReleased)
         {
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
 
-        Debug.Log($"[PlayerCameraInitializer] Camera targets initialized for {(IsHost ? "Host" : "Client")} player.");
+Debug.Log($"[PlayerCameraInitializer] Camera rebound after scene load for {(IsHost ? "Host" : "Client")} player.");
     }
+
 
     private bool IsLobbyScene()
     {

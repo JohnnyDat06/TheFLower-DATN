@@ -55,13 +55,8 @@ namespace Game.UI.Lobby
 
         private void OnJoinDirectClicked()
         {
-            if (_statusLog) _statusLog.text = "Joining Direct Host (Local)...";
-            var utp = NetworkManager.Singleton.GetComponent<UnityTransport>();
-            string ip = string.IsNullOrEmpty(_joinCodeInput.text) ? "127.0.0.1" : _joinCodeInput.text;
-            utp.SetConnectionData(ip, 7777);
-            NetworkManager.Singleton.StartClient();
-
-            LobbyUIManager.Instance.ShowLobbyRoom();
+            // Direct loopback mode cannot reach another PC. Use Relay for public play.
+            OnJoinRelayClicked();
         }
 
         private void OnBackClicked()

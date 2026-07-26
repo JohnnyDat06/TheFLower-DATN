@@ -85,8 +85,14 @@ public class VivoxVoiceHandler : NetworkBehaviour
         if (this == null || !IsSpawned) return;
 
         int retries = 0;
-        while (retries < 10) // Tăng số lần thử lại
+        while (retries < 3)
         {
+            if (VivoxManager.Instance.IsVoiceLoginBlocked)
+            {
+                Debug.LogWarning("[VivoxVoiceHandler] Vivox login is blocked for this run; skipping retries.");
+                return;
+            }
+
             try
             {
                 Debug.Log($"[VivoxVoiceHandler] Login attempt {retries + 1}...");

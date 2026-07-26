@@ -109,63 +109,12 @@ Transform:
   m_Children:
   - {fileID: 2955481418591217142}
   - {fileID: 2418266421456415241}
-  - {fileID: 1267650033878120192}
   - {fileID: 2202263747953200537}
   - {fileID: 6418061493871028769}
   - {fileID: 8243913195782541490}
   - {fileID: 8732591715976483122}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &4540404851418783139
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1267650033878120192}
-  - component: {fileID: 8785305371346980331}
-  m_Layer: 0
-  m_Name: UITester
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1267650033878120192
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4540404851418783139}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 1245.7339, y: 601.86804, z: 6.149873}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 28789864942071162}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &8785305371346980331
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4540404851418783139}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ba5d71672a0bee74d8d31f6afa97abe2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _authManager: {fileID: 6513220300002380590}
-  _relayManager: {fileID: 3140837428142025646}
-  _joinCodeDisplay: {fileID: 0}
-  _statusLog: {fileID: 0}
-  _joinCodeInput: {fileID: 0}
-  _loginUIPanel: {fileID: 0}
 --- !u!1 &6701989762113918398
 GameObject:
   m_ObjectHideFlags: 0
@@ -372,7 +321,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalObjectIdHash: 3453780160
+  GlobalObjectIdHash: 1586325710
   InScenePlacedSourceGlobalObjectIdHash: 0
   DeferredDespawnTick: 0
   Ownership: 1
@@ -445,6 +394,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _hostSlider: {fileID: 0}
   _clientSlider: {fileID: 0}
+  _hostNameText: {fileID: 0}
+  _clientNameText: {fileID: 0}
   _hostBarRoot: {fileID: 0}
   _clientBarRoot: {fileID: 0}
   _smoothSpeed: 5

@@ -3,6 +3,8 @@ using Unity.Cinemachine;
 using Unity.Cinemachine.TargetTracking;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+
 
 /// <summary>
 /// CameraManager - Quản lý việc chuyển đổi giữa các Preset Camera và thiết lập Target cho Cinemachine.
@@ -126,6 +128,7 @@ public class CameraManager : MonoBehaviour
 
     private void OnEnable()
     {
+        SceneManager.sceneLoaded += HandleSceneLoaded;
         EventBus.OnGamePaused += HandleGamePaused;
         EventBus.OnGameResumed += HandleGameResumed;
         EventBus.OnCutSceneStarted += HandleCutSceneStarted;
@@ -133,14 +136,42 @@ public class CameraManager : MonoBehaviour
         EventBus.OnPlayerRespawned += HandlePlayerRespawned;
     }
 
+
     private void OnDisable()
     {
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
         EventBus.OnGamePaused -= HandleGamePaused;
         EventBus.OnGameResumed -= HandleGameResumed;
         EventBus.OnCutSceneStarted -= HandleCutSceneStarted;
         EventBus.OnCutSceneEnded -= HandleCutSceneEnded;
         EventBus.OnPlayerRespawned -= HandlePlayerRespawned;
     }
+
+
+    private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        _inputHandler = null;
+        if (scene.name.Contains("Lobby")) return;
+
+        // The rig persists across gameplay scenes, but menu/cutscene input locks must not.
+        // sceneLoaded runs before Start on newly loaded scene objects, so a new intro
+        // can still select and lock its own camera afterwards.
+        SetGameplayCameraLocked(false);
+        SwitchCamera(CameraPreset.ThirdPerson);
+
+        CinemachineInputAxisController axisController =
+            _vcamThirdPerson != null
+                ? _vcamThirdPerson.GetComponent<CinemachineInputAxisController>()
+                : null;
+        if (axisController != null)
+        {
+            axisController.enabled = true;
+        }
+
+        RefreshLocalCameraInput();
+    }
+
+
 
     private void InitializeMaps()
     {
@@ -342,6 +373,32 @@ public class CameraManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Rebinds the local camera input after a network scene transition. The persistent
+    /// camera rig can survive while the owned PlayerInputHandler is recreated.
+    /// </summary>
+    /// <summary>
+    /// Rebinds the local camera input after a network scene transition. The persistent
+    /// camera rig can survive while the owned PlayerInputHandler is recreated.
+    /// </summary>
+    public void RefreshLocalCameraInput()
+    {
+        ResolvePlayerInputIfNeeded();
+
+        if (_inputHandler != null && !_menuCameraLocked && _currentPreset != CameraPreset.Cutscene)
+        {
+            _inputHandler.UnlockAllInput();
+        }
+
+        UpdateInputState(_currentPreset);
+
+        bool cameraLocked = ShouldLockCameraLook(_currentPreset) || _menuCameraLocked;
+        Cursor.lockState = cameraLocked ? CursorLockMode.Confined : CursorLockMode.Locked;
+        Cursor.visible = cameraLocked;
+    }
+
+
+
     public void SwitchCamera(CameraPreset preset)
     {
         if (preset == _currentPreset) return;
@@ -505,22 +562,24 @@ public class CameraManager : MonoBehaviour
 
     private void ResolvePlayerInputIfNeeded()
     {
-        if (_inputHandler != null)
+        if (_inputHandler != null && _inputHandler.isActiveAndEnabled)
         {
             NetworkObject netObj = _inputHandler.GetComponent<NetworkObject>();
-            if (netObj != null && netObj.IsOwner) return;
+            if (netObj != null && netObj.IsSpawned && netObj.IsOwner) return;
         }
 
+        _inputHandler = null;
         foreach (var handler in FindObjectsByType<PlayerInputHandler>(FindObjectsSortMode.None))
         {
             var netObj = handler.GetComponent<NetworkObject>();
-            if (netObj != null && netObj.IsOwner)
+            if (handler.isActiveAndEnabled && netObj != null && netObj.IsSpawned && netObj.IsOwner)
             {
                 _inputHandler = handler;
                 return;
             }
         }
     }
+
 
     private static bool IsFlightPreset(CameraPreset preset)
     {
