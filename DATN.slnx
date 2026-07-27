@@ -1,9 +1,9 @@
 ﻿<Solution>
   <Project Path="MoreMountains.Tools.csproj" />
-  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="VHierarchy.csproj" />
   <Project Path="RayFireAssembly.csproj" />
   <Project Path="CFXRDemo.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
   <Project Path="FullscreenEditor.csproj" />
   <Project Path="MoreMountains.Tools.Editor.csproj" />
   <Project Path="VFolders.csproj" />

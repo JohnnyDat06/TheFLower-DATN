@@ -93,7 +93,7 @@ public class Level04FlightController : NetworkBehaviour
         {
             cameraDirection = transform.forward;
         }
-        cameraDirection.Normalize();
+        cameraDirection = ClampFlightDirectionPitch(cameraDirection);
 
         Vector3 currentDirection = ResolveCurrentFlightDirection();
         Vector3 cameraGuidedDirection = Vector3.Slerp(
@@ -122,6 +122,8 @@ public class Level04FlightController : NetworkBehaviour
                 _config.RingGuidanceWeight).normalized;
         }
 
+        requestedDirection = ClampFlightDirectionPitch(requestedDirection);
+
         float steeringResponsiveness = _config.DirectionResponsiveness;
         if (requestedDirection.y < currentDirection.y)
         {
@@ -133,6 +135,8 @@ public class Level04FlightController : NetworkBehaviour
             currentDirection,
             requestedDirection,
             directionBlend).normalized;
+        _smoothedFlightDirection =
+            ClampFlightDirectionPitch(_smoothedFlightDirection);
 
         Vector3 flightRight =
             Vector3.Cross(Vector3.up, _smoothedFlightDirection).normalized;
@@ -143,6 +147,7 @@ public class Level04FlightController : NetworkBehaviour
             _smoothedFlightDirection,
             requestedDirection,
             _config.ModelCameraTiltWeight).normalized;
+        modelDirection = ClampFlightDirectionPitch(modelDirection);
         Quaternion targetRotation =
             Quaternion.LookRotation(modelDirection, Vector3.up)
             * Quaternion.Euler(0f, 0f, bank);
@@ -400,6 +405,26 @@ public class Level04FlightController : NetworkBehaviour
         return transform.forward.sqrMagnitude > 0.01f
             ? transform.forward.normalized
             : Vector3.forward;
+    }
+
+    private Vector3 ClampFlightDirectionPitch(Vector3 direction)
+    {
+        if (direction.sqrMagnitude < 0.0001f) return transform.forward;
+
+        direction.Normalize();
+        float maximumVertical = Mathf.Sin(
+            Mathf.Clamp(_config.MaxPitch, 0f, 89f) * Mathf.Deg2Rad);
+        float vertical = Mathf.Clamp(direction.y, -maximumVertical, maximumVertical);
+
+        Vector3 planar = Vector3.ProjectOnPlane(direction, Vector3.up);
+        if (planar.sqrMagnitude < 0.0001f)
+        {
+            planar = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+            if (planar.sqrMagnitude < 0.0001f) planar = Vector3.forward;
+        }
+
+        float planarMagnitude = Mathf.Sqrt(Mathf.Max(0f, 1f - vertical * vertical));
+        return planar.normalized * planarMagnitude + Vector3.up * vertical;
     }
 
     private void UpdateWingBeat(bool wantsForward, float dt)

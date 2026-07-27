@@ -72,7 +72,9 @@ public class CameraManager : MonoBehaviour
 
     private const int PRIORITY_ACTIVE = 20;
     private const int PRIORITY_INACTIVE = 0;
-    private const float FLIGHT_PITCH_SAFETY_LIMIT = 65f;
+    private const float FLIGHT_PITCH_SAFETY_LIMIT = 85f;
+    private static readonly Vector3 LEVEL04_NORMAL_FLIGHT_OFFSET =
+        new(0f, 5f, -16f);
 
     public CameraPreset CurrentPreset => _currentPreset;
 
@@ -153,6 +155,11 @@ public class CameraManager : MonoBehaviour
         _inputHandler = null;
         if (scene.name.Contains("Lobby")) return;
 
+        if (scene.name == Constants.Scenes.LEVEL_04)
+        {
+            ConfigureLevel04FlightFreeLook();
+        }
+
         // The rig persists across gameplay scenes, but menu/cutscene input locks must not.
         // sceneLoaded runs before Start on newly loaded scene objects, so a new intro
         // can still select and lock its own camera afterwards.
@@ -169,6 +176,29 @@ public class CameraManager : MonoBehaviour
         }
 
         RefreshLocalCameraInput();
+    }
+
+    private void ConfigureLevel04FlightFreeLook()
+    {
+        _flightMinimumSteeringPitch = -FLIGHT_PITCH_SAFETY_LIMIT;
+        _flightMaximumSteeringPitch = FLIGHT_PITCH_SAFETY_LIMIT;
+
+        if (_flightCameraBaseOffsets == null)
+        {
+            _flightCameraBaseOffsets = new Dictionary<CameraPreset, Vector3>();
+        }
+
+        _flightCameraBaseOffsets[CameraPreset.FlyDown] =
+            LEVEL04_NORMAL_FLIGHT_OFFSET;
+
+        CinemachineFollow follow =
+            _vcamFlyDown != null
+                ? _vcamFlyDown.GetComponent<CinemachineFollow>()
+                : null;
+        if (follow != null)
+        {
+            follow.FollowOffset = LEVEL04_NORMAL_FLIGHT_OFFSET;
+        }
     }
 
 
@@ -213,7 +243,8 @@ public class CameraManager : MonoBehaviour
         CinemachineFollow follow = _vcamFlyDown.GetComponent<CinemachineFollow>();
         if (follow == null) return;
 
-        _flightCameraBaseOffsets[CameraPreset.FlyDown] = follow.FollowOffset;
+        _flightCameraBaseOffsets[CameraPreset.FlyDown] =
+            LEVEL04_NORMAL_FLIGHT_OFFSET;
         _flightCameraBaseOffsets[CameraPreset.GateFocus] = _gateFocusOffset;
         _flightCameraBaseOffsets[CameraPreset.WarpAscent] = _warpAscentOffset;
         _flightCameraBaseOffsets[CameraPreset.StarfallSoft] = _starfallOffset;
@@ -223,6 +254,7 @@ public class CameraManager : MonoBehaviour
         settings.BindingMode = BindingMode.WorldSpace;
         settings.PositionDamping = Vector3.one * _flightCameraPositionDamping;
         follow.TrackerSettings = settings;
+        follow.FollowOffset = LEVEL04_NORMAL_FLIGHT_OFFSET;
 
         CinemachineRotationComposer composer =
             _vcamFlyDown.GetComponent<CinemachineRotationComposer>();
@@ -401,6 +433,12 @@ public class CameraManager : MonoBehaviour
 
     public void SwitchCamera(CameraPreset preset)
     {
+        if (preset == CameraPreset.FlyDown
+            && SceneManager.GetActiveScene().name == Constants.Scenes.LEVEL_04)
+        {
+            ConfigureLevel04FlightFreeLook();
+        }
+
         if (preset == _currentPreset) return;
         
         // Cho phép Cutscene ngay cả khi không có trong Map (để khóa Input)
