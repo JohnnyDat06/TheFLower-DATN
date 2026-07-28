@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using Unity.Services.Authentication;
-using Unity.Services.Core;
 using UnityEngine;
 
 /// <summary>
@@ -45,7 +44,7 @@ public class AuthManager : MonoBehaviour
     {
         try
         {
-            await UnityServices.InitializeAsync();
+            await UgsServiceBootstrap.InitializeAsync();
 
             if (!AuthenticationService.Instance.IsSignedIn)
             {
