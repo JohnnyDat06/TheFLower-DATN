@@ -276,18 +276,7 @@ public class VivoxManager : MonoBehaviour
         {
             Debug.Log("[VivoxManager] Initializing Unity Services and Vivox...");
             
-            // Nếu Unity Services chưa được khởi tạo, tự khởi tạo luôn (đảm bảo tính độc lập)
-            if (UnityServices.State == ServicesInitializationState.Uninitialized)
-            {
-                await UnityServices.InitializeAsync();
-            }
-            else if (UnityServices.State == ServicesInitializationState.Initializing)
-            {
-                while (UnityServices.State == ServicesInitializationState.Initializing)
-                {
-                    await Task.Delay(100);
-                }
-            }
+            await UgsServiceBootstrap.InitializeAsync();
 
             // Kiểm tra lại lần nữa trước khi init Vivox
             if (UnityServices.State == ServicesInitializationState.Initialized)
