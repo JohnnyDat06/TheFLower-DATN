@@ -10,6 +10,7 @@ TagManager:
   - ChessPiece
   - FxTemporaire
   - LobbyAnchor
+  - MainLight
   layers:
   - Default
   - TransparentFX
@@ -23,7 +24,7 @@ TagManager:
   - Interactable
   - MainCamera
   - BoundaryWall
-  - 
+  - Water1
   - 
   - 
   - 
