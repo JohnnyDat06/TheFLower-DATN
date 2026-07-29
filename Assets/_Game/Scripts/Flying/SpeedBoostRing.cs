@@ -40,7 +40,19 @@ public class SpeedBoostRing : NetworkBehaviour
             _config != null ? _config.BoostForce : 10f,
             _config != null ? _config.LiftForce : 5f);
 
+        PlayBoostSfxClientRpc(new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams { TargetClientIds = new[] { clientId } }
+        });
+
         EventBus.RaiseLevel04RingActivated(name, clientId, false);
+    }
+
+    [ClientRpc]
+    private void PlayBoostSfxClientRpc(ClientRpcParams rpcParams = default)
+    {
+        if (_config == null || _config.SFXClip == null) return;
+        AudioManager.Instance.PlaySFX(_config.SFXClip);
     }
 
     private static bool TryGetPlayer(Collider other, out Level04FlightController flight)

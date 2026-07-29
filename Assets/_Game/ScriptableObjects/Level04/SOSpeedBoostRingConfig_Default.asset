@@ -17,4 +17,4 @@ MonoBehaviour:
   Cooldown: 1.5
   OneShotPerPlayer: 1
   VFXPrefab: {fileID: 0}
-  SFXClip: {fileID: 0}
+  SFXClip: {fileID: 11400000, guid: b48f536166d64cd880b450df5591112c, type: 2}

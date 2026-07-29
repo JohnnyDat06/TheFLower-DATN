@@ -1,0 +1,23 @@
+fileFormatVersion: 2
+guid: a12eb14f26954a48b617e819fda256d7
+AudioImporter:
+  externalObjects: {}
+  serializedVersion: 8
+  defaultSettings:
+    serializedVersion: 2
+    loadType: 0
+    sampleRateSetting: 0
+    sampleRateOverride: 48000
+    compressionFormat: 1
+    quality: 0.8
+    conversionMode: 0
+    preloadAudioData: 0
+  platformSettingOverrides: {}
+  forceToMono: 0
+  normalize: 0
+  loadInBackground: 0
+  ambisonic: 0
+  3D: 0
+  userData: Original procedural SFX - airy rush, impact and celestial chime for Map 4 SpeedBoostRing
+  assetBundleName: 
+  assetBundleVariant: 
