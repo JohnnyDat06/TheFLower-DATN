@@ -18,10 +18,11 @@
       "hash": "c14de1e6dc01ab42d2bb358730cff954bce0ce6b"
     },
     "com.cqf.urpvolumetricfog": {
-      "version": "file:E:/Unity-URP-Volumetric-Light-main",
+      "version": "https://github.com/CristianQiu/Unity-URP-Volumetric-Light.git#0.5.9",
       "depth": 0,
-      "source": "local",
-      "dependencies": {}
+      "source": "git",
+      "dependencies": {},
+      "hash": "ed0e2b352f5208e0528cf56573870ec56d33fd99"
     },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
