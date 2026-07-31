@@ -8,8 +8,12 @@ using Unity.Netcode;
 /// Gắn trên cùng GameObject với Animator.
 /// SRS §4.1.2 (T1-7)
 /// </summary>
-public class PlayerAnimationEventReceiver : MonoBehaviour
+public class PlayerAnimationEventReceiver : NetworkBehaviour
 {
+    private const float MovementSfxMinDistance = 1.5f;
+    private const float MovementSfxMaxDistance = 14f;
+    private static readonly int SpeedHash = Animator.StringToHash("Speed");
+
     [Header("References")]
     [Tooltip("Fallback nếu cần bind tay một hitbox cụ thể trong Inspector")]
     [SerializeField] private AttackHitbox _attackHitbox;
@@ -24,8 +28,8 @@ public class PlayerAnimationEventReceiver : MonoBehaviour
 
     private readonly List<AttackHitbox> _attackHitboxes = new();
     private PlayerStateMachine _stateMachine;
-    private PlayerInputHandler _inputHandler;
     private NetworkObject _networkObject;
+    private Animator _animator;
 
     private void Awake()
     {
@@ -35,8 +39,8 @@ public class PlayerAnimationEventReceiver : MonoBehaviour
             _comboController = GetComponent<AttackComboController>();
 
         _stateMachine = GetComponent<PlayerStateMachine>();
-        _inputHandler = GetComponent<PlayerInputHandler>();
         _networkObject = GetComponent<NetworkObject>();
+        _animator = GetComponent<Animator>();
 
         if (_attackHitboxes.Count == 0)
             Debug.LogWarning("[AnimEventReceiver] AttackHitbox không tìm thấy trong children!");
@@ -89,28 +93,60 @@ public class PlayerAnimationEventReceiver : MonoBehaviour
     {
         if (!CanPlayFootstep()) return;
         if (_footstepClips == null || _footstepClips.Count == 0) return;
-        int index = Random.Range(0, _footstepClips.Count);
-        AudioManager.Instance.PlaySFX(_footstepClips[index]);
+
+        int clipIndex = Random.Range(0, _footstepClips.Count);
+
+        // Only the owner event is authoritative. Play it immediately locally
+        // (no round-trip latency), then relay the same clip to remote players.
+        if (_networkObject != null && _networkObject.IsSpawned)
+        {
+            if (!_networkObject.IsOwner) return;
+
+            PlayMovementSfx(_footstepClips[clipIndex]);
+
+            if (IsServer)
+                PlayFootstepClientRpc(clipIndex);
+            else
+                SubmitFootstepServerRpc(clipIndex);
+
+            return;
+        }
+
+        PlayMovementSfx(_footstepClips[clipIndex]);
+    }
+
+    [ServerRpc]
+    private void SubmitFootstepServerRpc(int clipIndex)
+    {
+        if (_footstepClips == null || _footstepClips.Count == 0) return;
+        if (clipIndex < 0 || clipIndex >= _footstepClips.Count) return;
+        PlayFootstepClientRpc(clipIndex);
+    }
+
+    [ClientRpc]
+    private void PlayFootstepClientRpc(int clipIndex)
+    {
+        // The owner already played the Animation Event immediately.
+        if (_networkObject != null && _networkObject.IsOwner) return;
+        if (_footstepClips == null || clipIndex < 0 || clipIndex >= _footstepClips.Count)
+            return;
+
+        PlayMovementSfx(_footstepClips[clipIndex]);
     }
 
     private bool CanPlayFootstep()
     {
-        if (!CanPlayLocalMovementAudio()) return false;
+        if (!CanPlayNetworkedMovementAudio()) return false;
 
-        // Locomotion uses a Blend Tree, so Walk/Run animation events can still
-        // arrive briefly while blending back to Idle. Require live movement
-        // input and a grounded locomotion state before accepting the event.
-        if (_inputHandler != null && !_inputHandler.IsMoving) return false;
-        if (_stateMachine == null) return true;
-
-        return _stateMachine.CurrentStateType is PlayerStateType.Walk
-            or PlayerStateType.Run
-            or PlayerStateType.CrouchWalk;
+        // Gate with the actual Blend Tree parameter that produced the event.
+        // This avoids stale FSM timing on Client while still blocking events
+        // emitted during the final blend back to Idle.
+        return _animator == null || _animator.GetFloat(SpeedHash) > 0.05f;
     }
 
     private void HandleStateChanged(PlayerStateType previousState, PlayerStateType nextState)
     {
-        if (!CanPlayLocalMovementAudio()) return;
+        if (!CanPlayNetworkedMovementAudio()) return;
 
         switch (nextState)
         {
@@ -120,26 +156,56 @@ public class PlayerAnimationEventReceiver : MonoBehaviour
                 if (previousState is PlayerStateType.DashInAir or PlayerStateType.AirGlide)
                     break;
 
-                AudioManager.Instance.PlaySFX(_jumpClip);
+                PlayMovementSfx(_jumpClip);
                 break;
 
             case PlayerStateType.DoubleJump:
             case PlayerStateType.WallJump:
-                AudioManager.Instance.PlaySFX(_jumpClip);
+                PlayMovementSfx(_jumpClip);
                 break;
 
             case PlayerStateType.DashInAir:
             case PlayerStateType.DashOnGround:
-                AudioManager.Instance.PlaySFX(_dashClip);
+                PlayMovementSfx(_dashClip);
                 break;
         }
     }
 
-    private bool CanPlayLocalMovementAudio()
+    private void PlayMovementSfx(SOAudioClip clip)
     {
-        // Offline/test prefabs have no NetworkObject. Networked players only play
-        // their owner's movement SFX, avoiding duplicate playback from proxies.
-        return _networkObject == null || (_networkObject.IsSpawned && _networkObject.IsOwner);
+        int playbackScope = gameObject.GetInstanceID();
+        bool isLocallyControlled = IsLocallyControlled();
+
+        // The local player's camera/listener may be positioned differently on
+        // Host and Client. Keep self audio 2D so the owner always hears it.
+        if (isLocallyControlled)
+        {
+            AudioManager.Instance.PlaySFX(clip, playbackScope: playbackScope);
+            return;
+        }
+
+        // Other players remain positional and are silent outside the range.
+        AudioManager.Instance.PlaySFX(
+            clip,
+            transform.position,
+            MovementSfxMinDistance,
+            MovementSfxMaxDistance,
+            AudioRolloffMode.Linear,
+            playbackScope);
+    }
+
+    private bool CanPlayNetworkedMovementAudio()
+    {
+        // State and animator data are already replicated. Let every local proxy
+        // play its avatar's 3D SFX once so nearby host/client players hear it.
+        return _networkObject == null || _networkObject.IsSpawned;
+    }
+
+    private bool IsLocallyControlled()
+    {
+        return _networkObject == null
+            || !_networkObject.IsSpawned
+            || _networkObject.IsOwner;
     }
 
     /// <summary>

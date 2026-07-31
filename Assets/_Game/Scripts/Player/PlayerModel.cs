@@ -90,6 +90,7 @@ public class PlayerModel : NetworkBehaviour
 
             _animator.runtimeAnimatorController = controller;
             _animator.avatar = avatar;
+            _animator.fireEvents = true;
             _animator.Rebind();
             _animator.Update(0f);
 

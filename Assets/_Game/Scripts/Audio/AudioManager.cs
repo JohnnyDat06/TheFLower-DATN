@@ -139,22 +139,36 @@ public class AudioManager : MonoBehaviour
         }
     }
 
-    public void PlaySFX(SOAudioClip config, Vector3? position = null)
+    public void PlaySFX(
+        SOAudioClip config,
+        Vector3? position = null,
+        float minDistance = 1f,
+        float maxDistance = 500f,
+        AudioRolloffMode rolloffMode = AudioRolloffMode.Logarithmic,
+        int playbackScope = 0)
     {
         if (config == null || config.Clip == null) return;
 
         // Giới hạn tần suất phát (không cho phép phát cùng 1 clip trong vòng 0.05s)
-        string clipName = config.Clip.name;
-        if (_lastPlayTimes.TryGetValue(clipName, out float lastTime))
+        string cooldownKey = playbackScope == 0
+            ? config.Clip.name
+            : config.Clip.name + ":" + playbackScope;
+        if (_lastPlayTimes.TryGetValue(cooldownKey, out float lastTime))
         {
             if (Time.unscaledTime - lastTime < 0.05f) return;
         }
-        _lastPlayTimes[clipName] = Time.unscaledTime;
+        _lastPlayTimes[cooldownKey] = Time.unscaledTime;
 
         AudioSource source = GetAvailableSource();
         
         source.spatialBlend = position.HasValue ? 1f : 0f;
-        if (position.HasValue) source.transform.position = position.Value;
+        if (position.HasValue)
+        {
+            source.transform.position = position.Value;
+            source.minDistance = Mathf.Max(0.01f, minDistance);
+            source.maxDistance = Mathf.Max(source.minDistance, maxDistance);
+            source.rolloffMode = rolloffMode;
+        }
 
         source.clip = config.Clip;
         source.volume = GetSfxVolume(config.Volume);
