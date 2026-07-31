@@ -20,7 +20,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   MoveSpeed: 2
-  SprintMultiplier: 4
+  SprintMultiplier: 3
   CrouchSpeedMultiplier: 0.3
   JumpForce: 14
   DoubleJumpForce: 14

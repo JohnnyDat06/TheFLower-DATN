@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using Unity.Netcode;
 
 /// <summary>
 /// Bridge nhận Animation Events từ Animator (trên Player root)
@@ -18,8 +19,13 @@ public class PlayerAnimationEventReceiver : MonoBehaviour
 
     [Header("Audio")]
     [SerializeField] private List<SOAudioClip> _footstepClips;
+    [SerializeField] private SOAudioClip _jumpClip;
+    [SerializeField] private SOAudioClip _dashClip;
 
     private readonly List<AttackHitbox> _attackHitboxes = new();
+    private PlayerStateMachine _stateMachine;
+    private PlayerInputHandler _inputHandler;
+    private NetworkObject _networkObject;
 
     private void Awake()
     {
@@ -28,11 +34,30 @@ public class PlayerAnimationEventReceiver : MonoBehaviour
         if (_comboController == null)
             _comboController = GetComponent<AttackComboController>();
 
+        _stateMachine = GetComponent<PlayerStateMachine>();
+        _inputHandler = GetComponent<PlayerInputHandler>();
+        _networkObject = GetComponent<NetworkObject>();
+
         if (_attackHitboxes.Count == 0)
             Debug.LogWarning("[AnimEventReceiver] AttackHitbox không tìm thấy trong children!");
 
         if (_comboController == null)
             Debug.LogWarning("[AnimEventReceiver] AttackComboController không tìm thấy!");
+    }
+
+    private void OnEnable()
+    {
+        if (_stateMachine == null)
+            _stateMachine = GetComponent<PlayerStateMachine>();
+
+        if (_stateMachine != null)
+            _stateMachine.OnStateChanged += HandleStateChanged;
+    }
+
+    private void OnDisable()
+    {
+        if (_stateMachine != null)
+            _stateMachine.OnStateChanged -= HandleStateChanged;
     }
 
     private void CacheAttackHitboxes()
@@ -62,9 +87,59 @@ public class PlayerAnimationEventReceiver : MonoBehaviour
     /// </summary>
     public void PlayFootstep()
     {
+        if (!CanPlayFootstep()) return;
         if (_footstepClips == null || _footstepClips.Count == 0) return;
         int index = Random.Range(0, _footstepClips.Count);
-        AudioManager.Instance.PlaySFX(_footstepClips[index], transform.position);
+        AudioManager.Instance.PlaySFX(_footstepClips[index]);
+    }
+
+    private bool CanPlayFootstep()
+    {
+        if (!CanPlayLocalMovementAudio()) return false;
+
+        // Locomotion uses a Blend Tree, so Walk/Run animation events can still
+        // arrive briefly while blending back to Idle. Require live movement
+        // input and a grounded locomotion state before accepting the event.
+        if (_inputHandler != null && !_inputHandler.IsMoving) return false;
+        if (_stateMachine == null) return true;
+
+        return _stateMachine.CurrentStateType is PlayerStateType.Walk
+            or PlayerStateType.Run
+            or PlayerStateType.CrouchWalk;
+    }
+
+    private void HandleStateChanged(PlayerStateType previousState, PlayerStateType nextState)
+    {
+        if (!CanPlayLocalMovementAudio()) return;
+
+        switch (nextState)
+        {
+            case PlayerStateType.Jump:
+                // Air dash/glide return to Jump only to resume falling physics;
+                // that transition is not a new jump input and must stay silent.
+                if (previousState is PlayerStateType.DashInAir or PlayerStateType.AirGlide)
+                    break;
+
+                AudioManager.Instance.PlaySFX(_jumpClip);
+                break;
+
+            case PlayerStateType.DoubleJump:
+            case PlayerStateType.WallJump:
+                AudioManager.Instance.PlaySFX(_jumpClip);
+                break;
+
+            case PlayerStateType.DashInAir:
+            case PlayerStateType.DashOnGround:
+                AudioManager.Instance.PlaySFX(_dashClip);
+                break;
+        }
+    }
+
+    private bool CanPlayLocalMovementAudio()
+    {
+        // Offline/test prefabs have no NetworkObject. Networked players only play
+        // their owner's movement SFX, avoiding duplicate playback from proxies.
+        return _networkObject == null || (_networkObject.IsSpawned && _networkObject.IsOwner);
     }
 
     /// <summary>

@@ -5576,6 +5576,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 7b76428f7b9c6f14586d5be06b414ee2, type: 2}
   - {fileID: 11400000, guid: 6c2e910a0eec79647b86239763a0d18d, type: 2}
   - {fileID: 11400000, guid: 291442102a013ac43b37e2b9d871aebf, type: 2}
+  _jumpClip: {fileID: 11400000, guid: fabed3afdfec1eb4981a88dab631f25c, type: 2}
+  _dashClip: {fileID: 11400000, guid: 443e1c35824a12949a9f66e6687fc900, type: 2}
 --- !u!114 &4810457772248123075
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -25,6 +25,7 @@ public class PlayerController : NetworkBehaviour
     // Runtime state
     private int     _jumpCount;
     private bool    _isGrounded;
+    private float   _jumpHorizontalSpeed;
     private bool    _glideUsed;
     private bool    _isCrouching;
     private float   _slideTimer;
@@ -194,9 +195,16 @@ public class PlayerController : NetworkBehaviour
         // Chặn di chuyển nếu đang bị knockback
         if (_knockbackTimer > 0f) return;
 
+        bool isUsingJumpMomentum = _fsm.CurrentStateType is PlayerStateType.Jump
+                                                            or PlayerStateType.DoubleJump
+                                                            or PlayerStateType.AirGlide;
+
         if (_input.MoveInput.sqrMagnitude < 0.01f)
         {
-            _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
+            // Preserve takeoff momentum while airborne. Releasing movement input
+            // must not turn a sprint jump into a stationary jump.
+            if (!isUsingJumpMomentum)
+                _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
             return;
         }
 
@@ -219,6 +227,8 @@ public class PlayerController : NetworkBehaviour
         {
             PlayerStateType.Run        => _config.MoveSpeed * _config.SprintMultiplier,
             PlayerStateType.CrouchWalk => _config.MoveSpeed * _config.CrouchSpeedMultiplier,
+            PlayerStateType.Jump or PlayerStateType.DoubleJump or PlayerStateType.AirGlide
+                => Mathf.Max(_jumpHorizontalSpeed, _config.MoveSpeed * 0.5f),
             PlayerStateType.GroundSlide => 0f,           // slide dùng quán tính, không drive
             _                          => _config.MoveSpeed,
         };
@@ -264,13 +274,30 @@ public class PlayerController : NetworkBehaviour
         {
             _input.ConsumeJumpPressed();
 
+            bool isFirstJump = _jumpCount == 0;
+
+            // Capture horizontal speed at takeoff. The intended input speed covers
+            // sprint + jump pressed in the same frame, before Rigidbody catches up.
+            float currentHorizontalSpeed = new Vector3(
+                _rb.linearVelocity.x,
+                0f,
+                _rb.linearVelocity.z).magnitude;
+            float intendedGroundSpeed = _input.IsMoving
+                ? (_input.IsSprinting
+                    ? _config.MoveSpeed * _config.SprintMultiplier
+                    : _config.MoveSpeed)
+                : 0f;
+
+            if (isFirstJump)
+                _jumpHorizontalSpeed = Mathf.Max(currentHorizontalSpeed, intendedGroundSpeed);
+            else
+                _jumpHorizontalSpeed = Mathf.Max(_jumpHorizontalSpeed, currentHorizontalSpeed);
+
             // Khôi phục trọng lực lập tức phòng trường hợp vừa thoát khỏi trạng thái DashInAir hoặc WallHang
             _rb.useGravity = true;
 
             // Reset Y velocity trước khi nhảy để lực nhất quán
             _rb.linearVelocity = new Vector3(_rb.linearVelocity.x, 0f, _rb.linearVelocity.z);
-
-            bool isFirstJump = _jumpCount == 0;
 
             // Xác định lực nhảy dựa trên jump count
             float force = isFirstJump ? _config.JumpForce : _config.DoubleJumpForce;
@@ -590,6 +617,7 @@ public class PlayerController : NetworkBehaviour
         if (_isGrounded)
         {
             _jumpCount  = 0;
+            _jumpHorizontalSpeed = 0f;
             _glideUsed  = false;
             _dashUsed   = false;
             _rb.useGravity = true;
