@@ -144,22 +144,18 @@ public class AudioManager : MonoBehaviour
         Transform followTarget,
         float minDistance = 1f,
         float maxDistance = 30f,
-        AudioRolloffMode rolloffMode = AudioRolloffMode.Logarithmic,
-        AnimationCurve customRolloffCurve = null)
+        AudioRolloffMode rolloffMode = AudioRolloffMode.Logarithmic)
     {
         if (config == null || config.Clip == null || followTarget == null) return null;
 
         AudioSource source = GetAvailableSource();
         source.transform.SetParent(transform, false);
         source.transform.position = followTarget.position;
+        source.mute = false;
         source.spatialBlend = 1f;
         source.minDistance = Mathf.Max(0.01f, minDistance);
         source.maxDistance = Mathf.Max(source.minDistance, maxDistance);
         source.rolloffMode = rolloffMode;
-        if (rolloffMode == AudioRolloffMode.Custom && customRolloffCurve != null)
-        {
-            source.SetCustomCurve(AudioSourceCurveType.CustomRolloff, customRolloffCurve);
-        }
         source.clip = config.Clip;
         source.volume = GetSfxVolume(config.Volume);
         source.pitch = Random.Range(config.PitchMin, config.PitchMax);
@@ -176,6 +172,7 @@ public class AudioManager : MonoBehaviour
             source.Stop();
             source.clip = null; // Giải phóng clip
             source.loop = false;
+            source.mute = false;
             source.transform.SetParent(transform, false);
             _musicSources.Remove(source);
         }

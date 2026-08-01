@@ -4,6 +4,7 @@ using UnityEngine.Serialization;
 [RequireComponent(typeof(Rigidbody), typeof(SphereCollider))]
 public class Rock : MonoBehaviour
 {
+    private const float AudioListenerLookupInterval = 1f;
     private const float TimerPauseContactTolerance = 0.05f;
 
     [FormerlySerializedAs("positionClone")]
@@ -22,16 +23,14 @@ public class Rock : MonoBehaviour
     [SerializeField] private SOAudioClip _rollingSfx;
     [SerializeField, Min(0.01f)] private float _rollingAudioMinDistance = 3f;
     [SerializeField, Min(0.01f)] private float _rollingAudioMaxDistance = 30f;
-    [SerializeField] private AnimationCurve _rollingAudioRolloff = new(
-        new Keyframe(0f, 1f),
-        new Keyframe(0.75f, 0.85f),
-        new Keyframe(1f, 0f));
 
     private Rigidbody _rigidbody;
     private SphereCollider _rockCollider;
     private AudioSource _rollingAudioSource;
+    private AudioListener _audioListener;
     private Quaternion _startRotation;
     private bool _isTouchingTimerPauseCollider;
+    private float _nextAudioListenerLookupTime;
     private float _elapsedTime;
 
     private void Awake()
@@ -77,10 +76,13 @@ public class Rock : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_rollingAudioSource != null)
+        if (_rollingAudioSource == null)
         {
-            _rollingAudioSource.transform.position = transform.position;
+            return;
         }
+
+        _rollingAudioSource.transform.position = transform.position;
+        UpdateRollingAudioRange();
     }
 
     private bool HasReachedEndPoint()
@@ -121,9 +123,9 @@ public class Rock : MonoBehaviour
             _rollingSfx,
             transform,
             _rollingAudioMinDistance,
-            _rollingAudioMaxDistance,
-            AudioRolloffMode.Custom,
-            _rollingAudioRolloff);
+            _rollingAudioMaxDistance);
+
+        UpdateRollingAudioRange();
     }
 
     private void StopRollingAudio()
@@ -200,6 +202,35 @@ public class Rock : MonoBehaviour
         }
 
         UpdateRollingAudio();
+    }
+
+    private void UpdateRollingAudioRange()
+    {
+        if (_rollingAudioSource == null)
+        {
+            return;
+        }
+
+        if (_audioListener != null && !_audioListener.isActiveAndEnabled)
+        {
+            _audioListener = null;
+        }
+
+        if (_audioListener == null && Time.unscaledTime >= _nextAudioListenerLookupTime)
+        {
+            _audioListener = FindFirstObjectByType<AudioListener>();
+            _nextAudioListenerLookupTime = Time.unscaledTime + AudioListenerLookupInterval;
+        }
+
+        if (_audioListener == null)
+        {
+            return;
+        }
+
+        float maxDistance = Mathf.Max(_rollingAudioMinDistance, _rollingAudioMaxDistance);
+        float maxDistanceSquared = maxDistance * maxDistance;
+        float listenerDistanceSquared = (_audioListener.transform.position - transform.position).sqrMagnitude;
+        _rollingAudioSource.mute = listenerDistanceSquared > maxDistanceSquared;
     }
 
     private void KillPlayer(Collider other)
