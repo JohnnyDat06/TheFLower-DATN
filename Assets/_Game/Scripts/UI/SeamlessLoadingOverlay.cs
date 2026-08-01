@@ -21,6 +21,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private TextMeshProUGUI _loadingStatusText;
     private RectTransform _tipLeaf;
     private float _targetProgress;
+    private bool _fadeInRequested;
     private static Sprite s_roundedSprite;
 
     private void Awake()
@@ -86,10 +87,32 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         else if (_progressSlider != null) _progressSlider.gameObject.SetActive(show);
     }
 
+    /// <summary>
+    /// Makes the loading presentation visible without restarting an in-progress fade.
+    /// Multiple network callbacks can legitimately request the same presentation.
+    /// </summary>
+    public void EnsureLoadingVisible(bool resetProgress = false)
+    {
+        ShowProgressBar(true);
+        if (resetProgress)
+        {
+            _targetProgress = 0f;
+            if (_progressSlider != null)
+            {
+                _progressSlider.value = 0f;
+                UpdateProgressPresentation(0f);
+            }
+        }
+        if (_canvasGroup == null || (_canvasGroup.alpha > 0.01f && !_fadeInRequested)) return;
+        if (_fadeInRequested) return;
+        FadeIn();
+    }
+
     public void FadeIn(System.Action onComplete = null)
     {
         Debug.Log("[SeamlessLoadingOverlay] FadeIn called");
         StopAllCoroutines();
+        _fadeInRequested = true;
         _targetProgress = 0f;
         if (_progressSlider != null)
         {
@@ -103,6 +126,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     {
         Debug.Log("[SeamlessLoadingOverlay] FadeOut called");
         StopAllCoroutines();
+        _fadeInRequested = false;
         _targetProgress = 1f;
         StartCoroutine(FadeRoutine(0f, onComplete));
     }
@@ -125,6 +149,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         }
 
         _canvasGroup.alpha = targetAlpha;
+        _fadeInRequested = targetAlpha > 0.5f;
         onComplete?.Invoke();
     }
 

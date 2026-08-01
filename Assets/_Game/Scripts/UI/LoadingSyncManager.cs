@@ -48,8 +48,7 @@ public class LoadingSyncManager : NetworkBehaviour
 
         if (SeamlessLoadingOverlay.Instance != null)
         {
-            SeamlessLoadingOverlay.Instance.ShowProgressBar(true); // Reset về mặc định
-            SeamlessLoadingOverlay.Instance.FadeIn();
+            SeamlessLoadingOverlay.Instance.EnsureLoadingVisible();
             
             // Nếu là Client, hãy bắt đầu mô phỏng tiến trình load
             if (!IsHost && SceneLoader.Instance != null)
