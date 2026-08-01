@@ -15,8 +15,11 @@ public class Rock : MonoBehaviour
     [FormerlySerializedAs("distanceToEndPoint")]
     [SerializeField] private float _distanceToEndPoint = 15f;
 
+    [SerializeField] private Collider[] _timerPauseColliders;
+
     private Rigidbody _rigidbody;
     private Quaternion _startRotation;
+    private int _timerPauseCollisionCount;
     private float _elapsedTime;
 
     private void Awake()
@@ -39,7 +42,10 @@ public class Rock : MonoBehaviour
 
     private void Update()
     {
-        _elapsedTime += Time.deltaTime;
+        if (_timerPauseCollisionCount == 0)
+        {
+            _elapsedTime += Time.deltaTime;
+        }
 
         bool reachedEndPoint = HasReachedEndPoint();
         bool reachedTimeLimit = _timeReset > 0f && _elapsedTime >= _timeReset;
@@ -65,6 +71,37 @@ public class Rock : MonoBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         KillPlayer(collision.collider);
+
+        if (IsTimerPauseCollider(collision.collider))
+        {
+            _timerPauseCollisionCount++;
+        }
+    }
+
+    private void OnCollisionExit(Collision collision)
+    {
+        if (IsTimerPauseCollider(collision.collider))
+        {
+            _timerPauseCollisionCount = Mathf.Max(0, _timerPauseCollisionCount - 1);
+        }
+    }
+
+    private bool IsTimerPauseCollider(Collider other)
+    {
+        if (other == null || _timerPauseColliders == null)
+        {
+            return false;
+        }
+
+        foreach (Collider timerPauseCollider in _timerPauseColliders)
+        {
+            if (other == timerPauseCollider)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void KillPlayer(Collider other)
@@ -84,6 +121,7 @@ public class Rock : MonoBehaviour
         }
 
         _elapsedTime = 0f;
+        _timerPauseCollisionCount = 0;
 
         if (_rigidbody != null)
         {
