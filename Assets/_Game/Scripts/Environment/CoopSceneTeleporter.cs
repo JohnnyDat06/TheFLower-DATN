@@ -85,6 +85,18 @@ public class CoopSceneTeleporter : NetworkBehaviour
     {
         if (_isTransitioning) return;
 
+        if (NetworkManager.Singleton == null || !IsServer)
+        {
+            Debug.LogWarning("[CoopSceneTeleporter] Ignoring transition check because the server is not ready.");
+            return;
+        }
+
+        if (!SceneLoader.CanLoadScene(_nextSceneName))
+        {
+            Debug.LogError($"[CoopSceneTeleporter] Cannot transition because scene '{_nextSceneName}' is not in Build Settings.");
+            return;
+        }
+
         int connectedPlayers = NetworkManager.Singleton.ConnectedClients.Count;
         int requiredPlayers = Mathf.Min(connectedPlayers, 2);
         
@@ -106,6 +118,12 @@ public class CoopSceneTeleporter : NetworkBehaviour
         {
             LoadingSyncManager.Instance.StartLoadingFadeClientRpc();
         }
+        else if (SeamlessLoadingOverlay.Instance != null)
+        {
+            // Keep the presentation visible even if the network sync helper is not
+            // present in a standalone/test scene.
+            SeamlessLoadingOverlay.Instance.EnsureLoadingVisible();
+        }
 
         // 2. Đợi một chút để màn hình kịp mờ hẳn (giống bên LobbyManager)
         yield return new WaitForSecondsRealtime(0.8f);
@@ -116,12 +134,17 @@ public class CoopSceneTeleporter : NetworkBehaviour
         var loader = FindFirstObjectByType<SceneLoader>();
         if (loader != null)
         {
+            if (loader.IsLoading)
+            {
+                Debug.LogWarning("[CoopSceneTeleporter] SceneLoader is already processing a transition.");
+                yield break;
+            }
             loader.LoadScene(_nextSceneName);
         }
         else
         {
             Debug.LogWarning("[CoopSceneTeleporter] Không thấy SceneLoader, gọi trực tiếp NetworkSceneManager.");
-            if (SceneLoader.CanLoadScene(_nextSceneName))
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.SceneManager != null && SceneLoader.CanLoadScene(_nextSceneName))
                 NetworkManager.SceneManager.LoadScene(_nextSceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
     }

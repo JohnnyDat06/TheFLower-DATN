@@ -22,6 +22,9 @@ namespace Game.Network
         private HashSet<ulong> _spawnedPlayers = new HashSet<ulong>();
         private bool _isSpawningFinished = false;
 
+        private const int MaxTeleportAttempts = 30;
+        private const float TeleportRetryDelay = 0.1f;
+
         private void Awake()
         {
             Instance = this;
@@ -123,10 +126,10 @@ namespace Game.Network
             _isSpawningFinished = true;
             Debug.Log("<color=green>[PlayerSpawner] ALL PLAYERS READY. Executing synchronized teleport...</color>");
 
-            if (spawnPoints == null || spawnPoints.Length == 0)
+            if (!TryResolveSpawnPoints())
             {
-                Debug.LogError("[PlayerSpawner] No spawn points configured. Releasing loading overlay without teleporting.");
-                ReleasePlayersAndLoadingOverlay(new List<ulong>(NetworkManager.ConnectedClientsIds));
+                Debug.LogError("[PlayerSpawner] Spawn points are missing or invalid. Players remain frozen and the loading overlay stays visible.");
+                _isSpawningFinished = false;
                 yield break;
             }
 
@@ -134,31 +137,84 @@ namespace Game.Network
             var clientIds = new List<ulong>(NetworkManager.ConnectedClientsIds);
             clientIds.Sort();
 
-            // 2. Thực hiện Teleport cho từng người
-            for (int i = 0; i < clientIds.Count; i++)
+            // 2. Chỉ giải phóng player sau khi mọi PlayerObject đã nhận lệnh teleport.
+            bool allPlayersTeleported = false;
+            for (int attempt = 1; attempt <= MaxTeleportAttempts && !allPlayersTeleported; attempt++)
             {
-                ulong id = clientIds[i];
-                if (NetworkManager.Singleton.ConnectedClients.TryGetValue(id, out var client) && client.PlayerObject != null)
+                allPlayersTeleported = true;
+                for (int i = 0; i < clientIds.Count; i++)
                 {
-                    if (client.PlayerObject.TryGetComponent<NGOPlayerSync>(out var playerSync))
+                    ulong id = clientIds[i];
+                    if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(id, out var client) || client.PlayerObject == null)
                     {
-                        int spawnIndex = i % spawnPoints.Length;
-                        Vector3 spawnPos = spawnPoints[spawnIndex].position;
-                        
-                        if (forceSameHeight && spawnPoints.Length > 0)
-                        {
-                            spawnPos.y = spawnPoints[0].position.y;
-                        }
-
-                        playerSync.Teleport(spawnPos, spawnPoints[spawnIndex].rotation);
+                        allPlayersTeleported = false;
+                        continue;
                     }
+
+                    if (!client.PlayerObject.TryGetComponent<NGOPlayerSync>(out var playerSync))
+                    {
+                        Debug.LogWarning($"[PlayerSpawner] Player {id} is missing NGOPlayerSync; retrying teleport.");
+                        allPlayersTeleported = false;
+                        continue;
+                    }
+
+                    int spawnIndex = i % spawnPoints.Length;
+                    Vector3 spawnPos = spawnPoints[spawnIndex].position;
+                    if (forceSameHeight) spawnPos.y = spawnPoints[0].position.y;
+                    playerSync.Teleport(spawnPos, spawnPoints[spawnIndex].rotation);
+                    _spawnedPlayers.Add(id);
+                }
+
+                if (!allPlayersTeleported)
+                {
+                    if (attempt == MaxTeleportAttempts)
+                    {
+                        Debug.LogError("[PlayerSpawner] Could not resolve every PlayerObject for teleport. Players remain frozen; refusing to release them at (0,0,0).");
+                        _isSpawningFinished = false;
+                        yield break;
+                    }
+
+                    yield return new WaitForSecondsRealtime(TeleportRetryDelay);
                 }
             }
 
-            // 3. Đợi vài frame để đảm bảo lệnh Teleport đã tới Client và Physics đã ổn định
+            // 3. Đợi vài frame để đảm bảo lệnh Teleport đã tới Client và Physics đã ổn định.
             yield return new WaitForSeconds(0.5f);
 
+            Debug.Log($"[PlayerSpawner] Verified teleport command for {_spawnedPlayers.Count}/{clientIds.Count} players before release.");
             ReleasePlayersAndLoadingOverlay(clientIds);
+        }
+
+        private bool TryResolveSpawnPoints()
+        {
+            if (spawnPoints != null && spawnPoints.Length > 0)
+            {
+                bool valid = true;
+                foreach (Transform point in spawnPoints)
+                {
+                    if (point == null || !point.gameObject.activeInHierarchy || !IsFinite(point.position))
+                    {
+                        valid = false;
+                        break;
+                    }
+                }
+
+                if (valid) return true;
+            }
+
+            Transform first = transform.Find("P1");
+            Transform second = transform.Find("P2");
+            if (first == null || second == null || !first.gameObject.activeInHierarchy || !second.gameObject.activeInHierarchy)
+                return false;
+
+            spawnPoints = new[] { first, second };
+            Debug.LogWarning("[PlayerSpawner] Recovered spawn points from child transforms P1/P2.");
+            return true;
+        }
+
+        private static bool IsFinite(Vector3 value)
+        {
+            return float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);
         }
 
         private void ReleasePlayersAndLoadingOverlay(List<ulong> clientIds)
