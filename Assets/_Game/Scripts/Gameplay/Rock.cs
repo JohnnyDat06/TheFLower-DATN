@@ -23,6 +23,7 @@ public class Rock : MonoBehaviour
     private Rigidbody _rigidbody;
     private AudioSource _rollingAudioSource;
     private Quaternion _startRotation;
+    private bool _timerPauseContactDetected;
     private int _timerPauseCollisionCount;
     private float _elapsedTime;
 
@@ -61,6 +62,17 @@ public class Rock : MonoBehaviour
         }
     }
 
+    private void FixedUpdate()
+    {
+        if (_timerPauseCollisionCount > 0 && !_timerPauseContactDetected)
+        {
+            _timerPauseCollisionCount = 0;
+            UpdateRollingAudio();
+        }
+
+        _timerPauseContactDetected = false;
+    }
+
     private bool HasReachedEndPoint()
     {
         if (_endPoint == null || _distanceToEndPoint < 0f)
@@ -79,8 +91,17 @@ public class Rock : MonoBehaviour
 
         if (IsTimerPauseCollider(collision.collider))
         {
+            _timerPauseContactDetected = true;
             _timerPauseCollisionCount++;
             StopRollingAudio();
+        }
+    }
+
+    private void OnCollisionStay(Collision collision)
+    {
+        if (IsTimerPauseCollider(collision.collider))
+        {
+            _timerPauseContactDetected = true;
         }
     }
 
@@ -158,6 +179,7 @@ public class Rock : MonoBehaviour
         }
 
         _elapsedTime = 0f;
+        _timerPauseContactDetected = false;
         _timerPauseCollisionCount = 0;
 
         if (_rigidbody != null)
