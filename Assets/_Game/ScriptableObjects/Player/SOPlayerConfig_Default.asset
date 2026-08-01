@@ -23,8 +23,6 @@ MonoBehaviour:
   SprintMultiplier: 3
   CrouchSpeedMultiplier: 0.3
   JumpForce: 14
-  DoubleJumpForce: 14
-  MaxJumpCount: 2
   GlideGravityScale: 0.2
   WallJumpHorizontalForce: 5
   WallJumpVerticalForce: 8

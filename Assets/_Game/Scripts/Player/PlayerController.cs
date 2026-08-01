@@ -267,50 +267,33 @@ public class PlayerController : NetworkBehaviour
         if (_fsm.CurrentStateType is PlayerStateType.DashOnGround or PlayerStateType.GroundSlide
                                   or PlayerStateType.Attack1 or PlayerStateType.Attack2 or PlayerStateType.Attack3) return;
 
-        bool canJump = _isGrounded && _jumpCount == 0;
-        bool canDoubleJump = !_isGrounded && _jumpCount < _config.MaxJumpCount;
+        if (!_isGrounded || _jumpCount != 0) return;
 
-        if (canJump || canDoubleJump)
-        {
-            _input.ConsumeJumpPressed();
+        _input.ConsumeJumpPressed();
 
-            bool isFirstJump = _jumpCount == 0;
+        // Capture horizontal speed at takeoff. The intended input speed covers
+        // sprint + jump pressed in the same frame, before Rigidbody catches up.
+        float currentHorizontalSpeed = new Vector3(
+            _rb.linearVelocity.x,
+            0f,
+            _rb.linearVelocity.z).magnitude;
+        float intendedGroundSpeed = _input.IsMoving
+            ? (_input.IsSprinting
+                ? _config.MoveSpeed * _config.SprintMultiplier
+                : _config.MoveSpeed)
+            : 0f;
+        _jumpHorizontalSpeed = Mathf.Max(currentHorizontalSpeed, intendedGroundSpeed);
 
-            // Capture horizontal speed at takeoff. The intended input speed covers
-            // sprint + jump pressed in the same frame, before Rigidbody catches up.
-            float currentHorizontalSpeed = new Vector3(
-                _rb.linearVelocity.x,
-                0f,
-                _rb.linearVelocity.z).magnitude;
-            float intendedGroundSpeed = _input.IsMoving
-                ? (_input.IsSprinting
-                    ? _config.MoveSpeed * _config.SprintMultiplier
-                    : _config.MoveSpeed)
-                : 0f;
+        // Khôi phục trọng lực lập tức phòng trường hợp vừa thoát khỏi trạng thái DashInAir hoặc WallHang.
+        _rb.useGravity = true;
 
-            if (isFirstJump)
-                _jumpHorizontalSpeed = Mathf.Max(currentHorizontalSpeed, intendedGroundSpeed);
-            else
-                _jumpHorizontalSpeed = Mathf.Max(_jumpHorizontalSpeed, currentHorizontalSpeed);
+        // Reset Y velocity trước khi nhảy để lực nhất quán.
+        _rb.linearVelocity = new Vector3(_rb.linearVelocity.x, 0f, _rb.linearVelocity.z);
+        _rb.AddForce(Vector3.up * _config.JumpForce, ForceMode.Impulse);
 
-            // Khôi phục trọng lực lập tức phòng trường hợp vừa thoát khỏi trạng thái DashInAir hoặc WallHang
-            _rb.useGravity = true;
-
-            // Reset Y velocity trước khi nhảy để lực nhất quán
-            _rb.linearVelocity = new Vector3(_rb.linearVelocity.x, 0f, _rb.linearVelocity.z);
-
-            // Xác định lực nhảy dựa trên jump count
-            float force = isFirstJump ? _config.JumpForce : _config.DoubleJumpForce;
-            _rb.AddForce(Vector3.up * force, ForceMode.Impulse);
-            
-            _jumpCount++;
-            
-            // Đảm bảo không còn ở mặt đất sau khi nhảy
-            _isGrounded = false;
-
-            var newState = isFirstJump ? PlayerStateType.Jump : PlayerStateType.DoubleJump;
-            _fsm.TransitionTo(newState);
-        }
+        _jumpCount = 1;
+        _isGrounded = false;
+        _fsm.TransitionTo(PlayerStateType.Jump);
     }
 
     // ─── HandleRoll (Ground) ─────────────────────────────────────────────────
@@ -577,7 +560,7 @@ public class PlayerController : NetworkBehaviour
             var jumpDir = (_wallNormal + Vector3.up).normalized;
             _rb.AddForce(jumpDir * _config.WallJumpVerticalForce
                          + _wallNormal * _config.WallJumpHorizontalForce, ForceMode.Impulse);
-            _jumpCount = 1; // reset để có thể double jump sau wall jump
+            _jumpCount = 1; // Chặn nhảy tiếp cho đến khi chạm đất.
             _glideUsed = false;
             _fsm.TransitionTo(PlayerStateType.WallJump);
         }
@@ -660,8 +643,8 @@ public class PlayerController : NetworkBehaviour
         // Chuyển sang trạng thái Jump để có thể điều hướng trên không
         _fsm.TransitionTo(PlayerStateType.Jump);
         
-        // Cho phép Double Jump sau khi nảy từ nấm
-        _jumpCount = 1; 
+        // Chặn nhảy tiếp cho đến khi chạm đất.
+        _jumpCount = 1;
     }
 
     /// <summary>Expose IsGrounded cho các class khác (ví dụ PlayerAnimator).</summary>
