@@ -118,6 +118,8 @@ Assets/_Project/Scenes/DatScense/Demo_Scene_Lake_1.unity.meta
 notebooklm-mcp-cli/
 /GDD
 *.md
+!AGENTS.md
+!.codex/skills/datn-coop-development/SKILL.md
 Assets/_Game/Scenes/DatScense/Demo_Scene_Lake_1.unity.meta
 Assets/_Game/Scenes/DatScense/Demo_Scene_Lake_1.unity
 .bezisidekick/.settings.json

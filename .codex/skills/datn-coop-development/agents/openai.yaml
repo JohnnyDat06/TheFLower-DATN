@@ -1,0 +1,7 @@
+interface:
+  display_name: "DATN Co-op Development"
+  short_description: "Maintainable Unity OOP and Git workflow"
+  default_prompt: "Use $datn-coop-development and read the project skill before implementing this task."
+
+policy:
+  allow_implicit_invocation: true
