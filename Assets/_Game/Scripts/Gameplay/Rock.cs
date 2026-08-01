@@ -1,8 +1,11 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 
+[RequireComponent(typeof(Rigidbody), typeof(SphereCollider))]
 public class Rock : MonoBehaviour
 {
+    private const float TimerPauseContactTolerance = 0.05f;
+
     [FormerlySerializedAs("positionClone")]
     [SerializeField] private Transform _positionClone;
 
@@ -21,15 +24,16 @@ public class Rock : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _rollingAudioMaxDistance = 30f;
 
     private Rigidbody _rigidbody;
+    private SphereCollider _rockCollider;
     private AudioSource _rollingAudioSource;
     private Quaternion _startRotation;
-    private bool _timerPauseContactDetected;
-    private int _timerPauseCollisionCount;
+    private bool _isTouchingTimerPauseCollider;
     private float _elapsedTime;
 
     private void Awake()
     {
         _rigidbody = GetComponent<Rigidbody>();
+        _rockCollider = GetComponent<SphereCollider>();
         _startRotation = transform.rotation;
     }
 
@@ -48,7 +52,7 @@ public class Rock : MonoBehaviour
 
     private void Update()
     {
-        if (_timerPauseCollisionCount == 0)
+        if (!_isTouchingTimerPauseCollider)
         {
             _elapsedTime += Time.deltaTime;
         }
@@ -64,13 +68,7 @@ public class Rock : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (_timerPauseCollisionCount > 0 && !_timerPauseContactDetected)
-        {
-            _timerPauseCollisionCount = 0;
-            UpdateRollingAudio();
-        }
-
-        _timerPauseContactDetected = false;
+        SetTimerPauseState(IsRockTouchingTimerPauseCollider());
     }
 
     private bool HasReachedEndPoint()
@@ -91,26 +89,7 @@ public class Rock : MonoBehaviour
 
         if (IsTimerPauseCollider(collision.collider))
         {
-            _timerPauseContactDetected = true;
-            _timerPauseCollisionCount++;
-            StopRollingAudio();
-        }
-    }
-
-    private void OnCollisionStay(Collision collision)
-    {
-        if (IsTimerPauseCollider(collision.collider))
-        {
-            _timerPauseContactDetected = true;
-        }
-    }
-
-    private void OnCollisionExit(Collision collision)
-    {
-        if (IsTimerPauseCollider(collision.collider))
-        {
-            _timerPauseCollisionCount = Mathf.Max(0, _timerPauseCollisionCount - 1);
-            UpdateRollingAudio();
+            SetTimerPauseState(true);
         }
     }
 
@@ -121,7 +100,7 @@ public class Rock : MonoBehaviour
 
     private void UpdateRollingAudio()
     {
-        if (_rollingAudioSource != null || _rollingSfx == null || _timerPauseCollisionCount > 0)
+        if (_rollingAudioSource != null || _rollingSfx == null || _isTouchingTimerPauseCollider)
         {
             return;
         }
@@ -130,7 +109,8 @@ public class Rock : MonoBehaviour
             _rollingSfx,
             transform,
             _rollingAudioMinDistance,
-            _rollingAudioMaxDistance);
+            _rollingAudioMaxDistance,
+            AudioRolloffMode.Linear);
     }
 
     private void StopRollingAudio()
@@ -162,6 +142,53 @@ public class Rock : MonoBehaviour
         return false;
     }
 
+    private bool IsRockTouchingTimerPauseCollider()
+    {
+        if (_rockCollider == null || !_rockCollider.enabled || _timerPauseColliders == null)
+        {
+            return false;
+        }
+
+        Vector3 sphereCenter = _rockCollider.transform.TransformPoint(_rockCollider.center);
+        Vector3 lossyScale = _rockCollider.transform.lossyScale;
+        float largestScale = Mathf.Max(Mathf.Abs(lossyScale.x), Mathf.Abs(lossyScale.y), Mathf.Abs(lossyScale.z));
+        float sphereRadius = (_rockCollider.radius * largestScale) + TimerPauseContactTolerance;
+        float sphereRadiusSquared = sphereRadius * sphereRadius;
+
+        foreach (Collider timerPauseCollider in _timerPauseColliders)
+        {
+            if (timerPauseCollider == null || !timerPauseCollider.enabled || !timerPauseCollider.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            Vector3 closestPoint = timerPauseCollider.ClosestPoint(sphereCenter);
+            if ((closestPoint - sphereCenter).sqrMagnitude <= sphereRadiusSquared)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void SetTimerPauseState(bool isTouchingDoor)
+    {
+        if (_isTouchingTimerPauseCollider == isTouchingDoor)
+        {
+            return;
+        }
+
+        _isTouchingTimerPauseCollider = isTouchingDoor;
+        if (isTouchingDoor)
+        {
+            StopRollingAudio();
+            return;
+        }
+
+        UpdateRollingAudio();
+    }
+
     private void KillPlayer(Collider other)
     {
         PlayerHealth playerHealth = other.GetComponentInParent<PlayerHealth>();
@@ -179,8 +206,7 @@ public class Rock : MonoBehaviour
         }
 
         _elapsedTime = 0f;
-        _timerPauseContactDetected = false;
-        _timerPauseCollisionCount = 0;
+        _isTouchingTimerPauseCollider = false;
 
         if (_rigidbody != null)
         {
