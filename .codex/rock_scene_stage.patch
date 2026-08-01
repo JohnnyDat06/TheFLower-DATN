@@ -1,0 +1,16 @@
+diff --git a/Assets/_Game/Scenes/_Core/Map1_Main.unity b/Assets/_Game/Scenes/_Core/Map1_Main.unity
+--- a/Assets/_Game/Scenes/_Core/Map1_Main.unity
++++ b/Assets/_Game/Scenes/_Core/Map1_Main.unity
+@@ -323763,8 +323763,12 @@ MonoBehaviour:
+   _timeReset: 15
+   _distanceToEndPoint: 5
+   _timerPauseColliders:
++  - {fileID: 7181177676631958213}
+   - {fileID: 4757265718544303463}
+   - {fileID: 5302034179199697709}
++  _rollingSfx: {fileID: 11400000, guid: a10643ca9fb3059489fe262be7e16533, type: 2}
++  _rollingAudioMinDistance: 10
++  _rollingAudioMaxDistance: 250
+ --- !u!4 &3552933449948286321
+ Transform:
+   m_ObjectHideFlags: 0

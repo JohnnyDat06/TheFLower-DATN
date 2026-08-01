@@ -88,8 +88,15 @@ public class AudioManager : MonoBehaviour
 
     private AudioSource GetAvailableSource()
     {
-        foreach (var source in _sfxSources)
+        for (int i = _sfxSources.Count - 1; i >= 0; i--)
         {
+            AudioSource source = _sfxSources[i];
+            if (source == null)
+            {
+                _sfxSources.RemoveAt(i);
+                continue;
+            }
+
             if (!source.isPlaying) return source;
         }
         return CreateNewSFXSource();
@@ -128,6 +135,36 @@ public class AudioManager : MonoBehaviour
         return source;
     }
 
+    /// <summary>
+    /// Plays a spatial looping SFX that follows the supplied transform.
+    /// The returned source remains managed by the global SFX volume settings.
+    /// </summary>
+    public AudioSource PlaySFXLoop(
+        SOAudioClip config,
+        Transform followTarget,
+        float minDistance = 1f,
+        float maxDistance = 30f,
+        AudioRolloffMode rolloffMode = AudioRolloffMode.Logarithmic)
+    {
+        if (config == null || config.Clip == null || followTarget == null) return null;
+
+        AudioSource source = GetAvailableSource();
+        source.transform.SetParent(transform, false);
+        source.transform.position = followTarget.position;
+        source.mute = false;
+        source.spatialBlend = 1f;
+        source.minDistance = Mathf.Max(0.01f, minDistance);
+        source.maxDistance = Mathf.Max(source.minDistance, maxDistance);
+        source.rolloffMode = rolloffMode;
+        source.clip = config.Clip;
+        source.volume = GetSfxVolume(config.Volume);
+        source.pitch = Random.Range(config.PitchMin, config.PitchMax);
+        source.loop = true;
+        _musicSources.Remove(source);
+        source.Play();
+        return source;
+    }
+
     public void StopSFX(AudioSource source)
     {
         if (source != null)
@@ -135,6 +172,8 @@ public class AudioManager : MonoBehaviour
             source.Stop();
             source.clip = null; // Giải phóng clip
             source.loop = false;
+            source.mute = false;
+            source.transform.SetParent(transform, false);
             _musicSources.Remove(source);
         }
     }

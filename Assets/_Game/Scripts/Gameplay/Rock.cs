@@ -1,8 +1,12 @@
 using UnityEngine;
 using UnityEngine.Serialization;
 
+[RequireComponent(typeof(Rigidbody), typeof(SphereCollider))]
 public class Rock : MonoBehaviour
 {
+    private const float AudioListenerLookupInterval = 1f;
+    private const float TimerPauseContactTolerance = 0.05f;
+
     [FormerlySerializedAs("positionClone")]
     [SerializeField] private Transform _positionClone;
 
@@ -16,15 +20,23 @@ public class Rock : MonoBehaviour
     [SerializeField] private float _distanceToEndPoint = 15f;
 
     [SerializeField] private Collider[] _timerPauseColliders;
+    [SerializeField] private SOAudioClip _rollingSfx;
+    [SerializeField, Min(0.01f)] private float _rollingAudioMinDistance = 3f;
+    [SerializeField, Min(0.01f)] private float _rollingAudioMaxDistance = 30f;
 
     private Rigidbody _rigidbody;
+    private SphereCollider _rockCollider;
+    private AudioSource _rollingAudioSource;
+    private AudioListener _audioListener;
     private Quaternion _startRotation;
-    private int _timerPauseCollisionCount;
+    private bool _isTouchingTimerPauseCollider;
+    private float _nextAudioListenerLookupTime;
     private float _elapsedTime;
 
     private void Awake()
     {
         _rigidbody = GetComponent<Rigidbody>();
+        _rockCollider = GetComponent<SphereCollider>();
         _startRotation = transform.rotation;
     }
 
@@ -38,11 +50,12 @@ public class Rock : MonoBehaviour
         }
 
         ResetToStartPosition();
+        UpdateRollingAudio();
     }
 
     private void Update()
     {
-        if (_timerPauseCollisionCount == 0)
+        if (!_isTouchingTimerPauseCollider)
         {
             _elapsedTime += Time.deltaTime;
         }
@@ -54,6 +67,22 @@ public class Rock : MonoBehaviour
         {
             ResetToStartPosition();
         }
+    }
+
+    private void FixedUpdate()
+    {
+        SetTimerPauseState(IsRockTouchingTimerPauseCollider());
+    }
+
+    private void LateUpdate()
+    {
+        if (_rollingAudioSource == null)
+        {
+            return;
+        }
+
+        _rollingAudioSource.transform.position = transform.position;
+        UpdateRollingAudioRange();
     }
 
     private bool HasReachedEndPoint()
@@ -74,16 +103,40 @@ public class Rock : MonoBehaviour
 
         if (IsTimerPauseCollider(collision.collider))
         {
-            _timerPauseCollisionCount++;
+            SetTimerPauseState(true);
         }
     }
 
-    private void OnCollisionExit(Collision collision)
+    private void OnDisable()
     {
-        if (IsTimerPauseCollider(collision.collider))
+        StopRollingAudio();
+    }
+
+    private void UpdateRollingAudio()
+    {
+        if (_rollingAudioSource != null || _rollingSfx == null || _isTouchingTimerPauseCollider)
         {
-            _timerPauseCollisionCount = Mathf.Max(0, _timerPauseCollisionCount - 1);
+            return;
         }
+
+        _rollingAudioSource = AudioManager.Instance.PlaySFXLoop(
+            _rollingSfx,
+            transform,
+            _rollingAudioMinDistance,
+            _rollingAudioMaxDistance);
+
+        UpdateRollingAudioRange();
+    }
+
+    private void StopRollingAudio()
+    {
+        if (_rollingAudioSource == null)
+        {
+            return;
+        }
+
+        AudioManager.Instance.StopSFX(_rollingAudioSource);
+        _rollingAudioSource = null;
     }
 
     private bool IsTimerPauseCollider(Collider other)
@@ -104,6 +157,82 @@ public class Rock : MonoBehaviour
         return false;
     }
 
+    private bool IsRockTouchingTimerPauseCollider()
+    {
+        if (_rockCollider == null || !_rockCollider.enabled || _timerPauseColliders == null)
+        {
+            return false;
+        }
+
+        Vector3 sphereCenter = _rockCollider.transform.TransformPoint(_rockCollider.center);
+        Vector3 lossyScale = _rockCollider.transform.lossyScale;
+        float largestScale = Mathf.Max(Mathf.Abs(lossyScale.x), Mathf.Abs(lossyScale.y), Mathf.Abs(lossyScale.z));
+        float sphereRadius = (_rockCollider.radius * largestScale) + TimerPauseContactTolerance;
+        float sphereRadiusSquared = sphereRadius * sphereRadius;
+
+        foreach (Collider timerPauseCollider in _timerPauseColliders)
+        {
+            if (timerPauseCollider == null || !timerPauseCollider.enabled || !timerPauseCollider.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            Vector3 closestPoint = timerPauseCollider.ClosestPoint(sphereCenter);
+            if ((closestPoint - sphereCenter).sqrMagnitude <= sphereRadiusSquared)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void SetTimerPauseState(bool isTouchingDoor)
+    {
+        if (_isTouchingTimerPauseCollider == isTouchingDoor)
+        {
+            return;
+        }
+
+        _isTouchingTimerPauseCollider = isTouchingDoor;
+        if (isTouchingDoor)
+        {
+            StopRollingAudio();
+            return;
+        }
+
+        UpdateRollingAudio();
+    }
+
+    private void UpdateRollingAudioRange()
+    {
+        if (_rollingAudioSource == null)
+        {
+            return;
+        }
+
+        if (_audioListener != null && !_audioListener.isActiveAndEnabled)
+        {
+            _audioListener = null;
+        }
+
+        if (_audioListener == null && Time.unscaledTime >= _nextAudioListenerLookupTime)
+        {
+            _audioListener = FindFirstObjectByType<AudioListener>();
+            _nextAudioListenerLookupTime = Time.unscaledTime + AudioListenerLookupInterval;
+        }
+
+        if (_audioListener == null)
+        {
+            return;
+        }
+
+        float maxDistance = Mathf.Max(_rollingAudioMinDistance, _rollingAudioMaxDistance);
+        float maxDistanceSquared = maxDistance * maxDistance;
+        float listenerDistanceSquared = (_audioListener.transform.position - transform.position).sqrMagnitude;
+        _rollingAudioSource.mute = listenerDistanceSquared > maxDistanceSquared;
+    }
+
     private void KillPlayer(Collider other)
     {
         PlayerHealth playerHealth = other.GetComponentInParent<PlayerHealth>();
@@ -121,7 +250,7 @@ public class Rock : MonoBehaviour
         }
 
         _elapsedTime = 0f;
-        _timerPauseCollisionCount = 0;
+        _isTouchingTimerPauseCollider = false;
 
         if (_rigidbody != null)
         {
