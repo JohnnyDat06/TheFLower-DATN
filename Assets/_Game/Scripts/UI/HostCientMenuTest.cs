@@ -9,30 +9,38 @@ public class HostCientMenuTest : MonoBehaviour
     [SerializeField] private Button clientButton;
     [SerializeField] private GameObject menu;
 
+    private bool _ownsCursor;
+
 
     private void Awake()
     {
-        hostButton.onClick.AddListener(OnHostClicked);
-        clientButton.onClick.AddListener(OnClientClicked);
+        hostButton?.onClick.AddListener(OnHostClicked);
+        clientButton?.onClick.AddListener(OnClientClicked);
     }
 
     private void OnEnable()
     {
-        UICursorLockService.Request(this);
-        CameraManager.Instance?.SetGameplayCameraLocked(true);
+        SyncCursorOwnership();
         SelectDefaultButton();
+    }
+
+    private void Update()
+    {
+        // This component lives on the persistent test root while the actual menu is a
+        // child object. Toggling that child does not invoke OnEnable/OnDisable here.
+        SyncCursorOwnership();
     }
 
     private void OnDisable()
     {
-        UICursorLockService.Release(this);
-        if (!UICursorLockService.IsCursorReleased)
-            CameraManager.Instance?.SetGameplayCameraLocked(false);
+        ReleaseCursor();
     }
 
     private void OnDestroy()
     {
-        UICursorLockService.Release(this);
+        hostButton?.onClick.RemoveListener(OnHostClicked);
+        clientButton?.onClick.RemoveListener(OnClientClicked);
+        ReleaseCursor();
     }
 
     private void Start()
@@ -54,9 +62,37 @@ public class HostCientMenuTest : MonoBehaviour
 
     private void Hide()
     {
-        menu.SetActive(false);
+        if (menu != null) menu.SetActive(false);
+        ReleaseCursor();
         if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null)
             EventSystem.current.SetSelectedGameObject(null);
+    }
+
+    private void SyncCursorOwnership()
+    {
+        bool shouldOwnCursor = menu != null && menu.activeInHierarchy;
+        if (shouldOwnCursor == _ownsCursor) return;
+
+        _ownsCursor = shouldOwnCursor;
+        if (_ownsCursor)
+        {
+            UICursorLockService.Request(this);
+            CameraManager.Instance?.SetGameplayCameraLocked(true);
+        }
+        else
+        {
+            UICursorLockService.Release(this);
+            if (!UICursorLockService.IsCursorReleased)
+                CameraManager.Instance?.SetGameplayCameraLocked(false);
+        }
+    }
+
+    private void ReleaseCursor()
+    {
+        _ownsCursor = false;
+        UICursorLockService.Release(this);
+        if (!UICursorLockService.IsCursorReleased)
+            CameraManager.Instance?.SetGameplayCameraLocked(false);
     }
 
     private void SelectDefaultButton()
