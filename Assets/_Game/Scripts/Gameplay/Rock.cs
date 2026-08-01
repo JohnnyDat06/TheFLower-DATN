@@ -16,9 +16,12 @@ public class Rock : MonoBehaviour
     [SerializeField] private float _distanceToEndPoint = 15f;
 
     [SerializeField] private Collider[] _timerPauseColliders;
-    [SerializeField] private AudioSource _rollingAudioSource;
+    [SerializeField] private SOAudioClip _rollingSfx;
+    [SerializeField, Min(0.01f)] private float _rollingAudioMinDistance = 3f;
+    [SerializeField, Min(0.01f)] private float _rollingAudioMaxDistance = 30f;
 
     private Rigidbody _rigidbody;
+    private AudioSource _rollingAudioSource;
     private Quaternion _startRotation;
     private int _timerPauseCollisionCount;
     private float _elapsedTime;
@@ -27,12 +30,6 @@ public class Rock : MonoBehaviour
     {
         _rigidbody = GetComponent<Rigidbody>();
         _startRotation = transform.rotation;
-
-        if (_rollingAudioSource != null)
-        {
-            _rollingAudioSource.loop = true;
-            _rollingAudioSource.playOnAwake = false;
-        }
     }
 
     private void Start()
@@ -103,23 +100,27 @@ public class Rock : MonoBehaviour
 
     private void UpdateRollingAudio()
     {
-        if (_rollingAudioSource == null || _timerPauseCollisionCount > 0)
+        if (_rollingAudioSource != null || _rollingSfx == null || _timerPauseCollisionCount > 0)
         {
             return;
         }
 
-        if (!_rollingAudioSource.isPlaying)
-        {
-            _rollingAudioSource.Play();
-        }
+        _rollingAudioSource = AudioManager.Instance.PlaySFXLoop(
+            _rollingSfx,
+            transform,
+            _rollingAudioMinDistance,
+            _rollingAudioMaxDistance);
     }
 
     private void StopRollingAudio()
     {
-        if (_rollingAudioSource != null && _rollingAudioSource.isPlaying)
+        if (_rollingAudioSource == null)
         {
-            _rollingAudioSource.Stop();
+            return;
         }
+
+        AudioManager.Instance.StopSFX(_rollingAudioSource);
+        _rollingAudioSource = null;
     }
 
     private bool IsTimerPauseCollider(Collider other)
