@@ -409,10 +409,6 @@ public class CameraManager : MonoBehaviour
     /// Rebinds the local camera input after a network scene transition. The persistent
     /// camera rig can survive while the owned PlayerInputHandler is recreated.
     /// </summary>
-    /// <summary>
-    /// Rebinds the local camera input after a network scene transition. The persistent
-    /// camera rig can survive while the owned PlayerInputHandler is recreated.
-    /// </summary>
     public void RefreshLocalCameraInput()
     {
         ResolvePlayerInputIfNeeded();
@@ -424,9 +420,9 @@ public class CameraManager : MonoBehaviour
 
         UpdateInputState(_currentPreset);
 
-        bool cameraLocked = ShouldLockCameraLook(_currentPreset) || _menuCameraLocked;
-        Cursor.lockState = cameraLocked ? CursorLockMode.Confined : CursorLockMode.Locked;
-        Cursor.visible = cameraLocked;
+        // Keep the cursor service authoritative. UI can become active during the same
+        // scene-load frame in which the persistent camera rig is rebound.
+        UpdateCursorState(_currentPreset);
     }
 
 
