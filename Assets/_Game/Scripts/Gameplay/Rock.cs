@@ -71,6 +71,14 @@ public class Rock : MonoBehaviour
         SetTimerPauseState(IsRockTouchingTimerPauseCollider());
     }
 
+    private void LateUpdate()
+    {
+        if (_rollingAudioSource != null)
+        {
+            _rollingAudioSource.transform.position = transform.position;
+        }
+    }
+
     private bool HasReachedEndPoint()
     {
         if (_endPoint == null || _distanceToEndPoint < 0f)

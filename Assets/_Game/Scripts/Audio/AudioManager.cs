@@ -88,8 +88,15 @@ public class AudioManager : MonoBehaviour
 
     private AudioSource GetAvailableSource()
     {
-        foreach (var source in _sfxSources)
+        for (int i = _sfxSources.Count - 1; i >= 0; i--)
         {
+            AudioSource source = _sfxSources[i];
+            if (source == null)
+            {
+                _sfxSources.RemoveAt(i);
+                continue;
+            }
+
             if (!source.isPlaying) return source;
         }
         return CreateNewSFXSource();
@@ -142,8 +149,8 @@ public class AudioManager : MonoBehaviour
         if (config == null || config.Clip == null || followTarget == null) return null;
 
         AudioSource source = GetAvailableSource();
-        source.transform.SetParent(followTarget, false);
-        source.transform.localPosition = Vector3.zero;
+        source.transform.SetParent(transform, false);
+        source.transform.position = followTarget.position;
         source.spatialBlend = 1f;
         source.minDistance = Mathf.Max(0.01f, minDistance);
         source.maxDistance = Mathf.Max(source.minDistance, maxDistance);
