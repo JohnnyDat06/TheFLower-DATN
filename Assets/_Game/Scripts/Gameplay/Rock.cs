@@ -16,6 +16,7 @@ public class Rock : MonoBehaviour
     [SerializeField] private float _distanceToEndPoint = 15f;
 
     [SerializeField] private Collider[] _timerPauseColliders;
+    [SerializeField] private AudioSource _rollingAudioSource;
 
     private Rigidbody _rigidbody;
     private Quaternion _startRotation;
@@ -26,6 +27,12 @@ public class Rock : MonoBehaviour
     {
         _rigidbody = GetComponent<Rigidbody>();
         _startRotation = transform.rotation;
+
+        if (_rollingAudioSource != null)
+        {
+            _rollingAudioSource.loop = true;
+            _rollingAudioSource.playOnAwake = false;
+        }
     }
 
     private void Start()
@@ -38,6 +45,7 @@ public class Rock : MonoBehaviour
         }
 
         ResetToStartPosition();
+        UpdateRollingAudio();
     }
 
     private void Update()
@@ -75,6 +83,7 @@ public class Rock : MonoBehaviour
         if (IsTimerPauseCollider(collision.collider))
         {
             _timerPauseCollisionCount++;
+            StopRollingAudio();
         }
     }
 
@@ -83,6 +92,33 @@ public class Rock : MonoBehaviour
         if (IsTimerPauseCollider(collision.collider))
         {
             _timerPauseCollisionCount = Mathf.Max(0, _timerPauseCollisionCount - 1);
+            UpdateRollingAudio();
+        }
+    }
+
+    private void OnDisable()
+    {
+        StopRollingAudio();
+    }
+
+    private void UpdateRollingAudio()
+    {
+        if (_rollingAudioSource == null || _timerPauseCollisionCount > 0)
+        {
+            return;
+        }
+
+        if (!_rollingAudioSource.isPlaying)
+        {
+            _rollingAudioSource.Play();
+        }
+    }
+
+    private void StopRollingAudio()
+    {
+        if (_rollingAudioSource != null && _rollingAudioSource.isPlaying)
+        {
+            _rollingAudioSource.Stop();
         }
     }
 
