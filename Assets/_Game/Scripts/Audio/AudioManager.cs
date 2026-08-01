@@ -144,7 +144,8 @@ public class AudioManager : MonoBehaviour
         Transform followTarget,
         float minDistance = 1f,
         float maxDistance = 30f,
-        AudioRolloffMode rolloffMode = AudioRolloffMode.Logarithmic)
+        AudioRolloffMode rolloffMode = AudioRolloffMode.Logarithmic,
+        AnimationCurve customRolloffCurve = null)
     {
         if (config == null || config.Clip == null || followTarget == null) return null;
 
@@ -155,6 +156,10 @@ public class AudioManager : MonoBehaviour
         source.minDistance = Mathf.Max(0.01f, minDistance);
         source.maxDistance = Mathf.Max(source.minDistance, maxDistance);
         source.rolloffMode = rolloffMode;
+        if (rolloffMode == AudioRolloffMode.Custom && customRolloffCurve != null)
+        {
+            source.SetCustomCurve(AudioSourceCurveType.CustomRolloff, customRolloffCurve);
+        }
         source.clip = config.Clip;
         source.volume = GetSfxVolume(config.Volume);
         source.pitch = Random.Range(config.PitchMin, config.PitchMax);

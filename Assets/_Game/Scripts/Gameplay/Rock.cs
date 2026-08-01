@@ -22,6 +22,10 @@ public class Rock : MonoBehaviour
     [SerializeField] private SOAudioClip _rollingSfx;
     [SerializeField, Min(0.01f)] private float _rollingAudioMinDistance = 3f;
     [SerializeField, Min(0.01f)] private float _rollingAudioMaxDistance = 30f;
+    [SerializeField] private AnimationCurve _rollingAudioRolloff = new(
+        new Keyframe(0f, 1f),
+        new Keyframe(0.75f, 0.85f),
+        new Keyframe(1f, 0f));
 
     private Rigidbody _rigidbody;
     private SphereCollider _rockCollider;
@@ -118,7 +122,8 @@ public class Rock : MonoBehaviour
             transform,
             _rollingAudioMinDistance,
             _rollingAudioMaxDistance,
-            AudioRolloffMode.Linear);
+            AudioRolloffMode.Custom,
+            _rollingAudioRolloff);
     }
 
     private void StopRollingAudio()
