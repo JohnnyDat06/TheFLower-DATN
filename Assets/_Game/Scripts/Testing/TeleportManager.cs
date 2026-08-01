@@ -40,6 +40,7 @@ namespace Game.Testing
         private bool _managesPlayerInput = true;
         private int _selectedPointIndex;
         private Action _onClosed;
+        private bool _skipGamepadInputFrame;
         private readonly Dictionary<PlayerInputHandler, bool> _cameraLookStates = new Dictionary<PlayerInputHandler, bool>();
 
         public bool IsUIVisible => _isUIVisible;
@@ -85,6 +86,15 @@ namespace Game.Testing
 
             if (_isUIVisible)
             {
+                // The pause menu can open this panel from the same gamepad A/Cross
+                // press that would otherwise be interpreted as "teleport" below.
+                // Consume that frame so opening the panel never teleports to index 0.
+                if (_skipGamepadInputFrame)
+                {
+                    _skipGamepadInputFrame = false;
+                    return;
+                }
+
                 HandleGamepadUIInput();
             }
         }
@@ -136,10 +146,12 @@ namespace Game.Testing
                 if (_managesPlayerInput)
                     LockPlayerInput(true);
 
+                _skipGamepadInputFrame = Gamepad.current != null;
                 UICursorLockService.Request(this);
             }
             else
             {
+                _skipGamepadInputFrame = false;
                 bool restoreCursor = _managesPlayerInput && _hasSavedCursorState;
                 if (_managesPlayerInput)
                     LockPlayerInput(false);
