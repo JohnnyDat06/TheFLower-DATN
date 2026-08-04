@@ -14,6 +14,7 @@ public static class Constants
         public const string LEVEL_02  = "Map2_Main";
         public const string LEVEL_03  = "Level_03";
         public const string LEVEL_04  = "Map4_Flying";
+        public const string BOSS_FINAL = "Final_Boss_Room";
     }
 
     /// <summary>Keys dùng với PlayerPrefs.</summary>
