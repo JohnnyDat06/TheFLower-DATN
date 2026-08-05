@@ -73,6 +73,11 @@ public class CameraManager : MonoBehaviour
     private const int PRIORITY_ACTIVE = 20;
     private const int PRIORITY_INACTIVE = 0;
     private const float FLIGHT_PITCH_SAFETY_LIMIT = 85f;
+    private const float THIRD_PERSON_COLLISION_RADIUS = 0.3f;
+    private const float THIRD_PERSON_MINIMUM_TARGET_DISTANCE = 0.45f;
+    private const float THIRD_PERSON_COLLISION_SMOOTHING = 0.18f;
+    private const float THIRD_PERSON_COLLISION_DAMPING = 0.65f;
+    private const float THIRD_PERSON_OCCLUSION_DAMPING = 0.15f;
     private static readonly Vector3 LEVEL04_NORMAL_FLIGHT_OFFSET =
         new(0f, 5f, -16f);
 
@@ -307,19 +312,31 @@ public class CameraManager : MonoBehaviour
     {
         ConfigureCameraObstacleAvoidance(
             _vcamThirdPerson,
-            CinemachineDeoccluder.ObstacleAvoidance.ResolutionStrategy.PreserveCameraHeight,
-            0.35f);
+            CinemachineDeoccluder.ObstacleAvoidance.ResolutionStrategy.PullCameraForward,
+            THIRD_PERSON_COLLISION_RADIUS,
+            THIRD_PERSON_MINIMUM_TARGET_DISTANCE,
+            THIRD_PERSON_COLLISION_SMOOTHING,
+            THIRD_PERSON_COLLISION_DAMPING,
+            THIRD_PERSON_OCCLUSION_DAMPING);
 
         ConfigureCameraObstacleAvoidance(
             _vcamFlyDown,
             CinemachineDeoccluder.ObstacleAvoidance.ResolutionStrategy.PreserveCameraDistance,
-            0.4f);
+            0.4f,
+            0.35f,
+            0.12f,
+            0.45f,
+            0.08f);
     }
 
     private static void ConfigureCameraObstacleAvoidance(
         CinemachineCamera camera,
         CinemachineDeoccluder.ObstacleAvoidance.ResolutionStrategy strategy,
-        float cameraRadius)
+        float cameraRadius,
+        float minimumTargetDistance,
+        float smoothingTime,
+        float damping,
+        float dampingWhenOccluded)
     {
         if (camera == null) return;
 
@@ -333,7 +350,7 @@ public class CameraManager : MonoBehaviour
         deoccluder.CollideAgainst = collisionMask;
         deoccluder.IgnoreTag = "Player";
         deoccluder.TransparentLayers = 0;
-        deoccluder.MinimumDistanceFromTarget = 0.35f;
+        deoccluder.MinimumDistanceFromTarget = minimumTargetDistance;
 
         CinemachineDeoccluder.ObstacleAvoidance avoidance = deoccluder.AvoidObstacles;
         avoidance.Enabled = true;
@@ -341,10 +358,10 @@ public class CameraManager : MonoBehaviour
         avoidance.MinimumOcclusionTime = 0f;
         avoidance.CameraRadius = cameraRadius;
         avoidance.Strategy = strategy;
-        avoidance.MaximumEffort = 6;
-        avoidance.SmoothingTime = 0.12f;
-        avoidance.Damping = 0.45f;
-        avoidance.DampingWhenOccluded = 0.08f;
+        avoidance.MaximumEffort = 4;
+        avoidance.SmoothingTime = smoothingTime;
+        avoidance.Damping = damping;
+        avoidance.DampingWhenOccluded = dampingWhenOccluded;
 
         CinemachineDeoccluder.ObstacleAvoidance.FollowTargetSettings followTarget =
             avoidance.UseFollowTarget;

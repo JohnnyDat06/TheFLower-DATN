@@ -1,6 +1,6 @@
 /// <summary>
 /// WalkState — Player đang đi bộ.
-/// Chuyển sang Idle/Run/CrouchWalk/Jump tùy input.
+/// Chuyển sang Idle/Run/CrouchWalk tùy input.
 /// </summary>
 public class WalkState : PlayerStateBase
 {
@@ -11,12 +11,8 @@ public class WalkState : PlayerStateBase
 
     public override void Update()
     {
-        // Jump
-        if (Input.JumpPressed)
-        {
-            Machine.TransitionTo(PlayerStateType.Jump);
-            return;
-        }
+        // PlayerController validates ground contact before applying jump physics.
+        if (Input.JumpPressed) return;
 
         // Crouch while walking
         if (Input.IsCrouching)
