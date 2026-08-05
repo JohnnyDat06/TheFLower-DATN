@@ -48,6 +48,10 @@ public class LoadingSyncManager : NetworkBehaviour
 
         if (SeamlessLoadingOverlay.Instance != null)
         {
+            // A previous transition may have left the persistent overlay's
+            // interstitial title visible. Clear it on every peer before the
+            // new loading fade begins; the overlay survives scene changes.
+            SeamlessLoadingOverlay.Instance.ShowToBeContinued(false);
             SeamlessLoadingOverlay.Instance.EnsureLoadingVisible();
             
             // Nếu là Client, hãy bắt đầu mô phỏng tiến trình load
