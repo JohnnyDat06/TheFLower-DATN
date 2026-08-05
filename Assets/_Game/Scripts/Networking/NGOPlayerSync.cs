@@ -10,6 +10,8 @@ using UnityEngine;
 /// </summary>
 public class NGOPlayerSync : NetworkBehaviour
 {
+    private const float TeleportConfirmationTimeout = 2f;
+
     [Header("Local Simulation")]
     [SerializeField] private PlayerInputHandler _inputHandler;
     [SerializeField] private PlayerStateMachine _stateMachine;
@@ -27,6 +29,8 @@ public class NGOPlayerSync : NetworkBehaviour
 
     private bool _isTeleporting; 
     private bool _isFrozenBySystem = true; // Trạng thái đóng băng hệ thống khi đổi màn
+    private uint _nextTeleportRequestId;
+    private uint _lastConfirmedTeleportRequestId;
 
     private static readonly HashSet<ulong> MissingSpawnerWarnings = new();
     private Coroutine _readyReportRoutine;
@@ -163,31 +167,126 @@ public class NGOPlayerSync : NetworkBehaviour
 
     public void Teleport(Vector3 position, Quaternion rotation)
     {
-        if (IsServer)
+        if (!IsServer) return;
+
+        uint requestId = ++_nextTeleportRequestId;
+        BeginServerTeleport(position, rotation, requestId);
+    }
+
+    /// <summary>
+    /// Teleports the player and waits until the owner has applied the move locally.
+    /// </summary>
+    public IEnumerator TeleportAndWaitForOwner(Vector3 position, Quaternion rotation)
+    {
+        if (!IsServer) yield break;
+
+        uint requestId = ++_nextTeleportRequestId;
+        BeginServerTeleport(position, rotation, requestId);
+
+        float timeoutAt = Time.realtimeSinceStartup + TeleportConfirmationTimeout;
+        while (IsSpawned && _lastConfirmedTeleportRequestId < requestId &&
+               Time.realtimeSinceStartup < timeoutAt)
         {
-            if (IsOwner) StartCoroutine(PerformTeleportCoroutine(position, rotation));
-            TeleportClientRpc(position, rotation);
+            yield return null;
+        }
+
+        if (_lastConfirmedTeleportRequestId < requestId)
+        {
+            Debug.LogWarning($"[NGOPlayerSync] Teleport confirmation timed out for owner {OwnerClientId}.", this);
         }
     }
 
-    [ClientRpc]
-    private void TeleportClientRpc(Vector3 position, Quaternion rotation)
+    private void BeginServerTeleport(Vector3 position, Quaternion rotation, uint requestId)
     {
-        if (IsServer && IsOwner) return;
-
         if (IsOwner)
         {
-            StartCoroutine(PerformTeleportCoroutine(position, rotation));
+            StartCoroutine(PerformTeleportAndConfirmCoroutine(position, rotation, requestId));
+            return;
         }
+
+        // ClientNetworkTransform is owner-authoritative. Move the server replica
+        // out of the hazard immediately, then ask the owner to publish the pose.
+        ApplyServerReplicaPosition(position, rotation);
+
+        var clientRpcParams = new ClientRpcParams
+        {
+            Send = new ClientRpcSendParams
+            {
+                TargetClientIds = new[] { OwnerClientId }
+            }
+        };
+        TeleportClientRpc(position, rotation, requestId, clientRpcParams);
+    }
+
+    [ClientRpc]
+    private void TeleportClientRpc(
+        Vector3 position,
+        Quaternion rotation,
+        uint requestId,
+        ClientRpcParams clientRpcParams = default)
+    {
+        if (!IsOwner) return;
+        StartCoroutine(PerformTeleportAndConfirmCoroutine(position, rotation, requestId));
+    }
+
+    private IEnumerator PerformTeleportAndConfirmCoroutine(
+        Vector3 position,
+        Quaternion rotation,
+        uint requestId)
+    {
+        yield return PerformTeleportCoroutine(position, rotation);
+
+        if (!IsSpawned) yield break;
+
+        if (IsServer)
+        {
+            _lastConfirmedTeleportRequestId = requestId;
+            yield break;
+        }
+
+        ConfirmTeleportServerRpc(requestId);
+    }
+
+    [ServerRpc]
+    private void ConfirmTeleportServerRpc(uint requestId, ServerRpcParams rpcParams = default)
+    {
+        if (rpcParams.Receive.SenderClientId != OwnerClientId) return;
+        if (requestId > _lastConfirmedTeleportRequestId)
+        {
+            _lastConfirmedTeleportRequestId = requestId;
+        }
+    }
+
+    private void ApplyServerReplicaPosition(Vector3 position, Quaternion rotation)
+    {
+        Vector3 safePosition = GetSafeTeleportPosition(position);
+        if (_rigidbody != null)
+        {
+            if (!_rigidbody.isKinematic)
+            {
+                _rigidbody.linearVelocity = Vector3.zero;
+                _rigidbody.angularVelocity = Vector3.zero;
+            }
+
+            _rigidbody.position = safePosition;
+            _rigidbody.rotation = rotation;
+        }
+
+        transform.SetPositionAndRotation(safePosition, rotation);
     }
 
     private IEnumerator PerformTeleportCoroutine(Vector3 position, Quaternion rotation)
     {
-        if (_isTeleporting) yield break;
+        while (_isTeleporting)
+        {
+            if (this == null) yield break;
+            yield return null;
+        }
+
         _isTeleporting = true;
         
         // Đưa lên cao 0.15f thay vì 0.3f để mượt hơn nhưng vẫn tránh kẹt sàn
-        Vector3 safePosition = position + Vector3.up * 0.15f;
+        Vector3 safePosition = GetSafeTeleportPosition(position);
 
         if (_rigidbody != null)
         {
@@ -209,6 +308,11 @@ public class NGOPlayerSync : NetworkBehaviour
 
         _isTeleporting = false;
         ApplyAuthorityState();
+    }
+
+    private static Vector3 GetSafeTeleportPosition(Vector3 position)
+    {
+        return position + Vector3.up * 0.15f;
     }
 
     private void ApplyAuthorityState()
