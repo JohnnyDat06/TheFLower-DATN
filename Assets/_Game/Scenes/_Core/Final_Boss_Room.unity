@@ -192,6 +192,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 0f8f13c015f3b9c40bb81fd04e74d8f1, type: 3}
+--- !u!4 &171395355 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2813787200786116763, guid: 0f8f13c015f3b9c40bb81fd04e74d8f1, type: 3}
+  m_PrefabInstance: {fileID: 171395354}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &347031093 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2480547239513890471, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
@@ -595,6 +600,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1240758371}
+  - component: {fileID: 1240758373}
+  - component: {fileID: 1240758372}
   m_Layer: 0
   m_Name: BOSS ENCOUNTER
   m_TagString: Untagged
@@ -621,6 +628,37 @@ Transform:
   - {fileID: 1392096320}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1240758372
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1240758370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c677b5a7c1913b740a6314b298607e9d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  _encounter: {fileID: 1240758373}
+--- !u!114 &1240758373
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1240758370}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b882fd76d8d618a45ab0ee109bb70cd7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  _config: {fileID: 0}
+  _hostRespawnPoint: {fileID: 6146873113286901651}
+  _clientRespawnPoint: {fileID: 171395355}
+  _resetTargets: []
 --- !u!1001 &1309637931
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -648,6 +686,42 @@ PrefabInstance:
     - target: {fileID: 781896119339658912, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
       propertyPath: m_Name
       value: GENERAL
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -12.21
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1077536627914671173, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1432715592657684213, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
       propertyPath: m_LocalPosition.x
@@ -815,7 +889,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4792425963541537692, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
       propertyPath: field of view
-      value: 40
+      value: 45
       objectReference: {fileID: 0}
     - target: {fileID: 4884954417558634981, guid: fc98ccb96f7025549a509262c359b8a1, type: 3}
       propertyPath: GlobalObjectIdHash

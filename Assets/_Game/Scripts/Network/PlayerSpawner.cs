@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Game.Network
 {
@@ -182,6 +183,23 @@ namespace Game.Network
             yield return new WaitForSeconds(0.5f);
 
             Debug.Log($"[PlayerSpawner] Verified teleport command for {_spawnedPlayers.Count}/{clientIds.Count} players before release.");
+
+            // PlayerObjects persist across NGO scene loads, so OnNetworkSpawn
+            // does not reset their health. A boss attempt must always begin
+            // from a deterministic full-health state.
+            if (SceneManager.GetActiveScene().name == Constants.Scenes.BOSS_FINAL)
+            {
+                foreach (ulong id in clientIds)
+                {
+                    if (NetworkManager.Singleton.ConnectedClients.TryGetValue(id, out var client) &&
+                        client.PlayerObject != null &&
+                        client.PlayerObject.TryGetComponent<PlayerHealth>(out var health))
+                    {
+                        health.RestoreFullHealth();
+                    }
+                }
+            }
+
             ReleasePlayersAndLoadingOverlay(clientIds);
         }
 

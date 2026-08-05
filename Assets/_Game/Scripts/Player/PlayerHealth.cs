@@ -136,6 +136,20 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         }
     }
 
+    /// <summary>Restores a server-authoritative amount of health.</summary>
+    public void RestoreHealth(float amount)
+    {
+        if (!IsServer || amount <= 0f || IsDead) return;
+        NetworkHealth.Value = Mathf.Min(MaxHealth, NetworkHealth.Value + amount);
+    }
+
+    /// <summary>Restores a percentage of MaxHealth on the server.</summary>
+    public void RestoreHealthPercent(float percent)
+    {
+        if (!IsServer || percent <= 0f || IsDead) return;
+        NetworkHealth.Value = Mathf.Min(MaxHealth, MaxHealth * Mathf.Clamp01(percent));
+    }
+
     [ServerRpc]
     private void RestoreFullHealthServerRpc()
     {
@@ -148,6 +162,11 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         if (!IsServer) return;
 
         ulong clientId = OwnerClientId;
+
+        // The server is the authority for death-dependent systems such as
+        // boss wipe/respawn. Host mode also executes ClientRpc locally, so the
+        // client callback below must not publish a second copy on the host.
+        EventBus.RaisePlayerDied(clientId);
         
         // Thông báo cho tất cả các client về cái chết này qua mạng
         NotifyPlayerDiedClientRpc(clientId);
@@ -170,8 +189,12 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
             _fsm.TransitionTo(PlayerStateType.Dead);
         }
 
-        // Kích hoạt EventBus local trên máy này
-        EventBus.RaisePlayerDied(clientId);
+        // Dedicated server already published the authoritative event in
+        // HandleDeath; clients publish their local presentation event here.
+        if (!IsServer)
+        {
+            EventBus.RaisePlayerDied(clientId);
+        }
         
         Debug.Log($"[PlayerHealth] Client {NetworkManager.Singleton.LocalClientId} received death notification for Player {clientId}");
     }
