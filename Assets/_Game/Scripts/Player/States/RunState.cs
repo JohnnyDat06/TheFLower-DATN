@@ -1,6 +1,6 @@
 /// <summary>
 /// RunState — Player đang chạy (Sprint).
-/// Chuyển sang Idle/Walk/GroundSlide/Jump tùy input.
+/// Chuyển sang Idle/Walk/GroundSlide tùy input.
 /// </summary>
 public class RunState : PlayerStateBase
 {
@@ -11,12 +11,8 @@ public class RunState : PlayerStateBase
 
     public override void Update()
     {
-        // Jump
-        if (Input.JumpPressed)
-        {
-            Machine.TransitionTo(PlayerStateType.Jump);
-            return;
-        }
+        // PlayerController validates ground contact before applying jump physics.
+        if (Input.JumpPressed) return;
 
         // Crouch while running → GroundSlide
         if (Input.IsCrouching)

@@ -1,6 +1,6 @@
 /// <summary>
 /// IdleState — Player đứng yên, không di chuyển.
-/// Chuyển sang Walk/Run/CrouchIdle/Jump tùy input.
+/// Chuyển sang Walk/Run/CrouchIdle tùy input.
 /// </summary>
 public class IdleState : PlayerStateBase
 {
@@ -11,12 +11,8 @@ public class IdleState : PlayerStateBase
 
     public override void Update()
     {
-        // Jump
-        if (Input.JumpPressed)
-        {
-            Machine.TransitionTo(PlayerStateType.Jump);
-            return;
-        }
+        // PlayerController validates ground contact before applying jump physics.
+        if (Input.JumpPressed) return;
 
         // Crouch
         if (Input.IsCrouching)

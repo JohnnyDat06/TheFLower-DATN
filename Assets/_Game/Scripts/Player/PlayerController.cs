@@ -12,6 +12,13 @@ using UnityEngine;
 [RequireComponent(typeof(CapsuleCollider))]
 public class PlayerController : NetworkBehaviour
 {
+    private const int GroundHitBufferSize = 8;
+    private const float GroundProbeRadiusScale = 0.9f;
+    private const float GroundProbeStartOffset = 0.05f;
+    private const float GroundProbeDistance = 0.2f;
+    private const float MinimumGroundNormalY = 0.3f;
+    private const float DashDistanceEpsilon = 0.001f;
+
     [Header("Dependencies")]
     [SerializeField] private SOPlayerConfig _config;
     [SerializeField] private Transform      _cameraLookTarget; // child empty transform
@@ -37,6 +44,10 @@ public class PlayerController : NetworkBehaviour
     private float   _dashTimer;
     private float   _dashCooldownTimer;
     private Vector3 _dashVelocity;
+    private Vector3 _dashDirection;
+    private Vector3 _dashStartPosition;
+
+    private readonly RaycastHit[] _groundHits = new RaycastHit[GroundHitBufferSize];
 
     // Ground roll state
     private float   _rollTimer;
@@ -391,15 +402,14 @@ public class PlayerController : NetworkBehaviour
         // ── Đang air dash — duy trì velocity ngang cố định, tắt gravity ──
         if (_fsm.CurrentStateType == PlayerStateType.DashInAir)
         {
-            _dashTimer -= Time.fixedDeltaTime;
-            _rb.linearVelocity = new Vector3(_dashVelocity.x, 0f, _dashVelocity.z);
-            _rb.useGravity = false;
-
-            if (_dashTimer <= 0f)
+            if (_dashTimer <= 0f || !ApplyAirDashVelocity())
             {
-                _rb.useGravity = true;
-                _fsm.TransitionTo(PlayerStateType.Jump);
+                EndAirDash();
+                return;
             }
+
+            _dashTimer -= Time.fixedDeltaTime;
+            _rb.useGravity = false;
             return;
         }
 
@@ -411,21 +421,47 @@ public class PlayerController : NetworkBehaviour
                                        or PlayerStateType.AirGlide)) return;
         if (!_input.ConsumeDashPressed()) return;
 
-        var dashDir   = ComputeDashDirection();
-        float speed   = _config.DashDistance / _config.DashDuration;
-        _dashVelocity = dashDir * speed;
+        _dashDirection = ComputeDashDirection();
+        float dashDuration = Mathf.Max(_config.DashDuration, Time.fixedDeltaTime);
+        float dashSpeed = Mathf.Max(0f, _config.DashDistance) / dashDuration;
+        _dashVelocity = _dashDirection * dashSpeed;
+        _dashStartPosition = _rb.position;
 
-        _rb.linearVelocity = new Vector3(_dashVelocity.x, 0f, _dashVelocity.z);
         _rb.useGravity     = false;
 
         _dashUsed          = true;
-        _dashTimer         = _config.DashDuration;
+        // The activation FixedUpdate already contributes one physics step.
+        _dashTimer         = Mathf.Max(0f, _config.DashDuration - Time.fixedDeltaTime);
         _dashCooldownTimer = _config.DashCooldown;
 
-        if (dashDir.sqrMagnitude > 0.01f)
-            transform.rotation = Quaternion.LookRotation(dashDir);
+        if (_dashDirection.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.LookRotation(_dashDirection);
 
+        ApplyAirDashVelocity();
         _fsm.TransitionTo(PlayerStateType.DashInAir);
+    }
+
+    private bool ApplyAirDashVelocity()
+    {
+        float travelledDistance = Mathf.Max(
+            0f,
+            Vector3.Dot(_rb.position - _dashStartPosition, _dashDirection));
+        float remainingDistance = Mathf.Max(0f, _config.DashDistance - travelledDistance);
+        if (remainingDistance <= DashDistanceEpsilon) return false;
+
+        // Limit the final physics step so the dash cannot exceed DashDistance.
+        float stepLimitedSpeed = remainingDistance / Time.fixedDeltaTime;
+        float speed = Mathf.Min(_dashVelocity.magnitude, stepLimitedSpeed);
+        Vector3 velocity = _dashDirection * speed;
+        _rb.linearVelocity = new Vector3(velocity.x, 0f, velocity.z);
+        return true;
+    }
+
+    private void EndAirDash()
+    {
+        _rb.useGravity = true;
+        _rb.linearVelocity = new Vector3(0f, _rb.linearVelocity.y, 0f);
+        _fsm.TransitionTo(PlayerStateType.Jump);
     }
 
     /// <summary>Tính hướng dash từ camera + input. Fallback về transform.forward.</summary>
@@ -438,7 +474,8 @@ public class PlayerController : NetworkBehaviour
             var rgt = cam.transform.right;   rgt.y = 0f; rgt.Normalize();
             return (fwd * _input.MoveInput.y + rgt * _input.MoveInput.x).normalized;
         }
-        return transform.forward;
+        Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up).normalized;
+        return forward.sqrMagnitude > 0.01f ? forward : Vector3.forward;
     }
 
     // ─── HandleAirGlide ──────────────────────────────────────────────────────
@@ -577,25 +614,27 @@ public class PlayerController : NetworkBehaviour
 
     private void CheckGrounded()
     {
-        // Khi đang nhảy lên (Velocity Y > 0), tạm thời coi như không chạm đất để tránh reset state xuống Idle/Walk ngay lập tức
-        if (_rb.linearVelocity.y > 0.1f)
+        // An air dash may begin while the capsule is still inside the ground
+        // probe range. Do not cancel it on the next physics tick.
+        if (_fsm.CurrentStateType == PlayerStateType.DashInAir)
         {
             _isGrounded = false;
             return;
         }
 
-        // Bắt đầu SphereCast từ vị trí ngang tâm capsule để tránh collider chồng chéo ngay lúc đầu
-        float radius  = _capsule.radius * 0.9f;
-        Vector3 origin = transform.position + Vector3.up * (_capsule.height * 0.5f);
-        float castDistance = (_capsule.height * 0.5f) - radius + 0.2f;
+        // Only suppress the probe while an airborne state is actually ascending.
+        // Moving platforms may carry a grounded player upward and must remain valid ground.
+        bool isAscendingAirborneState = _fsm.CurrentStateType is PlayerStateType.Jump
+                                                                  or PlayerStateType.DoubleJump
+                                                                  or PlayerStateType.WallJump
+                                                                  or PlayerStateType.Knockback;
+        if (isAscendingAirborneState && _rb.linearVelocity.y > 0.1f)
+        {
+            _isGrounded = false;
+            return;
+        }
 
-        _isGrounded = Physics.SphereCast(
-            origin, 
-            radius, 
-            Vector3.down, 
-            out _, 
-            castDistance,
-            _config.GroundLayerMask);
+        _isGrounded = DetectGroundBelowCapsule();
 
         if (_isGrounded)
         {
@@ -621,6 +660,39 @@ public class PlayerController : NetworkBehaviour
                     : PlayerStateType.Idle);
             }
         }
+    }
+
+    private bool DetectGroundBelowCapsule()
+    {
+        Bounds bounds = _capsule.bounds;
+        float radius = Mathf.Max(
+            0.01f,
+            Mathf.Min(bounds.extents.x, bounds.extents.z) * GroundProbeRadiusScale);
+        Vector3 origin = new Vector3(
+            bounds.center.x,
+            bounds.min.y + radius + GroundProbeStartOffset,
+            bounds.center.z);
+        float castDistance = GroundProbeStartOffset + GroundProbeDistance;
+
+        int hitCount = Physics.SphereCastNonAlloc(
+            origin,
+            radius,
+            Vector3.down,
+            _groundHits,
+            castDistance,
+            _config.GroundLayerMask,
+            QueryTriggerInteraction.Ignore);
+
+        for (int index = 0; index < hitCount; index++)
+        {
+            RaycastHit hit = _groundHits[index];
+            if (hit.collider == null || hit.collider == _capsule) continue;
+            if (hit.rigidbody == _rb || hit.collider.transform.IsChildOf(transform)) continue;
+            if (hit.normal.y < MinimumGroundNormalY) continue;
+            return true;
+        }
+
+        return false;
     }
 
     // ─── Public Helpers ──────────────────────────────────────────────────────
