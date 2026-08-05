@@ -8,7 +8,6 @@ using UnityEngine;
 /// </summary>
 public class CheckpointTrigger : MonoBehaviour
 {
-    private string _checkpointId;
     [Header("Spawn Points")]
     [SerializeField] private Transform _hostSpawnPoint;
     [SerializeField] private Transform _clientSpawnPoint;
@@ -18,24 +17,31 @@ public class CheckpointTrigger : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        TryActivateCheckpoint(other);
+    }
+
+    private void OnTriggerStay(Collider other)
+    {
+        TryActivateCheckpoint(other);
+    }
+
+    private void TryActivateCheckpoint(Collider other)
+    {
         if (_isTriggered) return;
-        
+
         // Chỉ Server mới xác nhận Checkpoint để tránh gọi sự kiện nhiều lần rác
         if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer) return;
+        if (!other.CompareTag("Player")) return;
 
-        if (other.CompareTag("Player"))
-        {
-            _isTriggered = true;
-            
-            // Nếu designer quên gắn Transform vào inspector, lấy biến GameObject hiện tại làm gốc
-            Vector3 hostPos = _hostSpawnPoint != null ? _hostSpawnPoint.position : transform.position + Vector3.right;
-            Vector3 clientPos = _clientSpawnPoint != null ? _clientSpawnPoint.position : transform.position + Vector3.left;
+        // Nếu designer quên gắn Transform vào inspector, lấy biến GameObject hiện tại làm gốc
+        Vector3 hostPos = _hostSpawnPoint != null ? _hostSpawnPoint.position : transform.position + Vector3.right;
+        Vector3 clientPos = _clientSpawnPoint != null ? _clientSpawnPoint.position : transform.position + Vector3.left;
 
-            // Bắn event đi khắp toàn bộ Server (và có thể trigger Client)
-            EventBus.RaiseCheckpointReached(_checkpointId, hostPos, clientPos);
-            
-            // Có thể play animation hoặc fx đánh dấu đã Checkpoint ở đây (tùy game)
-            Debug.Log($"[CheckpointTrigger] Reached: {_checkpointId}");
-        }
+        // Relay có thể spawn player trước khi RespawnManager đăng ký EventBus.
+        // Chỉ khóa checkpoint sau khi đã có hệ thống nhận; OnTriggerStay sẽ retry.
+        if (!EventBus.RaiseCheckpointReached(gameObject.name, hostPos, clientPos)) return;
+
+        _isTriggered = true;
+        Debug.Log($"[CheckpointTrigger] Reached: {gameObject.name}");
     }
 }

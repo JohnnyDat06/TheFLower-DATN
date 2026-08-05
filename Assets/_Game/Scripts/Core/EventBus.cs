@@ -176,9 +176,18 @@ public static class EventBus
     public static void RaiseLevelCompleted(int levelIndex)
         => OnLevelCompleted?.Invoke(levelIndex);
 
-    /// <summary>CheckpointTrigger raises this khi chạm checkpoint.</summary>
-    public static void RaiseCheckpointReached(string checkpointId, Vector3 hostSpawnPos, Vector3 clientSpawnPos)
-        => OnCheckpointReached?.Invoke(checkpointId, hostSpawnPos, clientSpawnPos);
+    /// <summary>
+    /// CheckpointTrigger raises this khi chạm checkpoint.
+    /// Returns false when no checkpoint system is ready to receive the event yet.
+    /// </summary>
+    public static bool RaiseCheckpointReached(string checkpointId, Vector3 hostSpawnPos, Vector3 clientSpawnPos)
+    {
+        Action<string, Vector3, Vector3> handlers = OnCheckpointReached;
+        if (handlers == null) return false;
+
+        handlers.Invoke(checkpointId, hostSpawnPos, clientSpawnPos);
+        return true;
+    }
 
     public static void RaiseLevel04PhaseChanged(Level04Phase phase)
         => OnLevel04PhaseChanged?.Invoke(phase);

@@ -168,7 +168,7 @@ public class RespawnManager : NetworkBehaviour
 
         if (netObj.TryGetComponent<NGOPlayerSync>(out var playerSync))
         {
-            playerSync.Teleport(spawnPos, spawnRotation);
+            yield return playerSync.TeleportAndWaitForOwner(spawnPos, spawnRotation);
         }
         else
         {

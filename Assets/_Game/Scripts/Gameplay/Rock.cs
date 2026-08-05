@@ -1,11 +1,15 @@
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Serialization;
 
-[RequireComponent(typeof(Rigidbody), typeof(SphereCollider))]
-public class Rock : MonoBehaviour
+[RequireComponent(typeof(Rigidbody), typeof(SphereCollider), typeof(NetworkObject))]
+public class Rock : NetworkBehaviour
 {
     private const float AudioListenerLookupInterval = 1f;
     private const float TimerPauseContactTolerance = 0.05f;
+    private const float NetworkSyncInterval = 1f / 15f;
+    private const float ClientInterpolationSpeed = 18f;
+    private const float ClientSnapDistance = 4f;
 
     [FormerlySerializedAs("positionClone")]
     [SerializeField] private Transform _positionClone;
@@ -24,6 +28,19 @@ public class Rock : MonoBehaviour
     [SerializeField, Min(0.01f)] private float _rollingAudioMinDistance = 3f;
     [SerializeField, Min(0.01f)] private float _rollingAudioMaxDistance = 30f;
 
+    private readonly NetworkVariable<Vector3> _networkPosition = new(
+        Vector3.zero,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<Quaternion> _networkRotation = new(
+        Quaternion.identity,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<bool> _hasNetworkState = new(
+        false,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server);
+
     private Rigidbody _rigidbody;
     private SphereCollider _rockCollider;
     private AudioSource _rollingAudioSource;
@@ -31,6 +48,7 @@ public class Rock : MonoBehaviour
     private Quaternion _startRotation;
     private bool _isTouchingTimerPauseCollider;
     private float _nextAudioListenerLookupTime;
+    private float _nextNetworkSyncTime;
     private float _elapsedTime;
 
     private void Awake()
@@ -49,12 +67,44 @@ public class Rock : MonoBehaviour
             return;
         }
 
-        ResetToStartPosition();
+        if (!IsNetworkSessionActive())
+        {
+            ConfigurePhysicsForAuthority(true);
+            ResetToStartPosition();
+        }
+
         UpdateRollingAudio();
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        ConfigurePhysicsForAuthority(IsServer);
+        if (IsServer)
+        {
+            ResetToStartPosition();
+            PublishNetworkState(true);
+            return;
+        }
+
+        ApplyNetworkState(true);
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        ConfigurePhysicsForAuthority(true);
+        base.OnNetworkDespawn();
     }
 
     private void Update()
     {
+        if (!HasSimulationAuthority())
+        {
+            ApplyNetworkState(false);
+            return;
+        }
+
         if (!_isTouchingTimerPauseCollider)
         {
             _elapsedTime += Time.deltaTime;
@@ -72,6 +122,12 @@ public class Rock : MonoBehaviour
     private void FixedUpdate()
     {
         SetTimerPauseState(IsRockTouchingTimerPauseCollider());
+
+        if (HasSimulationAuthority() && IsSpawned && IsServer &&
+            Time.unscaledTime >= _nextNetworkSyncTime)
+        {
+            PublishNetworkState(false);
+        }
     }
 
     private void LateUpdate()
@@ -99,6 +155,8 @@ public class Rock : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
+        if (!HasSimulationAuthority()) return;
+
         KillPlayer(collision.collider);
 
         if (IsTimerPauseCollider(collision.collider))
@@ -259,9 +317,71 @@ public class Rock : MonoBehaviour
             _rigidbody.linearVelocity = Vector3.zero;
             _rigidbody.angularVelocity = Vector3.zero;
             _rigidbody.WakeUp();
+            PublishNetworkState(true);
             return;
         }
 
         transform.SetPositionAndRotation(_positionClone.position, _startRotation);
+        PublishNetworkState(true);
+    }
+
+    private bool HasSimulationAuthority()
+    {
+        return !IsNetworkSessionActive() || (IsSpawned && IsServer);
+    }
+
+    private static bool IsNetworkSessionActive()
+    {
+        return NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
+    }
+
+    private void ConfigurePhysicsForAuthority(bool hasAuthority)
+    {
+        if (_rigidbody == null) return;
+
+        if (!_rigidbody.isKinematic)
+        {
+            _rigidbody.linearVelocity = Vector3.zero;
+            _rigidbody.angularVelocity = Vector3.zero;
+        }
+
+        _rigidbody.isKinematic = !hasAuthority;
+        _rigidbody.useGravity = hasAuthority;
+        _rigidbody.detectCollisions = hasAuthority;
+    }
+
+    private void PublishNetworkState(bool force)
+    {
+        if (!IsSpawned || !IsServer) return;
+        if (!force && Time.unscaledTime < _nextNetworkSyncTime) return;
+
+        Vector3 position = _rigidbody != null ? _rigidbody.position : transform.position;
+        Quaternion rotation = _rigidbody != null ? _rigidbody.rotation : transform.rotation;
+        _networkPosition.Value = position;
+        _networkRotation.Value = rotation;
+        _hasNetworkState.Value = true;
+        _nextNetworkSyncTime = Time.unscaledTime + NetworkSyncInterval;
+    }
+
+    private void ApplyNetworkState(bool snapImmediately)
+    {
+        if (!_hasNetworkState.Value) return;
+
+        Vector3 targetPosition = _networkPosition.Value;
+        Quaternion targetRotation = _networkRotation.Value;
+        float snapDistanceSquared = ClientSnapDistance * ClientSnapDistance;
+        bool shouldSnap = snapImmediately ||
+                          (transform.position - targetPosition).sqrMagnitude > snapDistanceSquared;
+
+        if (shouldSnap)
+        {
+            transform.SetPositionAndRotation(targetPosition, targetRotation);
+            return;
+        }
+
+        float interpolation = 1f - Mathf.Exp(-ClientInterpolationSpeed * Time.deltaTime);
+        transform.SetPositionAndRotation(
+            Vector3.Lerp(transform.position, targetPosition, interpolation),
+            Quaternion.Slerp(transform.rotation, targetRotation, interpolation));
     }
 }
