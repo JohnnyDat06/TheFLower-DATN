@@ -3,11 +3,26 @@ using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>Boss-room death countdown and wipe coordination.</summary>
+/// <summary>Validates boss-room revive input, death countdowns and wipe coordination on the server.</summary>
 public sealed class BossRespawnPolicy : NetworkBehaviour
 {
+    private const ulong NoClient = ulong.MaxValue;
+
     [SerializeField] private BossEncounterManager _encounter;
     private readonly Dictionary<ulong, Coroutine> _pendingRespawns = new();
+    private Coroutine _reviveRoutine;
+
+    private readonly NetworkVariable<ulong> _countdownTarget = new(NoClient);
+    private readonly NetworkVariable<float> _countdownRemaining = new(0f);
+    private readonly NetworkVariable<ulong> _reviver = new(NoClient);
+    private readonly NetworkVariable<ulong> _reviveTarget = new(NoClient);
+    private readonly NetworkVariable<float> _reviveProgress = new(0f);
+
+    public ulong CountdownTarget => _countdownTarget.Value;
+    public float CountdownRemaining => _countdownRemaining.Value;
+    public ulong Reviver => _reviver.Value;
+    public ulong ReviveTarget => _reviveTarget.Value;
+    public float ReviveProgress => _reviveProgress.Value;
 
     private void Awake()
     {
@@ -23,12 +38,14 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         if (IsServer) EventBus.OnPlayerDied -= HandlePlayerDied;
-        foreach (Coroutine routine in _pendingRespawns.Values)
-        {
-            if (routine != null) StopCoroutine(routine);
-        }
-        _pendingRespawns.Clear();
+        if (IsServer) CancelAllServerRoutines();
         base.OnNetworkDespawn();
+    }
+
+    private void Update()
+    {
+        if (!IsClient || !IsSpawned || _encounter == null || !_encounter.IsActive) return;
+        MonitorLocalReviveInput();
     }
 
     private void HandlePlayerDied(ulong clientId)
@@ -36,6 +53,7 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
         if (!IsServer || _encounter == null || !_encounter.IsActive) return;
         if (CountDeadPlayers() >= 2)
         {
+            CancelAllServerRoutines();
             _encounter.NotifyBothPlayersDeadServer();
             return;
         }
@@ -46,65 +64,174 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
 
     private IEnumerator AutoRespawnRoutine(ulong clientId)
     {
-        yield return new WaitForSeconds(_encounter.Config != null ? _encounter.Config.AutoRespawnDelay : 10f);
+        _countdownTarget.Value = clientId;
+        float remaining = _encounter.Config != null ? _encounter.Config.AutoRespawnDelay : 10f;
+        while (remaining > 0f)
+        {
+            _countdownRemaining.Value = remaining;
+            yield return new WaitForSeconds(0.1f);
+            remaining -= 0.1f;
+        }
 
-        if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) &&
-            client.PlayerObject != null &&
-            client.PlayerObject.TryGetComponent<PlayerHealth>(out var health) && health.IsDead)
+        if (TryGetPlayerHealth(clientId, out NetworkObject playerObject, out PlayerHealth health) && health.IsDead)
         {
             if (_encounter.TryGetRespawnPoint(clientId, out Transform point) &&
-                client.PlayerObject.TryGetComponent<NGOPlayerSync>(out var sync))
+                playerObject.TryGetComponent<NGOPlayerSync>(out var sync))
             {
                 sync.Teleport(point.position, point.rotation);
             }
-
-            health.RestoreFullHealth();
-            NotifyRespawnedClientRpc(clientId);
+            health.ReviveAtHealthPercent(1f);
         }
 
         _pendingRespawns.Remove(clientId);
+        ClearCountdownServer(clientId);
     }
 
-    /// <summary>Validates and immediately revives a dead teammate.</summary>
-    public bool TryReviveServer(ulong rescuerId, ulong targetId)
+    [ServerRpc(RequireOwnership = false)]
+    public void StartReviveServerRpc(ulong targetId, ServerRpcParams rpcParams = default)
     {
-        if (!IsServer || _encounter == null || !_encounter.IsActive || rescuerId == targetId) return false;
-        if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(rescuerId, out var rescuer) ||
-            !NetworkManager.Singleton.ConnectedClients.TryGetValue(targetId, out var target) ||
-            rescuer.PlayerObject == null || target.PlayerObject == null) return false;
-        if (!rescuer.PlayerObject.TryGetComponent<PlayerHealth>(out var rescuerHealth) || rescuerHealth.IsDead ||
-            !target.PlayerObject.TryGetComponent<PlayerHealth>(out var targetHealth) || !targetHealth.IsDead) return false;
+        ulong rescuerId = rpcParams.Receive.SenderClientId;
+        if (!CanStartReviveServer(rescuerId, targetId)) return;
 
-        float maxDistance = _encounter.Config != null ? _encounter.Config.ReviveDistance : 3f;
-        if (Vector3.Distance(rescuer.PlayerObject.transform.position, target.PlayerObject.transform.position) > maxDistance)
-            return false;
+        CancelReviveServer();
+        _reviver.Value = rescuerId;
+        _reviveTarget.Value = targetId;
+        _reviveProgress.Value = 0f;
+        _reviveRoutine = StartCoroutine(ReviveRoutine(rescuerId, targetId));
+    }
 
-        if (_pendingRespawns.TryGetValue(targetId, out Coroutine pending))
+    [ServerRpc(RequireOwnership = false)]
+    public void CancelReviveServerRpc(ServerRpcParams rpcParams = default)
+    {
+        if (_reviver.Value == rpcParams.Receive.SenderClientId) CancelReviveServer();
+    }
+
+    private IEnumerator ReviveRoutine(ulong rescuerId, ulong targetId)
+    {
+        float duration = _encounter.Config != null ? _encounter.Config.ReviveHoldDuration : 5f;
+        float elapsed = 0f;
+        while (elapsed < duration)
         {
-            if (pending != null) StopCoroutine(pending);
-            _pendingRespawns.Remove(targetId);
+            if (!CanStartReviveServer(rescuerId, targetId))
+            {
+                CancelReviveServer();
+                yield break;
+            }
+
+            elapsed += Time.deltaTime;
+            _reviveProgress.Value = Mathf.Clamp01(elapsed / duration);
+            yield return null;
         }
 
-        float healthPercent = _encounter.Config != null ? _encounter.Config.ReviveHealthPercent : 0.6f;
-        targetHealth.RestoreHealthPercent(healthPercent);
-        NotifyRespawnedClientRpc(targetId);
+        if (TryGetPlayerHealth(targetId, out _, out PlayerHealth targetHealth))
+        {
+            CancelPendingRespawn(targetId);
+            ClearCountdownServer(targetId);
+            float percent = _encounter.Config != null ? _encounter.Config.ReviveHealthPercent : 0.6f;
+            targetHealth.ReviveAtHealthPercent(percent);
+        }
+        CancelReviveServer();
+    }
+
+    private bool CanStartReviveServer(ulong rescuerId, ulong targetId)
+    {
+        if (!IsServer || _encounter == null || !_encounter.IsActive || rescuerId == targetId) return false;
+        if (!TryGetPlayerHealth(rescuerId, out NetworkObject rescuerObject, out PlayerHealth rescuerHealth) || rescuerHealth.IsDead) return false;
+        if (!TryGetPlayerHealth(targetId, out NetworkObject targetObject, out PlayerHealth targetHealth) || !targetHealth.IsDead) return false;
+
+        float maxDistance = _encounter.Config != null ? _encounter.Config.ReviveDistance : 3f;
+        return Vector3.Distance(rescuerObject.transform.position, targetObject.transform.position) <= maxDistance;
+    }
+
+    private void MonitorLocalReviveInput()
+    {
+        if (NetworkManager.Singleton?.LocalClient?.PlayerObject == null) return;
+        NetworkObject localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
+        if (!localPlayer.TryGetComponent<PlayerInputHandler>(out var input) ||
+            !localPlayer.TryGetComponent<PlayerHealth>(out var localHealth) || localHealth.IsDead) return;
+
+        ulong localId = NetworkManager.Singleton.LocalClientId;
+        if (_reviver.Value == localId && !input.InteractHeld)
+        {
+            CancelReviveServerRpc();
+            return;
+        }
+
+        if (!input.InteractPressed || _reviver.Value != NoClient) return;
+        if (TryFindNearbyDeadTeammate(localPlayer.transform.position, localId, out ulong targetId))
+            StartReviveServerRpc(targetId);
+    }
+
+    public bool TryGetLocalReviveCandidate(out ulong targetId)
+    {
+        targetId = NoClient;
+        if (NetworkManager.Singleton?.LocalClient?.PlayerObject == null) return false;
+        return TryFindNearbyDeadTeammate(NetworkManager.Singleton.LocalClient.PlayerObject.transform.position,
+            NetworkManager.Singleton.LocalClientId, out targetId);
+    }
+
+    private bool TryFindNearbyDeadTeammate(Vector3 origin, ulong localId, out ulong targetId)
+    {
+        targetId = NoClient;
+        float maxDistance = _encounter.Config != null ? _encounter.Config.ReviveDistance : 3f;
+        foreach (PlayerHealth health in Object.FindObjectsByType<PlayerHealth>(FindObjectsSortMode.None))
+        {
+            if (!health.IsSpawned || health.OwnerClientId == localId || !health.IsDead) continue;
+            if (Vector3.Distance(origin, health.transform.position) > maxDistance) continue;
+            targetId = health.OwnerClientId;
+            return true;
+        }
+        return false;
+    }
+
+    private bool TryGetPlayerHealth(ulong clientId, out NetworkObject playerObject, out PlayerHealth health)
+    {
+        playerObject = null;
+        health = null;
+        if (NetworkManager.Singleton == null || !NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out NetworkClient client) ||
+            client.PlayerObject == null || !client.PlayerObject.TryGetComponent(out health)) return false;
+        playerObject = client.PlayerObject;
         return true;
     }
 
     private int CountDeadPlayers()
     {
         int deadCount = 0;
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
-        {
-            if (client.PlayerObject != null && client.PlayerObject.TryGetComponent<PlayerHealth>(out var health) && health.IsDead)
-                deadCount++;
-        }
+        foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList)
+            if (client.PlayerObject != null && client.PlayerObject.TryGetComponent<PlayerHealth>(out var health) && health.IsDead) deadCount++;
         return deadCount;
     }
 
-    [ClientRpc]
-    private void NotifyRespawnedClientRpc(ulong clientId)
+    private void CancelPendingRespawn(ulong clientId)
     {
-        EventBus.RaisePlayerRespawned(clientId, Vector3.zero);
+        if (!_pendingRespawns.TryGetValue(clientId, out Coroutine routine)) return;
+        if (routine != null) StopCoroutine(routine);
+        _pendingRespawns.Remove(clientId);
+    }
+
+    private void ClearCountdownServer(ulong clientId)
+    {
+        if (_countdownTarget.Value != clientId) return;
+        _countdownTarget.Value = NoClient;
+        _countdownRemaining.Value = 0f;
+    }
+
+    private void CancelReviveServer()
+    {
+        if (_reviveRoutine != null) StopCoroutine(_reviveRoutine);
+        _reviveRoutine = null;
+        _reviver.Value = NoClient;
+        _reviveTarget.Value = NoClient;
+        _reviveProgress.Value = 0f;
+    }
+
+    private void CancelAllServerRoutines()
+    {
+        if (!IsServer) return;
+        foreach (Coroutine routine in _pendingRespawns.Values) if (routine != null) StopCoroutine(routine);
+        _pendingRespawns.Clear();
+        CancelReviveServer();
+        _countdownTarget.Value = NoClient;
+        _countdownRemaining.Value = 0f;
     }
 }

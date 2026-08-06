@@ -67,7 +67,8 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         return name == Constants.Scenes.LEVEL_01
             || name == Constants.Scenes.LEVEL_02
             || name == Constants.Scenes.LEVEL_03
-            || name == Constants.Scenes.LEVEL_04;
+            || name == Constants.Scenes.LEVEL_04
+            || name == Constants.Scenes.BOSS_FINAL;
     }
 
     private void Awake()

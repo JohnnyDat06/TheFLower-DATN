@@ -68,6 +68,9 @@ public class PlayerInputHandler : NetworkBehaviour
     /// <summary>Interact down this frame.</summary>
     public bool InteractPressed { get; private set; }
 
+    /// <summary>True while the interact binding is held.</summary>
+    public bool InteractHeld { get; private set; }
+
     /// <summary>Pause down this frame.</summary>
     public bool PausePressed { get; private set; }
 
@@ -254,6 +257,8 @@ public class PlayerInputHandler : NetworkBehaviour
         if (_interactAction != null && _interactAction.WasPressedThisFrame())
             InteractPressed = true;
 
+        InteractHeld = _interactAction?.IsPressed() ?? false;
+
         if (_pauseAction != null && _pauseAction.WasPressedThisFrame())
             PausePressed = true;
 
@@ -312,6 +317,7 @@ public class PlayerInputHandler : NetworkBehaviour
         _dashBufferTimer = 0f;
         DashPressed      = false;
         InteractPressed  = false;
+        InteractHeld     = false;
         PausePressed     = false;
         AttackPressed    = false;
         CameraLookDelta  = Vector2.zero;
