@@ -214,7 +214,31 @@ namespace Game.Network
                 BossEncounterManager.Instance?.RegisterSpawnedPlayersServer();
             }
 
+            RevivePlayersLeftDeadByPreviousTransition(clientIds);
+
             ReleasePlayersAndLoadingOverlay(clientIds);
+        }
+
+        /// <summary>
+        /// A player that died while a previous scene transition failed persists as
+        /// a NetworkObject. Revive it before the new spawn is released so it cannot
+        /// stay in the death pose with input disabled at the valid spawn point.
+        /// </summary>
+        private void RevivePlayersLeftDeadByPreviousTransition(List<ulong> clientIds)
+        {
+            foreach (ulong id in clientIds)
+            {
+                if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(id, out var client)
+                    || client.PlayerObject == null
+                    || !client.PlayerObject.TryGetComponent<PlayerHealth>(out var health)
+                    || !health.IsDead)
+                {
+                    continue;
+                }
+
+                Debug.LogWarning($"[PlayerSpawner] Reviving player {id} before releasing the scene spawn.");
+                health.ReviveAtHealthPercent(1f);
+            }
         }
 
         private bool TryResolveSpawnPoints()

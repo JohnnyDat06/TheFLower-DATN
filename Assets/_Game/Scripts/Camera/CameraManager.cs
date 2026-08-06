@@ -452,8 +452,10 @@ public class CameraManager : MonoBehaviour
             ConfigureLevel04FlightFreeLook();
         }
 
-        if (preset == _currentPreset) return;
-        
+        // Re-apply the selected camera even when the preset value is unchanged.
+        // Intro cameras are driven directly by TrailerManager and may have a
+        // higher priority while _currentPreset is still ThirdPerson.
+
         // Cho phép Cutscene ngay cả khi không có trong Map (để khóa Input)
         if (!_vcamMap.ContainsKey(preset) && preset != CameraPreset.Cutscene) return;
 

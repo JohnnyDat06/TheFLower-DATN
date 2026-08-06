@@ -34,9 +34,13 @@ public class NGOPlayerSync : NetworkBehaviour
     private uint _nextTeleportRequestId;
     private uint _lastConfirmedTeleportRequestId;
     private Vector3 _pendingTeleportPosition;
+    private Vector3 _lastAuthoritativeTeleportPosition;
+    private Quaternion _lastAuthoritativeTeleportRotation;
+    private bool _hasAuthoritativeTeleport;
 
     private static readonly HashSet<ulong> MissingSpawnerWarnings = new();
     private Coroutine _readyReportRoutine;
+    private Coroutine _releaseRoutine;
 
     public bool IsTeleporting => _isTeleporting || _isFrozenBySystem;
 
@@ -163,9 +167,20 @@ public class NGOPlayerSync : NetworkBehaviour
     public void ReleasePlayerClientRpc()
     {
         Debug.Log($"[NGOPlayerSync] System Released Player {OwnerClientId}. Game starts now!");
-        _isFrozenBySystem = false;
         StopReadyReporting();
-        ApplyAuthorityState();
+
+        // ClientNetworkTransform is owner-authoritative. A stale transform may
+        // arrive between the server's confirmation and this release RPC. Apply
+        // the confirmed pose locally while physics is still frozen so gravity
+        // can never resume at the Lobby/void position.
+        if (_hasAuthoritativeTeleport)
+        {
+            if (_releaseRoutine != null) StopCoroutine(_releaseRoutine);
+            _releaseRoutine = StartCoroutine(ReleaseAtAuthoritativeTeleport());
+            return;
+        }
+
+        ReleaseLocalSimulation();
     }
 
     public void Teleport(Vector3 position, Quaternion rotation)
@@ -311,6 +326,9 @@ public class NGOPlayerSync : NetworkBehaviour
         
         // Đưa lên cao 0.15f thay vì 0.3f để mượt hơn nhưng vẫn tránh kẹt sàn
         Vector3 safePosition = GetSafeTeleportPosition(position);
+        _lastAuthoritativeTeleportPosition = safePosition;
+        _lastAuthoritativeTeleportRotation = rotation;
+        _hasAuthoritativeTeleport = true;
 
         if (_rigidbody != null)
         {
@@ -331,6 +349,26 @@ public class NGOPlayerSync : NetworkBehaviour
         }
 
         _isTeleporting = false;
+        ApplyAuthorityState();
+    }
+
+    private IEnumerator ReleaseAtAuthoritativeTeleport()
+    {
+        yield return PerformTeleportCoroutine(
+            _lastAuthoritativeTeleportPosition,
+            _lastAuthoritativeTeleportRotation);
+
+        if (IsSpawned)
+        {
+            ReleaseLocalSimulation();
+        }
+
+        _releaseRoutine = null;
+    }
+
+    private void ReleaseLocalSimulation()
+    {
+        _isFrozenBySystem = false;
         ApplyAuthorityState();
     }
 

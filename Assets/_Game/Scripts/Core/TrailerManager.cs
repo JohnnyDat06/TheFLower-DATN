@@ -37,6 +37,10 @@ namespace Game.Core
         private Canvas _subtitleCanvas;
         private bool _isTrailerFinished = false;
 
+        // Audio playback can be paused, looped, or fail to advance on a peer.
+        // Keep the intro bounded so a client cannot remain in the cutscene forever.
+        private const float TrailerMaximumDuration = 50f;
+
         private void Awake()
         {
             Instance = this;
@@ -123,6 +127,7 @@ namespace Game.Core
 
         private IEnumerator PlayTrailerSequence()
         {
+            float deadline = Time.realtimeSinceStartup + TrailerMaximumDuration;
             // 1. Phát nhạc/thoại
             if (_backgroundMusic != null && AudioManager.Instance != null)
             {
@@ -160,7 +165,9 @@ namespace Game.Core
                 // ĐỢI ĐẾN ĐÚNG GIÂY YÊU CẦU
                 if (_musicSource != null && _musicSource.clip != null)
                 {
-                    while (_musicSource.isPlaying && _musicSource.time < targetEndTime)
+                    while (_musicSource.isPlaying
+                           && _musicSource.time < targetEndTime
+                           && Time.realtimeSinceStartup < deadline)
                     {
                         yield return null; 
                     }
@@ -169,7 +176,13 @@ namespace Game.Core
                 {
                     // Fallback
                     float duration = (i == 0) ? 4f : 5f; 
-                    yield return new WaitForSeconds(duration);
+                    yield return new WaitForSecondsRealtime(duration);
+                }
+
+                if (Time.realtimeSinceStartup >= deadline)
+                {
+                    Debug.LogWarning("[TrailerManager] Intro exceeded its safety timeout; returning to gameplay camera.");
+                    break;
                 }
             }
 
