@@ -138,6 +138,8 @@ namespace Game.Network
             var clientIds = new List<ulong>(NetworkManager.ConnectedClientsIds);
             clientIds.Sort();
 
+            ConfigureInitialRespawnPoints(clientIds);
+
             // 2. Chỉ giải phóng player sau khi mọi PlayerObject đã nhận lệnh teleport.
             bool allPlayersTeleported = false;
             for (int attempt = 1; attempt <= MaxTeleportAttempts && !allPlayersTeleported; attempt++)
@@ -238,6 +240,31 @@ namespace Game.Network
 
                 Debug.LogWarning($"[PlayerSpawner] Reviving player {id} before releasing the scene spawn.");
                 health.ReviveAtHealthPercent(1f);
+            }
+        }
+
+        /// <summary>
+        /// Seeds respawn locations from the same deterministic assignment used for
+        /// the initial teleport. This prevents a death during the loading barrier
+        /// from falling back to an old scene position or Vector3.zero.
+        /// </summary>
+        private void ConfigureInitialRespawnPoints(List<ulong> clientIds)
+        {
+            if (RespawnManager.Instance == null)
+            {
+                Debug.LogWarning("[PlayerSpawner] RespawnManager is unavailable; initial respawn points cannot be seeded.");
+                return;
+            }
+
+            for (int i = 0; i < clientIds.Count; i++)
+            {
+                int spawnIndex = i % spawnPoints.Length;
+                Vector3 spawnPosition = spawnPoints[spawnIndex].position;
+                if (forceSameHeight) spawnPosition.y = spawnPoints[0].position.y;
+
+                RespawnManager.Instance.SetInitialSpawnPoint(
+                    clientIds[i],
+                    spawnPosition);
             }
         }
 

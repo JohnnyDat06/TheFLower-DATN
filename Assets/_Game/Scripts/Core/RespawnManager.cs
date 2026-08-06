@@ -22,6 +22,8 @@ public class RespawnManager : NetworkBehaviour
     private readonly NetworkVariable<Vector3> _currentHostSpawnPos = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private readonly NetworkVariable<Vector3> _currentClientSpawnPos = new NetworkVariable<Vector3>(Vector3.zero, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private bool _eventsSubscribed;
+    private bool _hasHostSpawnPoint;
+    private bool _hasClientSpawnPoint;
 
     private void Awake()
     {
@@ -32,12 +34,6 @@ public class RespawnManager : NetworkBehaviour
         }
 
         Instance = this;
-    }
-
-    private void Start()
-    {
-        // Chờ một chút để Server kết nối và Player tự load ra xong lúc bắt đầu màn.
-        Invoke(nameof(SetInitialSpawnPoints), 2f);
     }
 
     private void OnEnable()
@@ -57,6 +53,11 @@ public class RespawnManager : NetworkBehaviour
     {
         base.OnNetworkSpawn();
         SubscribeEvents();
+
+        if (IsServer)
+        {
+            SeedConfiguredSpawnPoints();
+        }
     }
 
     private void SubscribeEvents()
@@ -95,31 +96,56 @@ public class RespawnManager : NetworkBehaviour
         _eventsSubscribed = false;
     }
 
-    private void SetInitialSpawnPoints()
+    /// <summary>
+    /// Records the spawn selected by PlayerSpawner for one owner. PlayerSpawner
+    /// calls this before any player is released from the loading barrier, so the
+    /// first death cannot use a stale scene position or Vector3.zero.
+    /// </summary>
+    public void SetInitialSpawnPoint(ulong clientId, Vector3 position)
     {
-        if (!IsServer) return;
+        if (!IsServer || !IsFinite(position)) return;
 
+        if (clientId == NetworkManager.ServerClientId)
+        {
+            _currentHostSpawnPos.Value = position;
+            _hasHostSpawnPoint = true;
+        }
+        else
+        {
+            _currentClientSpawnPos.Value = position;
+            _hasClientSpawnPoint = true;
+        }
+
+        Debug.Log($"[RespawnManager] Seeded initial spawn for owner {clientId}: {position}");
+    }
+
+    private void SeedConfiguredSpawnPoints()
+    {
         if (_initialHostSpawnPoint != null)
         {
-            _currentHostSpawnPos.Value = _initialHostSpawnPoint.position;
+            SetInitialSpawnPoint(NetworkManager.ServerClientId, _initialHostSpawnPoint.position);
         }
 
         if (_initialClientSpawnPoint != null)
         {
-            _currentClientSpawnPos.Value = _initialClientSpawnPoint.position;
-        }
-
-        foreach (var client in NetworkManager.Singleton.ConnectedClientsList)
-        {
-            if (client.PlayerObject != null)
+            ulong firstRemoteClientId = FindFirstRemoteClientId();
+            if (firstRemoteClientId != ulong.MaxValue)
             {
-                if (client.ClientId == NetworkManager.ServerClientId && _initialHostSpawnPoint == null)
-                    _currentHostSpawnPos.Value = client.PlayerObject.transform.position;
-                else if (client.ClientId != NetworkManager.ServerClientId && _initialClientSpawnPoint == null)
-                    _currentClientSpawnPos.Value = client.PlayerObject.transform.position;
+                SetInitialSpawnPoint(firstRemoteClientId, _initialClientSpawnPoint.position);
             }
         }
-        Debug.Log($"[RespawnManager] Khởi tạo vị trí vạch xuất phát: Host ({_currentHostSpawnPos.Value}) | Client ({_currentClientSpawnPos.Value})");
+    }
+
+    private ulong FindFirstRemoteClientId()
+    {
+        if (NetworkManager == null) return ulong.MaxValue;
+
+        foreach (ulong clientId in NetworkManager.ConnectedClientsIds)
+        {
+            if (clientId != NetworkManager.ServerClientId) return clientId;
+        }
+
+        return ulong.MaxValue;
     }
 
     /// <summary>
@@ -131,6 +157,8 @@ public class RespawnManager : NetworkBehaviour
         {
             _currentHostSpawnPos.Value = hostSpawnPos;
             _currentClientSpawnPos.Value = clientSpawnPos;
+            _hasHostSpawnPoint = true;
+            _hasClientSpawnPoint = true;
             Debug.Log($"<color=green>[RespawnManager] SERVER LƯU CHECKPOINT THÀNH CÔNG!</color> Trạm: {checkpointId} | Vị trí Host: {hostSpawnPos} | Vị trí Client: {clientSpawnPos}");
         }
     }
@@ -167,6 +195,13 @@ public class RespawnManager : NetworkBehaviour
         NetworkObject netObj = client.PlayerObject;
         bool isHost = clientId == NetworkManager.ServerClientId;
         Vector3 spawnPos = isHost ? _currentHostSpawnPos.Value : _currentClientSpawnPos.Value;
+        bool hasSpawnPoint = isHost ? _hasHostSpawnPoint : _hasClientSpawnPoint;
+        if (!hasSpawnPoint || !IsFinite(spawnPos))
+        {
+            Debug.LogError($"[RespawnManager] Refusing to respawn owner {clientId}; no valid PlayerSpawner point was seeded.");
+            _respawningPlayers.Remove(clientId);
+            yield break;
+        }
         Quaternion spawnRotation = netObj.transform.rotation;
         Debug.Log($"[RespawnManager] SERVER respawning owner {clientId} at {spawnPos}");
 
@@ -202,5 +237,10 @@ public class RespawnManager : NetworkBehaviour
         fsm.TransitionTo(PlayerStateType.Respawning);
         yield return new WaitForSeconds(0.5f);
         if (fsm != null) fsm.TransitionTo(PlayerStateType.Idle);
+    }
+
+    private static bool IsFinite(Vector3 position)
+    {
+        return float.IsFinite(position.x) && float.IsFinite(position.y) && float.IsFinite(position.z);
     }
 }
