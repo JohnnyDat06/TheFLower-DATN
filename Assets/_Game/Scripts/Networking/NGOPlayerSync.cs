@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections;
 using Unity.Netcode;
@@ -176,9 +177,13 @@ public class NGOPlayerSync : NetworkBehaviour
     /// <summary>
     /// Teleports the player and waits until the owner has applied the move locally.
     /// </summary>
-    public IEnumerator TeleportAndWaitForOwner(Vector3 position, Quaternion rotation)
+    public IEnumerator TeleportAndWaitForOwner(Vector3 position, Quaternion rotation, Action<bool> onCompleted = null)
     {
-        if (!IsServer) yield break;
+        if (!IsServer)
+        {
+            onCompleted?.Invoke(false);
+            yield break;
+        }
 
         uint requestId = ++_nextTeleportRequestId;
         BeginServerTeleport(position, rotation, requestId);
@@ -190,10 +195,13 @@ public class NGOPlayerSync : NetworkBehaviour
             yield return null;
         }
 
-        if (_lastConfirmedTeleportRequestId < requestId)
+        bool confirmed = _lastConfirmedTeleportRequestId >= requestId;
+        if (!confirmed)
         {
             Debug.LogWarning($"[NGOPlayerSync] Teleport confirmation timed out for owner {OwnerClientId}.", this);
         }
+
+        onCompleted?.Invoke(confirmed);
     }
 
     private void BeginServerTeleport(Vector3 position, Quaternion rotation, uint requestId)

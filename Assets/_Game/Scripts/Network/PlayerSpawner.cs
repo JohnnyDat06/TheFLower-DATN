@@ -162,7 +162,19 @@ namespace Game.Network
                     int spawnIndex = i % spawnPoints.Length;
                     Vector3 spawnPos = spawnPoints[spawnIndex].position;
                     if (forceSameHeight) spawnPos.y = spawnPoints[0].position.y;
-                    playerSync.Teleport(spawnPos, spawnPoints[spawnIndex].rotation);
+                    bool teleportConfirmed = false;
+                    yield return playerSync.TeleportAndWaitForOwner(
+                        spawnPos,
+                        spawnPoints[spawnIndex].rotation,
+                        confirmed => teleportConfirmed = confirmed);
+
+                    if (!teleportConfirmed)
+                    {
+                        Debug.LogWarning($"[PlayerSpawner] Teleport confirmation missing for player {id}; retrying before release.");
+                        allPlayersTeleported = false;
+                        continue;
+                    }
+
                     _spawnedPlayers.Add(id);
                 }
 
