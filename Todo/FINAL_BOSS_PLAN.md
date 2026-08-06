@@ -2,54 +2,61 @@
 
 ## Mục tiêu
 
-Scene `Final_Boss_Room` là encounter cuối độc lập. Server điều phối toàn bộ trạng thái boss, hồi sinh, cứu đồng đội và thất bại; client chỉ gửi yêu cầu và hiển thị trạng thái.
+`Final_Boss_Room` là encounter cuối độc lập. Server điều phối trạng thái boss, hồi sinh, cứu đồng đội, wipe và reset; client chỉ gửi yêu cầu hợp lệ và hiển thị trạng thái.
 
-## Luồng scene
+## Trạng thái đã kiểm tra — 06/08/2026
 
-1. Cuối Map 2, `CoopSceneTeleporter` yêu cầu đủ hai player trong trigger.
-2. `SceneLoader` server-load scene `Final_Boss_Room` qua NGO.
-3. `PlayerSpawner` đặt Host/Client vào `BossSpawnPoints/P1` và `BossSpawnPoints/P2`.
-4. `BossEncounterManager` giữ state: `WaitingForPlayers`, `Intro`, `Active`, `WipeReset`, `Victory`.
-5. Khi cả hai ở vùng vào phòng, khóa cửa và bắt đầu encounter.
+### Đã hoàn thành
 
-## Luật hồi sinh trong boss room
+- [x] Scene `Final_Boss_Room` đã có trong Build Settings và hằng `Constants.Scenes.BOSS_FINAL`.
+- [x] Cổng `CoopSceneTeleporter` ở Map 2 trỏ tới `Final_Boss_Room`.
+- [x] `PlayerSpawner` đặt hai player vào `P1/P2`; khi vào boss room, server hồi đầy HP để không mang máu bị mất từ Map 2 sang attempt mới.
+- [x] Loading overlay được yêu cầu ẩn `To Be Continued` ngay khi bắt đầu tải và một lần nữa khi tải xong.
+- [x] Đã tạo hierarchy nền `BOSS ENCOUNTER`, `BossRespawnPoint`, `BossCenter`, `PlayerEntry` và `BossArena`; các tool test/checkpoint thừa đã được dọn.
+- [x] Đã tạo khung mã `BossEncounterManager`, `BossRespawnPolicy`, `SOBossEncounterConfig` và state: `WaitingForPlayers`, `Intro`, `Active`, `WipeReset`, `Victory`.
+- [x] `PlayerHealth` phát death event phía server và có API hồi máu server-authoritative.
 
-- Countdown tự hồi sinh: 10 giây, hồi 100% HP tại boss respawn point.
-- Revive đồng đội: player sống giữ Interact trong 5 giây ở gần player chết; hồi sinh ngay tại chỗ với 60% MaxHealth.
-- Hủy revive nếu người cứu rời khoảng cách, chết, hoặc mục tiêu đã được hồi sinh.
-- Nếu cả hai player cùng chết, server kích hoạt wipe ngay, hủy mọi countdown/revive và reset encounter.
-- `RespawnManager` dùng cho map thường không được chạy song song với `BossRespawnPolicy` (scene boss hiện vẫn giữ component legacy; cần disable khi encounter prefab hoàn thiện).
+### Đã hoàn thành trong hệ thống encounter
 
-## Thành phần runtime dự kiến
+- [x] `BOSS ENCOUNTER` đã có `NetworkObject`; manager/policy được spawn bởi NGO cùng scene.
+- [x] Đã tạo và gán `FinalBossEncounterConfig` (intro 2s, auto-respawn 10s, giữ revive 5s, revive 60%, phạm vi 3m, wipe 2s).
+- [x] `BossEntryTrigger` và đăng ký từ `PlayerSpawner` yêu cầu đủ player trước intro; spawn registration giúp flow không phụ thuộc vào callback trigger sau teleport.
+- [x] Revive dùng input Interact giữ liên tục, request/cancel RPC và server kiểm tra sender, HP chết, khoảng cách và state encounter mỗi frame.
+- [x] Player chết được hồi trực tiếp lên 60% hoặc 100% và FSM owner đi qua `Respawning` rồi `Idle`.
+- [x] `RespawnManager` thường bỏ qua Boss Room, nên không chạy đồng thời với policy boss.
+- [x] `BossEncounterHUD` dựng Canvas runtime cho objective, countdown hồi sinh, tiến trình cứu và trạng thái wipe/victory; `PlayerHealthHUDRemake` nay cũng chạy ở Boss Room để dùng cùng HUD HP Map 1–2.
 
-- `BossEncounterManager : NetworkBehaviour`: state machine, start/reset/wipe/victory.
-- `BossRespawnPolicy`: countdown, revive validation, auto-respawn và wipe detection.
-- `ReviveInteractable`: hold-interaction 5 giây, server-authoritative.
-- `BossEncounterHUD`: countdown, revive progress, wipe và state presentation.
-- `BossEncounterConfig : ScriptableObject`: delay, phần trăm HP, khoảng cách, spawn points và reset references.
+### Còn lại cho gameplay boss
 
-## Setup scene cơ bản
+- [ ] `_resetTargets` đang trống; cần đăng ký boss, projectile, sàn/môi trường và cửa sau khi art/gameplay prefab được dựng.
+- [ ] Chưa có prefab boss, projectile tầm xa, sàn sập hay cơ chế/vật phẩm gây sát thương gián tiếp.
+- [ ] `CompleteEncounterServer` đã có state `Victory`, nhưng chưa có nguồn damage/cơ chế gọi nó hoặc scene kết thúc sau chiến thắng.
 
-- Giữ `GENERAL`, `PlayerSpawner`, ánh sáng chính và post-process volume.
-- Loại bỏ `TeleportManager` vì đây là testing-only tool.
-- Loại bỏ checkpoint thường; boss có spawn point riêng và không lưu checkpoint giữa encounter.
-- Đã tạo hierarchy `BOSS ENCOUNTER` với `BossRespawnPoint`, `BossCenter`, `PlayerEntry` (trigger BoxCollider) và `BossArena`; dùng hai spawn point `P1/P2` hiện có của `PlayerSpawner` để không phá reference NetworkObject.
-- Giữ terrain hiện tại tạm thời làm nền; thay bằng geometry arena khi layout boss được dựng.
-- Thêm `Final_Boss_Room` vào Build Settings và `Constants.Scenes.BOSS_FINAL` trước khi test chuyển scene.
+## Luồng mục tiêu
 
-## Trình tự triển khai
+1. Cuối Map 2, cả hai player vào `CoopSceneTeleporter`; server load `Final_Boss_Room` qua NGO.
+2. `PlayerSpawner` teleport hai player vào `P1/P2`, hồi 100% HP và đóng loading overlay.
+3. `BossEncounterManager` chờ đủ hai player vào `PlayerEntry`, khóa cửa, chạy intro rồi chuyển `Active`.
+4. Một player chết: server bắt đầu countdown 10 giây. Đồng đội giữ Interact trong 5 giây, trong phạm vi cho phép, để hồi ngay tại chỗ với 60% MaxHealth.
+5. Hai player cùng chết: server hủy countdown/revive, dọn projectile, reset boss/sàn/môi trường, đưa cả hai về spawn và hồi 100% HP.
+6. Khi boss bị hạ bằng cơ chế arena: server chuyển `Victory`, vô hiệu hóa nguy hiểm và chạy flow kết thúc.
 
-1. Đã tạo config type, enum state, death event server-authoritative và các API health cần thiết.
-2. Đã tạo `BossEncounterManager` và `BossRespawnPolicy`; policy xử lý intro/active, countdown, revive validation và wipe.
-3. Tạo revive interaction và HUD.
-4. Nối cổng cuối Map 2 với `Final_Boss_Room`.
-5. Setup boss prefab, projectile, sàn/môi trường và reset targets.
-6. Test Host + Client: scene load, chết đơn, revive thành công/hủy, auto-respawn, chết đồng thời, wipe/reset và victory.
+## Thứ tự triển khai còn lại
 
-## Validation checklist
+1. **Boss và arena**
+   - Tạo boss prefab đứng giữa phòng, tấn công tầm xa server-authoritative.
+   - Tạo sàn sập/mục tiêu môi trường và vật phẩm/cơ chế gây sát thương gián tiếp.
+   - Đăng ký projectile, sàn và boss vào reset targets; triển khai điều kiện thắng.
 
-- Scene có trong Build Settings, load được bằng `SceneLoader`.
-- Tất cả NetworkObject cần thiết được spawn server-authoritative.
-- Không có hai hệ thống cùng hồi sinh một player (cần disable `RespawnManager` legacy trước PlayMode boss test).
-- Wipe không để lại coroutine, projectile, trạng thái sàn hoặc HUD của attempt trước.
-- Chạy EditMode/PlayMode test và kiểm tra Unity Console không phát sinh lỗi mới.
+2. **Kiểm thử Host + Client**
+   - Load Map 2 → Boss: không còn `To Be Continued`, cả hai xuất hiện đúng P1/P2 với đầy HP.
+   - Chết đơn, auto-respawn 10 giây, revive thành công 60%, hủy revive khi rời xa/chết.
+   - Chết đồng thời, wipe/reset; thử lại encounter và victory.
+   - Kiểm tra Unity Console, EditMode/PlayMode tests và build.
+
+## Tiêu chí hoàn thành
+
+- Không có hai hệ thống hồi sinh cùng xử lý một player.
+- Mọi state, hồi sinh, wipe, reset và victory đều do server quyết định và client không thể tự sửa HP/state.
+- Wipe không để lại coroutine, projectile, trạng thái sàn hoặc HUD từ attempt cũ.
+- Flow Host + Client qua Map 2 → Boss và attempt hoàn chỉnh không phát sinh lỗi Unity mới.

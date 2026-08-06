@@ -150,6 +150,18 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         NetworkHealth.Value = Mathf.Min(MaxHealth, MaxHealth * Mathf.Clamp01(percent));
     }
 
+    /// <summary>
+    /// Returns a dead player to gameplay with a server-authoritative percentage of MaxHealth.
+    /// The targeted RPC only changes local presentation/FSM for the owning client.
+    /// </summary>
+    public void ReviveAtHealthPercent(float percent)
+    {
+        if (!IsServer || percent <= 0f) return;
+
+        NetworkHealth.Value = Mathf.Max(1f, MaxHealth * Mathf.Clamp01(percent));
+        NotifyPlayerRevivedClientRpc(OwnerClientId);
+    }
+
     [ServerRpc]
     private void RestoreFullHealthServerRpc()
     {
@@ -197,5 +209,24 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         }
         
         Debug.Log($"[PlayerHealth] Client {NetworkManager.Singleton.LocalClientId} received death notification for Player {clientId}");
+    }
+
+    [ClientRpc]
+    private void NotifyPlayerRevivedClientRpc(ulong clientId)
+    {
+        if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != clientId) return;
+
+        EventBus.RaisePlayerRespawned(clientId, transform.position);
+        if (_fsm != null)
+        {
+            StartCoroutine(ReturnToIdleAfterRevive());
+        }
+    }
+
+    private System.Collections.IEnumerator ReturnToIdleAfterRevive()
+    {
+        _fsm.TransitionTo(PlayerStateType.Respawning);
+        yield return new WaitForSeconds(0.5f);
+        if (_fsm != null) _fsm.TransitionTo(PlayerStateType.Idle);
     }
 }

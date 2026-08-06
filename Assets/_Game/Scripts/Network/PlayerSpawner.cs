@@ -210,6 +210,8 @@ namespace Game.Network
                         health.RestoreFullHealth();
                     }
                 }
+
+                BossEncounterManager.Instance?.RegisterSpawnedPlayersServer();
             }
 
             ReleasePlayersAndLoadingOverlay(clientIds);

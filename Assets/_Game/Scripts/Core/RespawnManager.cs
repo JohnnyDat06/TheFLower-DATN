@@ -1,6 +1,7 @@
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// RespawnManager — Xử lý hồi sinh Player khi nhân vật chết và lưu điểm Checkpoint.
@@ -142,6 +143,9 @@ public class RespawnManager : NetworkBehaviour
 
     private void HandlePlayerDied(ulong clientId)
     {
+        // Boss rooms have a different, server-authoritative revive/wipe policy.
+        if (SceneManager.GetActiveScene().name == Constants.Scenes.BOSS_FINAL) return;
+
         // Respawn is server-authoritative. Previously every peer moved its local
         // copy, racing ClientNetworkTransform/physics and causing players to fling.
         if (!IsServer || !_respawningPlayers.Add(clientId)) return;
