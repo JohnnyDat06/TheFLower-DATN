@@ -12,6 +12,10 @@ Shader "Custom/MagicMirror/MirrorStencilWriter"
         Pass
         {
             Name "StencilWriter"
+            // Timeline cameras can cross the mirror volume and view it from the
+            // opposite side. Both faces must write the stencil, otherwise the
+            // SecretObject render pass disappears after the camera crosses it.
+            Cull Off
             ZWrite Off          // QUAN TRỌNG: Không ghi chiều sâu để tránh lỗi xanh đục
             ColorMask 0         // Vô hình hoàn toàn
             
