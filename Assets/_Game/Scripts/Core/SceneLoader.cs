@@ -19,6 +19,12 @@ public class SceneLoader : MonoBehaviour
     private bool _allClientsReady;
     private bool _loadFailed;
 
+    // Map2 can take longer than NGO's default scene-event timeout on a cold
+    // client. Keep the transport alive long enough for the client to finish
+    // activating the scene instead of leaving the overlay at 90%.
+    private const int NetworkSceneLoadTimeoutSeconds = 120;
+    private const float SceneLoadTimeoutSeconds = 150f;
+
     public bool IsLoading => _isLoading;
 
     private void Awake()
@@ -99,6 +105,11 @@ public class SceneLoader : MonoBehaviour
             // transport to report the connection as inactive.
             Debug.Log("[SceneLoader] Starting network scene load without blocking memory cleanup.");
 
+            NetworkManager.Singleton.NetworkConfig.LoadSceneTimeOut = Mathf.Max(
+                NetworkManager.Singleton.NetworkConfig.LoadSceneTimeOut,
+                NetworkSceneLoadTimeoutSeconds);
+            Debug.Log($"[SceneLoader] Network scene-event timeout: {NetworkManager.Singleton.NetworkConfig.LoadSceneTimeOut}s.");
+
             NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += HandleLoadEventCompleted;
             var status = NetworkManager.Singleton.SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
             
@@ -113,7 +124,7 @@ public class SceneLoader : MonoBehaviour
 
         float fakeProgress = 0f;
         // Map2 is large and can legitimately take longer than 20 seconds.
-        float timeout = 90f;
+        float timeout = SceneLoadTimeoutSeconds;
         while (!_allClientsReady && timeout > 0)
         {
             fakeProgress = Mathf.MoveTowards(fakeProgress, 0.9f, Time.deltaTime * 0.4f);
