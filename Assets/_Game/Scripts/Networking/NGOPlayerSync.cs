@@ -12,6 +12,7 @@ using UnityEngine;
 public class NGOPlayerSync : NetworkBehaviour
 {
     private const float TeleportConfirmationTimeout = 2f;
+    private const float TeleportPositionTolerance = 0.5f;
 
     [Header("Local Simulation")]
     [SerializeField] private PlayerInputHandler _inputHandler;
@@ -32,6 +33,7 @@ public class NGOPlayerSync : NetworkBehaviour
     private bool _isFrozenBySystem = true; // Trạng thái đóng băng hệ thống khi đổi màn
     private uint _nextTeleportRequestId;
     private uint _lastConfirmedTeleportRequestId;
+    private Vector3 _pendingTeleportPosition;
 
     private static readonly HashSet<ulong> MissingSpawnerWarnings = new();
     private Coroutine _readyReportRoutine;
@@ -206,6 +208,7 @@ public class NGOPlayerSync : NetworkBehaviour
 
     private void BeginServerTeleport(Vector3 position, Quaternion rotation, uint requestId)
     {
+        _pendingTeleportPosition = GetSafeTeleportPosition(position);
         if (IsOwner)
         {
             StartCoroutine(PerformTeleportAndConfirmCoroutine(position, rotation, requestId));
@@ -248,17 +251,30 @@ public class NGOPlayerSync : NetworkBehaviour
 
         if (IsServer)
         {
-            _lastConfirmedTeleportRequestId = requestId;
+            if (Vector3.Distance(transform.position, _pendingTeleportPosition) <= TeleportPositionTolerance)
+            {
+                _lastConfirmedTeleportRequestId = requestId;
+            }
+            else
+            {
+                Debug.LogWarning($"[NGOPlayerSync] Host teleport position verification failed for owner {OwnerClientId}. Actual={transform.position}, expected={_pendingTeleportPosition}.", this);
+            }
             yield break;
         }
 
-        ConfirmTeleportServerRpc(requestId);
+        ConfirmTeleportServerRpc(requestId, transform.position);
     }
 
     [ServerRpc]
-    private void ConfirmTeleportServerRpc(uint requestId, ServerRpcParams rpcParams = default)
+    private void ConfirmTeleportServerRpc(uint requestId, Vector3 reportedPosition, ServerRpcParams rpcParams = default)
     {
         if (rpcParams.Receive.SenderClientId != OwnerClientId) return;
+        if (Vector3.Distance(reportedPosition, _pendingTeleportPosition) > TeleportPositionTolerance)
+        {
+            Debug.LogWarning($"[NGOPlayerSync] Client teleport position verification failed for owner {OwnerClientId}. Actual={reportedPosition}, expected={_pendingTeleportPosition}.", this);
+            return;
+        }
+
         if (requestId > _lastConfirmedTeleportRequestId)
         {
             _lastConfirmedTeleportRequestId = requestId;
