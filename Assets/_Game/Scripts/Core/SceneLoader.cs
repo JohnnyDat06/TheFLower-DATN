@@ -94,11 +94,10 @@ public class SceneLoader : MonoBehaviour
 
         if (NetworkManager.Singleton.IsServer)
         {
-            // Release unused assets before a heavy scene transition. This avoids a
-            // peak-memory spike when the next map imports textures, navmesh and AI data.
-            yield return Resources.UnloadUnusedAssets();
-            GC.Collect();
-            yield return null;
+            // Do not synchronously unload assets or force a GC here. Map2 is large,
+            // and a blocking cleanup can pause NGO/Relay updates long enough for the
+            // transport to report the connection as inactive.
+            Debug.Log("[SceneLoader] Starting network scene load without blocking memory cleanup.");
 
             NetworkManager.Singleton.SceneManager.OnLoadEventCompleted += HandleLoadEventCompleted;
             var status = NetworkManager.Singleton.SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
