@@ -51,9 +51,9 @@ namespace Networking.LobbySystem
                     TeleportToSpawn();
                     EnableMovement(); 
                 } else {
-                    // CHẾ ĐỘ LOBBY: Khóa lại để chờ quy trình chuẩn
-                    DisableMovementPermanently(); 
-                    if (IsOwner) StartCoroutine(InitialSpawnCoroutine(0.1f));
+                    // Production flow: PlayerSpawner owns the server-authoritative
+                    // gameplay teleport and release barrier.
+                    DisableMovementPermanently();
                 }
             }
 
@@ -99,7 +99,10 @@ namespace Networking.LobbySystem
             if (!_isInLobby)
             {
                 Debug.Log($"[LobbySlot] Scene LOADED: {sceneName}. Locking physics until Teleport completes.");
-                if (IsOwner) {
+                // Only standalone test scenes use this legacy fallback. The Lobby
+                // flow must wait for PlayerSpawner instead of unlocking at the old
+                // Lobby position.
+                if (IsTestMode() && IsOwner) {
                     StartCoroutine(InitialSpawnCoroutine(0.1f));
                     StartCoroutine(FinalEnforcementCoroutine());
                 }
@@ -201,7 +204,6 @@ namespace Networking.LobbySystem
                 rb.isKinematic = true;
                 rb.useGravity = false;
             }
-            if (TryGetComponent<NGOPlayerSync>(out var sync)) sync.enabled = false;
             if (TryGetComponent<PlayerInputHandler>(out var inputHandler)) inputHandler.LockAllInput();
             if (TryGetComponent<PlayerController>(out var pc)) pc.enabled = false;
             if (TryGetComponent<PlayerStateMachine>(out var psm)) psm.enabled = false;
