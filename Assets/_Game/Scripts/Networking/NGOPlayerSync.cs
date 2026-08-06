@@ -354,22 +354,49 @@ public class NGOPlayerSync : NetworkBehaviour
 
     private IEnumerator ReleaseAtAuthoritativeTeleport()
     {
-        yield return PerformTeleportCoroutine(
-            _lastAuthoritativeTeleportPosition,
-            _lastAuthoritativeTeleportRotation);
-
-        if (IsSpawned)
-        {
-            ReleaseLocalSimulation();
-        }
+        // The owner already confirmed this exact pose during the spawn barrier.
+        // Re-running PerformTeleportCoroutine here needlessly keeps input frozen
+        // for more physics ticks and applies the safe-height offset a second time.
+        ApplyConfirmedTeleportBeforeRelease();
+        if (IsSpawned) ReleaseLocalSimulation();
 
         _releaseRoutine = null;
+        yield break;
+    }
+
+    private void ApplyConfirmedTeleportBeforeRelease()
+    {
+        if (!_hasAuthoritativeTeleport) return;
+
+        if (_rigidbody != null)
+        {
+            ResetRigidbodyMotion();
+            _rigidbody.position = _lastAuthoritativeTeleportPosition;
+            _rigidbody.rotation = _lastAuthoritativeTeleportRotation;
+        }
+
+        transform.SetPositionAndRotation(
+            _lastAuthoritativeTeleportPosition,
+            _lastAuthoritativeTeleportRotation);
+        _networkTransform?.Teleport(
+            _lastAuthoritativeTeleportPosition,
+            _lastAuthoritativeTeleportRotation,
+            transform.localScale);
     }
 
     private void ReleaseLocalSimulation()
     {
         _isFrozenBySystem = false;
         ApplyAuthorityState();
+
+        // LobbyPlayerState locks input while the player waits in the lobby. The
+        // player object persists into the gameplay scene, so enabling this
+        // component alone leaves that old lock active. Clear it only after the
+        // authoritative spawn/intro release has completed.
+        if (IsOwner && IsGameplayScene())
+        {
+            _inputHandler?.UnlockAllInput();
+        }
     }
 
     private static Vector3 GetSafeTeleportPosition(Vector3 position)

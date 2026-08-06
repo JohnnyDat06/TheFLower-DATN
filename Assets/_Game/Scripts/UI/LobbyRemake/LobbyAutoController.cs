@@ -95,6 +95,7 @@ namespace Game.UI.LobbyAuto
         private Image[] _cardAvatars = new Image[2];
 
         private bool _busy;
+        private bool _lifecycleEventsSubscribed;
         private bool _localReady;
         private float _refreshTimer;
         private string _lastRosterSignature;
@@ -161,24 +162,40 @@ namespace Game.UI.LobbyAuto
 
         private void OnEnable()
         {
-            EventBus.OnClientConnected += HandleNetworkChanged;
-            EventBus.OnClientDisconnected += HandleNetworkChanged;
-            EventBus.OnSettingsChanged += ApplyAudioSettings;
-            EventBus.OnInputDeviceChanged += HandleInputDeviceChanged;
-            InputSystem.onDeviceChange += HandleInputSystemDeviceChange;
+            SubscribeLifecycleEvents();
             BindLobbyManager();
             BindLobbyInput();
         }
 
         private void OnDisable()
         {
+            UnsubscribeLifecycleEvents();
+            UnbindLobbyInput();
+            UnbindLobbyManager();
+        }
+
+        private void SubscribeLifecycleEvents()
+        {
+            if (_lifecycleEventsSubscribed) return;
+
+            EventBus.OnClientConnected += HandleNetworkChanged;
+            EventBus.OnClientDisconnected += HandleNetworkChanged;
+            EventBus.OnSettingsChanged += ApplyAudioSettings;
+            EventBus.OnInputDeviceChanged += HandleInputDeviceChanged;
+            InputSystem.onDeviceChange += HandleInputSystemDeviceChange;
+            _lifecycleEventsSubscribed = true;
+        }
+
+        private void UnsubscribeLifecycleEvents()
+        {
+            if (!_lifecycleEventsSubscribed) return;
+
             EventBus.OnClientConnected -= HandleNetworkChanged;
             EventBus.OnClientDisconnected -= HandleNetworkChanged;
             EventBus.OnSettingsChanged -= ApplyAudioSettings;
             EventBus.OnInputDeviceChanged -= HandleInputDeviceChanged;
             InputSystem.onDeviceChange -= HandleInputSystemDeviceChange;
-            UnbindLobbyInput();
-            UnbindLobbyManager();
+            _lifecycleEventsSubscribed = false;
         }
 
         private void Update()
@@ -944,7 +961,7 @@ namespace Game.UI.LobbyAuto
             RectTransform browser = CreateCard(panel, "RoomBrowser", new Vector2(-2f, -120f), new Vector2(680f, 570f), new Vector2(1f, 1f));
             TMP_Text browserTitle = CreateText(browser, "OPEN ROOMS", 20f, Gold, FontStyles.Bold, TextAlignmentOptions.Left);
             Place(browserTitle.rectTransform, new Vector2(30f, -28f), new Vector2(300f, 36f), new Vector2(0f, 1f));
-            Button refresh = CreateButton(browser, "REFRESH", PanelSoft, new Vector2(-30f, -22f), 180f, 48f, 14f, null, new Vector2(1f, 1f));
+            Button refresh = CreateButton(browser, "RELOAD", PanelSoft, new Vector2(-30f, -22f), 180f, 48f, 14f, null, new Vector2(1f, 1f));
             refresh.onClick.AddListener(RefreshRoomBrowser);
             _joinRefreshButton = refresh;
             _browserList = Rect("RoomList", browser, new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(30f, -92f), new Vector2(-60f, 470f), new Vector2(0f, 1f));
@@ -1559,6 +1576,7 @@ namespace Game.UI.LobbyAuto
                 "CANCEL" => _config?.CancelButton,
                 "JOIN" => _config?.RoomJoinButton,
                 "REFRESH" => _config?.RoomRefreshButton,
+                "RELOAD" => _config?.RoomRefreshButton,
                 "KEY BINDINGS / CONTROLS" => _config?.KeyBindingsButton,
                 _ => null
             };
@@ -1566,7 +1584,7 @@ namespace Game.UI.LobbyAuto
             {
                 graphic.sprite = themedSprite;
                 graphic.color = Color.white;
-                bool dynamicLabel = label is "JOIN" or "REFRESH" or "KEY BINDINGS / CONTROLS";
+                bool dynamicLabel = label is "JOIN" or "REFRESH" or "RELOAD" or "KEY BINDINGS / CONTROLS";
                 graphic.preserveAspect = !dynamicLabel;
                 if (!dynamicLabel) text.gameObject.SetActive(false);
             }

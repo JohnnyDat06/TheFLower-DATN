@@ -496,27 +496,13 @@ namespace Networking.LobbySystem
 
         private IEnumerator StartGameWithFade(string sceneName)
         {
-            Task lockTask = LockLobbyForGame();
-            while (!lockTask.IsCompleted) yield return null;
+            // Keep the lobby discoverable while the game is running. If a client
+            // disconnects and returns to Lobby, it can reload the room list and
+            // join the still-running host session again.
             if (LoadingSyncManager.Instance != null) LoadingSyncManager.Instance.StartLoadingFadeClientRpc();
             yield return new WaitForSecondsRealtime(0.8f);
             if (SceneLoader.Instance != null) SceneLoader.Instance.LoadScene(sceneName);
             else NetworkManager.Singleton.SceneManager.LoadScene(sceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
-        }
-
-        private async Task LockLobbyForGame()
-        {
-            if (_currentLobby == null || string.IsNullOrEmpty(_currentLobby.Id)) return;
-            try
-            {
-                _currentLobby = await LobbyService.Instance.UpdateLobbyAsync(
-                    _currentLobby.Id,
-                    new UpdateLobbyOptions { IsLocked = true });
-            }
-            catch (Exception exception)
-            {
-                Debug.LogWarning($"[LobbyManager] Could not lock lobby before game: {exception.Message}");
-            }
         }
 
         private void SetCurrentLobby(Lobby lobby)

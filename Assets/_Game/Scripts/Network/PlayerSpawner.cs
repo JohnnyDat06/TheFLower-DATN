@@ -25,6 +25,7 @@ namespace Game.Network
 
         private const int MaxTeleportAttempts = 30;
         private const float TeleportRetryDelay = 0.1f;
+        private const float SpawnPhysicsSettleDelay = 0.1f;
 
         private void Awake()
         {
@@ -193,8 +194,9 @@ namespace Game.Network
                 }
             }
 
-            // 3. Đợi vài frame để đảm bảo lệnh Teleport đã tới Client và Physics đã ổn định.
-            yield return new WaitForSeconds(0.5f);
+            // Teleport confirmation already proves that each owner applied the
+            // pose. Only keep a short physics settle window before input release.
+            yield return new WaitForSecondsRealtime(SpawnPhysicsSettleDelay);
 
             Debug.Log($"[PlayerSpawner] Verified teleport command for {_spawnedPlayers.Count}/{clientIds.Count} players before release.");
 
@@ -216,29 +218,28 @@ namespace Game.Network
                 BossEncounterManager.Instance?.RegisterSpawnedPlayersServer();
             }
 
-            RevivePlayersLeftDeadByPreviousTransition(clientIds);
+            SynchronizePlayersToAliveState(clientIds);
 
             ReleasePlayersAndLoadingOverlay(clientIds);
         }
 
         /// <summary>
-        /// A player that died while a previous scene transition failed persists as
-        /// a NetworkObject. Revive it before the new spawn is released so it cannot
-        /// stay in the death pose with input disabled at the valid spawn point.
+        /// Player objects persist across scene loads. Always synchronize their
+        /// health and owner-local FSM before release: RestoreFullHealth alone does
+        /// not notify a client that is still in the Dead state.
         /// </summary>
-        private void RevivePlayersLeftDeadByPreviousTransition(List<ulong> clientIds)
+        private void SynchronizePlayersToAliveState(List<ulong> clientIds)
         {
             foreach (ulong id in clientIds)
             {
                 if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(id, out var client)
                     || client.PlayerObject == null
-                    || !client.PlayerObject.TryGetComponent<PlayerHealth>(out var health)
-                    || !health.IsDead)
+                    || !client.PlayerObject.TryGetComponent<PlayerHealth>(out var health))
                 {
                     continue;
                 }
 
-                Debug.LogWarning($"[PlayerSpawner] Reviving player {id} before releasing the scene spawn.");
+                Debug.Log($"[PlayerSpawner] Synchronizing alive state for player {id} before releasing the scene spawn.");
                 health.ReviveAtHealthPercent(1f);
             }
         }
