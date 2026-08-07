@@ -1,6 +1,7 @@
 using TMPro;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -17,6 +18,7 @@ public sealed class QuestHUD : MonoBehaviour
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text distanceText;
     [SerializeField] private RectTransform screenMarker;
+    [SerializeField] private QuestWorldMarker worldMarker;
     [SerializeField] private Camera targetCamera;
     [SerializeField] private bool clampMarkerToScreen = true;
     [SerializeField] private Vector2 screenPadding = new(36f, 36f);
@@ -25,26 +27,84 @@ public sealed class QuestHUD : MonoBehaviour
     {
         if (root == null) root = gameObject;
         if (canvasGroup == null) canvasGroup = GetComponent<CanvasGroup>();
+        if (worldMarker == null) worldMarker = GetComponent<QuestWorldMarker>();
         if (targetCamera == null) targetCamera = Camera.main;
         BuildDefaultUIIfNeeded();
     }
-    private void OnEnable() { if (route != null) route.StepChanged += Refresh; Refresh(route != null ? route.CurrentStepIndex : -1); }
-    private void OnDisable() { if (route != null) route.StepChanged -= Refresh; }
+
+    private void OnEnable()
+    {
+        SceneManager.sceneLoaded += HandleSceneLoaded;
+        BindRoute();
+    }
+
+    private void OnDisable()
+    {
+        SceneManager.sceneLoaded -= HandleSceneLoaded;
+        UnbindRoute();
+    }
 
     private void Update()
     {
-        if (route == null || route.IsRouteCompleted || route.CurrentStep == null) { SetVisible(false); return; }
+        if (route == null)
+        {
+            BindRoute();
+            worldMarker?.Clear();
+            return;
+        }
+
+        if (route.IsRouteCompleted || route.CurrentStep == null)
+        {
+            worldMarker?.Clear();
+            SetVisible(false);
+            return;
+        }
+
         SetVisible(true);
         var step = route.CurrentStep;
+        worldMarker?.SetTarget(step);
         float distance = 0f;
         if (TryGetLocalPlayer(out var player)) distance = Vector3.Distance(player.position, step.destination.position);
         if (distanceText != null) distanceText.text = $"{distance:0}m";
         UpdateMarker(step.destination.position);
     }
 
+    private void HandleSceneLoaded(Scene _, LoadSceneMode __) => BindRoute();
+
+    private void BindRoute()
+    {
+        QuestRouteManager discoveredRoute = FindFirstObjectByType<QuestRouteManager>();
+        if (discoveredRoute == route)
+        {
+            Refresh(route != null ? route.CurrentStepIndex : -1);
+            return;
+        }
+
+        UnbindRoute();
+        route = discoveredRoute;
+        if (route != null)
+            route.StepChanged += Refresh;
+
+        Refresh(route != null ? route.CurrentStepIndex : -1);
+    }
+
+    private void UnbindRoute()
+    {
+        if (route != null)
+            route.StepChanged -= Refresh;
+
+        route = null;
+    }
+
     private void Refresh(int index)
     {
-        if (route == null || index < 0 || index >= route.Steps.Count) { SetVisible(false); return; }
+        if (route == null || index < 0 || index >= route.Steps.Count)
+        {
+            worldMarker?.Clear();
+            SetVisible(false);
+            return;
+        }
+
         var step = route.Steps[index];
         if (titleText != null) titleText.text = step.displayName;
         if (descriptionText != null) descriptionText.text = step.description;
@@ -92,8 +152,8 @@ public sealed class QuestHUD : MonoBehaviour
         if (host == null) return;
 
         if (titleText == null) titleText = CreateText("QuestTitle", host, "NHIỆM VỤ", 22, new Vector2(24, -18), new Vector2(360, 34), TextAlignmentOptions.Left);
-        if (descriptionText == null) descriptionText = CreateText("QuestDescription", host, "", 15, new Vector2(24, -52), new Vector2(360, 42), TextAlignmentOptions.Left);
-        if (statusText == null) statusText = CreateText("QuestStatus", host, "", 13, new Vector2(24, -94), new Vector2(260, 24), TextAlignmentOptions.Left);
+        if (descriptionText == null) descriptionText = CreateText("QuestDescription", host, "", 15, new Vector2(24, -60), new Vector2(360, 42), TextAlignmentOptions.Left);
+        if (statusText == null) statusText = CreateText("QuestStatus", host, "", 13, new Vector2(24, -104), new Vector2(260, 24), TextAlignmentOptions.Left);
         if (distanceText == null) distanceText = CreateText("QuestDistance", host, "0m", 20, new Vector2(318, -82), new Vector2(70, 32), TextAlignmentOptions.Right);
 
         if (screenMarker == null)
@@ -111,7 +171,6 @@ public sealed class QuestHUD : MonoBehaviour
         if (GetComponent<Image>() != null)
             GetComponent<Image>().color = new Color(0.03f, 0.06f, 0.1f, 0.92f);
 
-        if (route == null) route = FindFirstObjectByType<QuestRouteManager>();
     }
 
     private static TMP_Text CreateText(string objectName, Transform parent, string value, float size, Vector2 anchoredPosition, Vector2 dimensions, TextAlignmentOptions alignment)

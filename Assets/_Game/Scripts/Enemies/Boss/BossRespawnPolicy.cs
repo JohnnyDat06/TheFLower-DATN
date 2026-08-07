@@ -75,11 +75,29 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
 
         if (TryGetPlayerHealth(clientId, out NetworkObject playerObject, out PlayerHealth health) && health.IsDead)
         {
+            bool teleportConfirmed = true;
             if (_encounter.TryGetRespawnPoint(clientId, out Transform point) &&
                 playerObject.TryGetComponent<NGOPlayerSync>(out var sync))
             {
-                sync.Teleport(point.position, point.rotation);
+                yield return sync.TeleportAndConfirmWithRetry(
+                    point.position,
+                    point.rotation,
+                    confirmed => teleportConfirmed = confirmed);
             }
+            else
+            {
+                teleportConfirmed = false;
+                Debug.LogError($"[BossRespawnPolicy] Auto-respawn has no valid teleport target for owner {clientId}.");
+            }
+
+            if (!teleportConfirmed)
+            {
+                Debug.LogError($"[BossRespawnPolicy] Auto-respawn aborted for owner {clientId}; teleport was not confirmed.");
+                _pendingRespawns.Remove(clientId);
+                ClearCountdownServer(clientId);
+                yield break;
+            }
+
             health.ReviveAtHealthPercent(1f);
         }
 

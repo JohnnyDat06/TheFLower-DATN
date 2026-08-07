@@ -205,38 +205,29 @@ public class RespawnManager : NetworkBehaviour
         Quaternion spawnRotation = netObj.transform.rotation;
         Debug.Log($"[RespawnManager] SERVER respawning owner {clientId} at {spawnPos}");
 
+        bool teleportConfirmed = true;
         if (netObj.TryGetComponent<NGOPlayerSync>(out var playerSync))
         {
-            yield return playerSync.TeleportAndWaitForOwner(spawnPos, spawnRotation);
+            yield return playerSync.TeleportAndConfirmWithRetry(
+                spawnPos,
+                spawnRotation,
+                confirmed => teleportConfirmed = confirmed);
         }
         else
         {
             netObj.transform.SetPositionAndRotation(spawnPos, spawnRotation);
         }
 
+        if (!teleportConfirmed)
+        {
+            Debug.LogError($"[RespawnManager] Respawn aborted for owner {clientId}; teleport was not confirmed. Player remains dead instead of reviving at an unsafe pose.");
+            _respawningPlayers.Remove(clientId);
+            yield break;
+        }
+
         PlayerHealth health = netObj.GetComponent<PlayerHealth>();
-        if (health != null) health.RestoreFullHealth();
-        RespawnClientRpc(clientId, spawnPos);
+        if (health != null) health.ReviveAtHealthPercent(1f);
         _respawningPlayers.Remove(clientId);
-    }
-
-    [ClientRpc]
-    private void RespawnClientRpc(ulong clientId, Vector3 spawnPos)
-    {
-        if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != clientId)
-            return;
-
-        EventBus.RaisePlayerRespawned(clientId, spawnPos);
-        NetworkObject netObj = NetworkManager.Singleton.LocalClient?.PlayerObject;
-        PlayerStateMachine fsm = netObj != null ? netObj.GetComponent<PlayerStateMachine>() : null;
-        if (fsm != null) StartCoroutine(ReturnToIdleAfterRespawn(fsm));
-    }
-
-    private IEnumerator ReturnToIdleAfterRespawn(PlayerStateMachine fsm)
-    {
-        fsm.TransitionTo(PlayerStateType.Respawning);
-        yield return new WaitForSeconds(0.5f);
-        if (fsm != null) fsm.TransitionTo(PlayerStateType.Idle);
     }
 
     private static bool IsFinite(Vector3 position)

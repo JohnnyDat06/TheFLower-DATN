@@ -13,6 +13,8 @@ public class NGOPlayerSync : NetworkBehaviour
 {
     private const float TeleportConfirmationTimeout = 2f;
     private const float TeleportPositionTolerance = 0.5f;
+    private const int DefaultTeleportRetryAttempts = 3;
+    private const float DefaultTeleportRetryDelay = 0.25f;
 
     [Header("Local Simulation")]
     [SerializeField] private PlayerInputHandler _inputHandler;
@@ -238,6 +240,49 @@ public class NGOPlayerSync : NetworkBehaviour
         }
 
         onCompleted?.Invoke(confirmed);
+    }
+
+    /// <summary>
+    /// Server-only teleport transaction for respawn flows. The caller must not
+    /// restore health or input until this routine confirms the owner applied the
+    /// requested pose.
+    /// </summary>
+    public IEnumerator TeleportAndConfirmWithRetry(
+        Vector3 position,
+        Quaternion rotation,
+        Action<bool> onCompleted = null,
+        int maxAttempts = DefaultTeleportRetryAttempts,
+        float retryDelay = DefaultTeleportRetryDelay)
+    {
+        if (!IsServer)
+        {
+            onCompleted?.Invoke(false);
+            yield break;
+        }
+
+        int attempts = Mathf.Max(1, maxAttempts);
+        for (int attempt = 1; attempt <= attempts; attempt++)
+        {
+            bool confirmed = false;
+            yield return TeleportAndWaitForOwner(
+                position,
+                rotation,
+                result => confirmed = result);
+
+            if (confirmed)
+            {
+                onCompleted?.Invoke(true);
+                yield break;
+            }
+
+            if (attempt < attempts)
+            {
+                yield return new WaitForSecondsRealtime(Mathf.Max(0f, retryDelay));
+            }
+        }
+
+        Debug.LogError($"[NGOPlayerSync] Teleport could not be confirmed for owner {OwnerClientId} after {attempts} attempt(s).", this);
+        onCompleted?.Invoke(false);
     }
 
     private void BeginServerTeleport(Vector3 position, Quaternion rotation, uint requestId)

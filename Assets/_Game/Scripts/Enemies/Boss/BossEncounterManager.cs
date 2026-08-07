@@ -107,14 +107,25 @@ public sealed class BossEncounterManager : NetworkBehaviour
         foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList)
         {
             if (client.PlayerObject == null) continue;
+            bool teleportConfirmed = true;
             if (TryGetRespawnPoint(client.ClientId, out Transform point) &&
                 client.PlayerObject.TryGetComponent<NGOPlayerSync>(out var sync))
             {
-                sync.Teleport(point.position, point.rotation);
+                yield return sync.TeleportAndConfirmWithRetry(
+                    point.position,
+                    point.rotation,
+                    confirmed => teleportConfirmed = confirmed);
+            }
+            else
+            {
+                teleportConfirmed = false;
+                Debug.LogError($"[BossEncounterManager] Wipe reset has no valid teleport target for owner {client.ClientId}.");
             }
 
-            if (client.PlayerObject.TryGetComponent<PlayerHealth>(out var health))
+            if (teleportConfirmed && client.PlayerObject.TryGetComponent<PlayerHealth>(out var health))
                 health.ReviveAtHealthPercent(1f);
+            else if (!teleportConfirmed)
+                Debug.LogError($"[BossEncounterManager] Wipe reset did not revive owner {client.ClientId}; teleport was not confirmed.");
         }
 
         _playersInEntry.Clear();
