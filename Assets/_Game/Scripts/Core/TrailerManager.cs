@@ -215,6 +215,7 @@ namespace Game.Core
             {
                 if (client.PlayerObject != null && client.PlayerObject.TryGetComponent<NGOPlayerSync>(out var sync))
                 {
+                    sync.ReleaseServerSimulation();
                     sync.ReleasePlayerClientRpc();
                 }
             }

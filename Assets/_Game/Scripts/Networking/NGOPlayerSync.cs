@@ -44,6 +44,13 @@ public class NGOPlayerSync : NetworkBehaviour
 
     public bool IsTeleporting => _isTeleporting || _isFrozenBySystem;
 
+    /// <summary>
+    /// True while this player is held by the authoritative scene-spawn barrier.
+    /// Lethal gameplay triggers must ignore this interval because the replicated
+    /// pose can still belong to the previous scene until teleport is confirmed.
+    /// </summary>
+    public bool IsSpawnTransitionActive => IsGameplayScene() && (_isTeleporting || _isFrozenBySystem);
+
     private void Awake()
     {
         CacheReferences();
@@ -179,6 +186,18 @@ public class NGOPlayerSync : NetworkBehaviour
             _releaseRoutine = StartCoroutine(ReleaseAtAuthoritativeTeleport());
             return;
         }
+
+        ReleaseLocalSimulation();
+    }
+
+    /// <summary>
+    /// Releases the server replica at the same authoritative transition point as
+    /// the owner. ClientRpc execution is not guaranteed to update a dedicated
+    /// server's local state, so the server must clear its own barrier explicitly.
+    /// </summary>
+    public void ReleaseServerSimulation()
+    {
+        if (!IsServer) return;
 
         ReleaseLocalSimulation();
     }

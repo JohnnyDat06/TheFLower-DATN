@@ -16,6 +16,12 @@ public class DeathZone : MonoBehaviour
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsServer) return;
         if (!other.CompareTag(Constants.Tags.PLAYER)) return;
 
+        if (other.TryGetComponent<NGOPlayerSync>(out var playerSync) &&
+            playerSync.IsSpawnTransitionActive)
+        {
+            return;
+        }
+
         if (other.TryGetComponent<IDamageable>(out var damageable))
         {
             damageable.InstantKill();

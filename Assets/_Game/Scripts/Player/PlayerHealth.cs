@@ -88,6 +88,7 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
     public void TakeDamage(float amount)
     {
         if (!IsServer) return; 
+        if (IsSpawnTransitionActive()) return;
         if (IsDead || amount <= 0f) return;
 
         NetworkHealth.Value = Mathf.Max(0f, NetworkHealth.Value - amount);
@@ -118,9 +119,21 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
 
     private void ApplyInstantKill()
     {
+        if (IsSpawnTransitionActive())
+        {
+            Debug.Log($"[PlayerHealth] Ignored lethal damage for owner {OwnerClientId} during scene spawn transition.");
+            return;
+        }
+
         if (IsDead) return;
         NetworkHealth.Value = 0f;
         HandleDeath();
+    }
+
+    private bool IsSpawnTransitionActive()
+    {
+        return TryGetComponent<NGOPlayerSync>(out var playerSync) &&
+               playerSync.IsSpawnTransitionActive;
     }
 
     /// <summary>Khôi phục HP tối đa. Gọi bởi RespawnManager sau hồi sinh.</summary>

@@ -317,6 +317,7 @@ namespace Game.Network
                     {
                         if (client.PlayerObject.TryGetComponent<NGOPlayerSync>(out var playerSync))
                         {
+                            playerSync.ReleaseServerSimulation();
                             playerSync.ReleasePlayerClientRpc();
                         }
                     }
