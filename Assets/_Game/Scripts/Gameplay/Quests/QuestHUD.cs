@@ -108,7 +108,7 @@ public sealed class QuestHUD : MonoBehaviour
         var step = route.Steps[index];
         if (titleText != null) titleText.text = step.displayName;
         if (descriptionText != null) descriptionText.text = step.description;
-        if (statusText != null) statusText.text = step.requiresInteraction ? "Đến gần và tương tác" : "Di chuyển đến điểm đánh dấu";
+        if (statusText != null) statusText.text = step.RequiresInteraction ? "Approach and interact" : "Move to the marker";
         SetVisible(true);
     }
 
@@ -151,7 +151,7 @@ public sealed class QuestHUD : MonoBehaviour
         RectTransform host = GetComponent<RectTransform>();
         if (host == null) return;
 
-        if (titleText == null) titleText = CreateText("QuestTitle", host, "NHIỆM VỤ", 22, new Vector2(24, -18), new Vector2(360, 34), TextAlignmentOptions.Left);
+        if (titleText == null) titleText = CreateText("QuestTitle", host, "QUEST", 22, new Vector2(24, -18), new Vector2(360, 34), TextAlignmentOptions.Left);
         if (descriptionText == null) descriptionText = CreateText("QuestDescription", host, "", 15, new Vector2(24, -60), new Vector2(360, 42), TextAlignmentOptions.Left);
         if (statusText == null) statusText = CreateText("QuestStatus", host, "", 13, new Vector2(24, -104), new Vector2(260, 24), TextAlignmentOptions.Left);
         if (distanceText == null) distanceText = CreateText("QuestDistance", host, "0m", 20, new Vector2(318, -82), new Vector2(70, 32), TextAlignmentOptions.Right);

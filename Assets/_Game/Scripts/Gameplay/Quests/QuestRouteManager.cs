@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.Events;
 
 public enum QuestCompletionScope : byte { AnyPlayer, AllPlayers }
+public enum QuestMarkerStyle : byte { Automatic, Orb, Outline }
 
 [Serializable]
 public class QuestRouteStep
@@ -13,13 +14,20 @@ public class QuestRouteStep
     public string id = "step_01";
     public string displayName = "Đến điểm tiếp theo";
     [TextArea] public string description;
-    [Tooltip("Transform của điểm đích. Có thể là QuestTarget hoặc một object bất kỳ.")]
+    [Tooltip("Object định vị cho quest. Có thể là empty waypoint hoặc vật thể trong scene.")]
     public Transform destination;
     [Min(0.1f)] public float completionRadius = 3f;
-    [Tooltip("Nếu bật, người chơi phải gọi Interact tại QuestTarget thay vì chỉ đi vào vùng.")]
-    public bool requiresInteraction;
-    [Tooltip("ID của QuestTarget cần tương tác. Để trống sẽ dùng id của step.")]
-    public string interactionTargetId;
+    [Tooltip("Chọn chấm tròn hoặc outline độc lập với loại nhiệm vụ. Automatic dùng outline cho bước tương tác.")]
+    public QuestMarkerStyle markerStyle = QuestMarkerStyle.Automatic;
+    [Tooltip("Object trung gian liên kết quest với InteractableBase/ID event. Không gắn script quest lên vật thể gameplay.")]
+    public QuestInteractionLink interactionLink;
+
+    [HideInInspector, SerializeField] private bool requiresInteraction;
+    [HideInInspector, SerializeField] private string interactionTargetId;
+
+    public bool RequiresInteraction => interactionLink != null || requiresInteraction;
+    public string InteractionTargetId => interactionLink != null ? interactionLink.InteractionId : interactionTargetId;
+    public Transform MarkerTarget => interactionLink != null ? interactionLink.MarkerTarget : destination;
 }
 
 /// <summary>
@@ -79,7 +87,7 @@ public class QuestRouteManager : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsServer || !IsSpawned || routeCompleted.Value || CurrentStep == null || CurrentStep.requiresInteraction)
+        if (!IsServer || !IsSpawned || routeCompleted.Value || CurrentStep == null || CurrentStep.RequiresInteraction)
             return;
 
         playersInside.Clear();
@@ -98,8 +106,8 @@ public class QuestRouteManager : NetworkBehaviour
 
     private void HandleInteractableActivated(string interactableId)
     {
-        if (!IsServer || routeCompleted.Value || CurrentStep == null || !CurrentStep.requiresInteraction) return;
-        string expected = string.IsNullOrWhiteSpace(CurrentStep.interactionTargetId) ? CurrentStep.id : CurrentStep.interactionTargetId;
+        if (!IsServer || routeCompleted.Value || CurrentStep == null || !CurrentStep.RequiresInteraction) return;
+        string expected = string.IsNullOrWhiteSpace(CurrentStep.InteractionTargetId) ? CurrentStep.id : CurrentStep.InteractionTargetId;
         if (string.Equals(expected, interactableId, StringComparison.Ordinal)) CompleteCurrentStepServer();
     }
 

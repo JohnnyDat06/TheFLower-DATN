@@ -22,6 +22,7 @@ public sealed class QuestWorldMarker : MonoBehaviour
     private Outline.Mode _previousOutlineMode;
     private Color _previousOutlineColor;
     private float _previousOutlineWidth;
+    private QuestMarkerStyle _activeStyle;
 
     private void LateUpdate()
     {
@@ -41,9 +42,9 @@ public sealed class QuestWorldMarker : MonoBehaviour
     /// <summary>Updates the presentation for a newly active route step.</summary>
     public void SetTarget(QuestRouteStep step)
     {
-        Transform destination = step?.destination;
-        bool shouldOutline = destination != null && IsInteractiveDestination(step, destination);
-        if (_target == destination && IsShowingOutline == shouldOutline)
+        Transform destination = step?.MarkerTarget;
+        QuestMarkerStyle style = ResolveMarkerStyle(step, destination);
+        if (_target == destination && _activeStyle == style)
             return;
 
         Clear();
@@ -51,7 +52,8 @@ public sealed class QuestWorldMarker : MonoBehaviour
         if (_target == null)
             return;
 
-        if (shouldOutline)
+        _activeStyle = style;
+        if (style == QuestMarkerStyle.Outline)
             ShowOutline(_target);
         else
             ShowMarkerOrb();
@@ -82,31 +84,35 @@ public sealed class QuestWorldMarker : MonoBehaviour
         _activeOutline = null;
         _ownsOutline = false;
         _target = null;
+        _activeStyle = QuestMarkerStyle.Automatic;
     }
 
-    private bool IsShowingOutline => _activeOutline != null;
-
-    private static bool IsInteractiveDestination(QuestRouteStep step, Transform destination)
+    private static QuestMarkerStyle ResolveMarkerStyle(QuestRouteStep step, Transform destination)
     {
-        return step.requiresInteraction || destination.GetComponentInParent<InteractableBase>() != null ||
-               destination.GetComponentInChildren<InteractableBase>() != null;
+        if (step == null)
+            return QuestMarkerStyle.Orb;
+
+        QuestMarkerStyle style = step.markerStyle == QuestMarkerStyle.Automatic
+            ? step.RequiresInteraction ? QuestMarkerStyle.Outline : QuestMarkerStyle.Orb
+            : step.markerStyle;
+
+        return style == QuestMarkerStyle.Outline && !HasRenderer(destination)
+            ? QuestMarkerStyle.Orb
+            : style;
     }
+
+    private static bool HasRenderer(Component target) => target != null && target.GetComponentInChildren<Renderer>(true) != null;
 
     private void ShowOutline(Transform destination)
     {
-        InteractableBase interactable = destination.GetComponentInParent<InteractableBase>();
-        if (interactable == null)
-            interactable = destination.GetComponentInChildren<InteractableBase>();
-
-        Transform outlineTarget = interactable != null ? interactable.transform : destination;
-        _activeOutline = outlineTarget.GetComponent<Outline>();
+        _activeOutline = destination.GetComponent<Outline>();
         if (_activeOutline == null)
-            _activeOutline = outlineTarget.GetComponentInChildren<Outline>();
+            _activeOutline = destination.GetComponentInChildren<Outline>();
 
         _ownsOutline = _activeOutline == null;
         if (_ownsOutline)
         {
-            _activeOutline = outlineTarget.gameObject.AddComponent<Outline>();
+            _activeOutline = destination.gameObject.AddComponent<Outline>();
         }
         else
         {

@@ -4444,9 +4444,29 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 434409731140921926}
     m_Modifications:
+    - target: {fileID: 271591401613691281, guid: aa5200598ae13b947a349d56607e5456, type: 3}
+      propertyPath: m_text
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 271591401613691281, guid: aa5200598ae13b947a349d56607e5456, type: 3}
+      propertyPath: m_TextStyleHashCode
+      value: -1183493901
+      objectReference: {fileID: 0}
+    - target: {fileID: 964627077295195135, guid: aa5200598ae13b947a349d56607e5456, type: 3}
+      propertyPath: m_text
+      value: QUEST
+      objectReference: {fileID: 0}
+    - target: {fileID: 964627077295195135, guid: aa5200598ae13b947a349d56607e5456, type: 3}
+      propertyPath: m_TextStyleHashCode
+      value: -1183493901
+      objectReference: {fileID: 0}
     - target: {fileID: 2796467284132364193, guid: aa5200598ae13b947a349d56607e5456, type: 3}
       propertyPath: m_Name
       value: QuestHUDPanel
+      objectReference: {fileID: 0}
+    - target: {fileID: 7138677594943784745, guid: aa5200598ae13b947a349d56607e5456, type: 3}
+      propertyPath: m_TextStyleHashCode
+      value: -1183493901
       objectReference: {fileID: 0}
     - target: {fileID: 7371045530900315424, guid: aa5200598ae13b947a349d56607e5456, type: 3}
       propertyPath: m_Pivot.x
@@ -4514,7 +4534,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7371045530900315424, guid: aa5200598ae13b947a349d56607e5456, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -48
+      value: -109
       objectReference: {fileID: 0}
     - target: {fileID: 7371045530900315424, guid: aa5200598ae13b947a349d56607e5456, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -4527,6 +4547,14 @@ PrefabInstance:
     - target: {fileID: 7371045530900315424, guid: aa5200598ae13b947a349d56607e5456, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 9132222650137797296, guid: aa5200598ae13b947a349d56607e5456, type: 3}
+      propertyPath: m_text
+      value: Move to the marker
+      objectReference: {fileID: 0}
+    - target: {fileID: 9132222650137797296, guid: aa5200598ae13b947a349d56607e5456, type: 3}
+      propertyPath: m_TextStyleHashCode
+      value: -1183493901
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
