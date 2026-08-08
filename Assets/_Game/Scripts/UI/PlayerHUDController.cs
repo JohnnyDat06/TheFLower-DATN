@@ -85,7 +85,7 @@ public class PlayerHUDController : MonoBehaviour
 
                     if (_hostBarRoot != null) _hostBarRoot.SetActive(true);
                     _targetHostValue = _hostHealth.CurrentHealth / _hostHealth.MaxHealth;
-                    _hostSlider.value = _targetHostValue;
+                    if (_hostSlider != null) _hostSlider.value = _targetHostValue;
                 }
             }
             else
@@ -106,7 +106,7 @@ public class PlayerHUDController : MonoBehaviour
 
                     if (_clientBarRoot != null) _clientBarRoot.SetActive(true);
                     _targetClientValue = _clientHealth.CurrentHealth / _clientHealth.MaxHealth;
-                    _clientSlider.value = _targetClientValue;
+                    if (_clientSlider != null) _clientSlider.value = _targetClientValue;
                 }
             }
         }

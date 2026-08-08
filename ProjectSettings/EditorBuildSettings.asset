@@ -41,6 +41,9 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Game/Scenes/_Core/Final_Boss_Room.unity
     guid: dde2cca99cc39d540a5ec339cfb36415
+  - enabled: 1
+    path: Assets/_Game/Scenes/DangScense/Player 1.unity
+    guid: 1ab54a57244978d46825dd21ead8bf31
   m_configObjects:
     com.unity.dt.app-ui: {fileID: 11400000, guid: 99f9c9493070a9d4c979a8fec7c5a8d3, type: 2}
     com.unity.input.settings: {fileID: 11400000, guid: 9e7be553448fa2546aea5752021cbcf7, type: 2}

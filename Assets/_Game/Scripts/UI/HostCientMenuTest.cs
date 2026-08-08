@@ -48,16 +48,92 @@ public class HostCientMenuTest : MonoBehaviour
         SelectDefaultButton();
     }
 
+    private const string PREF_KEY_PORT = "TestHostPort";
+
     private void OnHostClicked()
     {
-        NetworkManager.Singleton.StartHost();
-        Hide();
+        if (NetworkManager.Singleton == null)
+        {
+            Debug.LogError("[HostCientMenuTest] NetworkManager.Singleton is missing from the scene!");
+            return;
+        }
+
+        // Clean up previous session if NetworkManager is still running
+        if (NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsClient || NetworkManager.Singleton.IsServer)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+        if (NetworkManager.Singleton.TryGetComponent<Unity.Netcode.Transports.UTP.UnityTransport>(out var defaultTransport))
+        {
+            defaultTransport.SetConnectionData("127.0.0.1", 7777, "0.0.0.0");
+        }
+
+        bool success = NetworkManager.Singleton.StartHost();
+        if (success)
+        {
+            PlayerPrefs.SetInt(PREF_KEY_PORT, 7777);
+            PlayerPrefs.Save();
+            Debug.Log("[HostCientMenuTest] Host started successfully on PORT 7777");
+            Hide();
+        }
+        else
+        {
+            Debug.LogWarning("[HostCientMenuTest] StartHost failed on default port 7777. Retrying with fallback port 7778...");
+            if (NetworkManager.Singleton.TryGetComponent<Unity.Netcode.Transports.UTP.UnityTransport>(out var transport))
+            {
+                ushort fallbackPort = 7778;
+                transport.SetConnectionData("127.0.0.1", fallbackPort, "0.0.0.0");
+                if (NetworkManager.Singleton.StartHost())
+                {
+                    PlayerPrefs.SetInt(PREF_KEY_PORT, fallbackPort);
+                    PlayerPrefs.Save();
+                    Debug.Log($"[HostCientMenuTest] Successfully started Host on fallback port {fallbackPort}!");
+                    Hide();
+                    return;
+                }
+            }
+            Debug.LogError("[HostCientMenuTest] StartHost failed! UDP Port 7777/7778 is locked by another running process.");
+        }
     }
 
     private void OnClientClicked()
     {
-        NetworkManager.Singleton.StartClient();
-        Hide();
+        if (NetworkManager.Singleton == null) return;
+        
+        if (NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsClient || NetworkManager.Singleton.IsServer)
+        {
+            NetworkManager.Singleton.Shutdown();
+        }
+
+        ushort targetPort = (ushort)PlayerPrefs.GetInt(PREF_KEY_PORT, 7777);
+        Debug.Log($"[HostCientMenuTest] Connecting as Client to 127.0.0.1:{targetPort}...");
+
+        if (NetworkManager.Singleton.TryGetComponent<Unity.Netcode.Transports.UTP.UnityTransport>(out var transport))
+        {
+            transport.SetConnectionData("127.0.0.1", targetPort);
+        }
+
+        bool success = NetworkManager.Singleton.StartClient();
+        if (success)
+        {
+            Hide();
+        }
+        else
+        {
+            ushort altPort = (targetPort == 7777) ? (ushort)7778 : (ushort)7777;
+            Debug.LogWarning($"[HostCientMenuTest] StartClient failed on port {targetPort}. Retrying on port {altPort}...");
+            if (NetworkManager.Singleton.TryGetComponent<Unity.Netcode.Transports.UTP.UnityTransport>(out var transportFallback))
+            {
+                transportFallback.SetConnectionData("127.0.0.1", altPort);
+                if (NetworkManager.Singleton.StartClient())
+                {
+                    Hide();
+                    return;
+                }
+            }
+            Debug.LogError("[HostCientMenuTest] Failed to connect as Client to 127.0.0.1:7777 or 7778!");
+        }
     }
 
     private void Hide()

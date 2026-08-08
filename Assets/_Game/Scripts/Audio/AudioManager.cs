@@ -46,9 +46,31 @@ public class AudioManager : MonoBehaviour
         }
         _instance = this;
         DontDestroyOnLoad(gameObject);
+        EnsureAudioListener();
         LoadVolumeSettings();
         InitializePool();
         _uiSource = CreateNewSFXSource("UISource");
+    }
+
+    public void EnsureAudioListener()
+    {
+        if (FindFirstObjectByType<AudioListener>() == null)
+        {
+            Camera mainCam = Camera.main;
+            if (mainCam != null)
+            {
+                if (mainCam.GetComponent<AudioListener>() == null)
+                {
+                    mainCam.gameObject.AddComponent<AudioListener>();
+                    Debug.Log("[AudioManager] Auto-attached AudioListener to Camera.main.");
+                }
+            }
+            else if (GetComponent<AudioListener>() == null)
+            {
+                gameObject.AddComponent<AudioListener>();
+                Debug.Log("[AudioManager] Auto-attached AudioListener to AudioManager.");
+            }
+        }
     }
 
     private void OnEnable()
@@ -123,6 +145,7 @@ public class AudioManager : MonoBehaviour
     public AudioSource PlaySFXLoop(SOAudioClip config)
     {
         if (config == null || config.Clip == null) return null;
+        EnsureAudioListener();
 
         AudioSource source = GetAvailableSource();
         source.spatialBlend = 0f; // Luôn là 2D cho âm thanh lặp
@@ -187,6 +210,7 @@ public class AudioManager : MonoBehaviour
         int playbackScope = 0)
     {
         if (config == null || config.Clip == null) return;
+        EnsureAudioListener();
 
         // Giới hạn tần suất phát (không cho phép phát cùng 1 clip trong vòng 0.05s)
         string cooldownKey = playbackScope == 0
@@ -272,6 +296,11 @@ public class AudioManager : MonoBehaviour
         _masterVolume = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.MASTER_VOLUME, 1f);
         _musicVolume = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.BGM_VOLUME, 1f);
         _sfxVolume = PlayerPrefs.GetFloat(Constants.PlayerPrefsKeys.SFX_VOLUME, 1f);
+
+        // Sanity guard: Ensure volume is not stuck at 0 from uninitialized PlayerPrefs
+        if (_masterVolume <= 0.01f) _masterVolume = 1f;
+        if (_musicVolume <= 0.01f) _musicVolume = 1f;
+        if (_sfxVolume <= 0.01f) _sfxVolume = 1f;
     }
 
     private float GetMusicVolume(float baseVolume) => Mathf.Clamp01(baseVolume * _masterVolume * _musicVolume);

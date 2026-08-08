@@ -22,8 +22,20 @@ public class ErisMinigameManager : NetworkBehaviour
     [SerializeField] private MMF_Player _moveFeedback;
 
     [Header("Camera Customization")]
-    public Vector3 CameraOffset = new Vector3(4.935221f, 14f, 5f);
-    public float CameraFOV = 60f;
+    [Tooltip("Transform vị trí Camera dành riêng cho Controller (Host)")]
+    public Transform ControllerCameraPos;
+    [Tooltip("Transform vị trí Camera dành riêng cho Observer (Client)")]
+    public Transform ObserverCameraPos;
+
+    [Space(5)]
+    public Vector3 ControllerCameraOffset = new Vector3(4.935221f, 14f, 5f);
+    public Vector3 ObserverCameraOffset = new Vector3(4.935221f, 14f, 5f);
+    public float ControllerCameraFOV = 60f;
+    public float ObserverCameraFOV = 60f;
+
+    // Backward compatibility getters/setters
+    [HideInInspector] public Vector3 CameraOffset { get => ControllerCameraOffset; set => ControllerCameraOffset = value; }
+    [HideInInspector] public float CameraFOV { get => ControllerCameraFOV; set => ControllerCameraFOV = value; }
 
     [Header("Audio Configs")]
     public SOAudioClip CorrectMoveSFX;
@@ -33,6 +45,14 @@ public class ErisMinigameManager : NetworkBehaviour
     public SOAudioClip ControllerWaitingSFX; 
     public SOAudioClip ObserverPathRevealSFX; 
     public SOAudioClip ReadyToPlaySFX;
+
+    [Header("Terrain Alignment Configs")]
+    [SerializeField] private LayerMask _groundLayerMask = ~0;
+    [SerializeField] private float _raycastHeight = 20f;
+    [SerializeField] private float _raycastDistance = 40f;
+    [SerializeField] private float _surfaceOffset = 0.02f;
+    [SerializeField] private bool _alignToTerrainNormal = true;
+    [SerializeField] private float _pieceHeightOffset = 0.5f;
 
     [Header("Debug")]
     [SerializeField] private bool _allowDebugCheat = true;
@@ -97,7 +117,7 @@ public class ErisMinigameManager : NetworkBehaviour
         if (!newVal) {
             StopPathLoop();
             if (_loopingSource != null) { AudioManager.Instance.StopSFX(_loopingSource); _loopingSource = null; }
-            AudioManager.Instance.PlaySFX(ReadyToPlaySFX);
+            PlayBoardSFX(ReadyToPlaySFX, nameof(ReadyToPlaySFX));
             if (_idleWaveCoroutine != null) StopCoroutine(_idleWaveCoroutine);
             _idleWaveCoroutine = StartCoroutine(IdleWaveRoutine());
         }
@@ -181,13 +201,88 @@ public class ErisMinigameManager : NetworkBehaviour
         if (CameraManager.Instance != null) { CameraManager.Instance.SwitchCamera(preset); StartCoroutine(DelayedCameraSync()); }
         if (NetworkManager.Singleton.LocalClientId == controllerId) {
             if (BlackFogVFX != null) BlackFogVFX.Play(); if (_loopingSource != null) AudioManager.Instance.StopSFX(_loopingSource);
-            _loopingSource = AudioManager.Instance.PlaySFXLoop(ControllerWaitingSFX);
+            if (ControllerWaitingSFX != null && ControllerWaitingSFX.Clip != null)
+                _loopingSource = AudioManager.Instance.PlaySFXLoop(ControllerWaitingSFX);
+            else
+                Debug.LogWarning("[ErisMinigameManager] 'ControllerWaitingSFX' is unassigned in Inspector!");
         } 
-        else if (NetworkManager.Singleton.LocalClientId == observerId) { StartPathLoop(); AudioManager.Instance.PlaySFX(ObserverPathRevealSFX); }
+        else if (NetworkManager.Singleton.LocalClientId == observerId) { 
+            StartPathLoop(); 
+            PlayBoardSFX(ObserverPathRevealSFX, nameof(ObserverPathRevealSFX)); 
+        }
         EventBus.RaiseGamePaused(); 
     }
 
     private IEnumerator DelayedCameraSync() { yield return new WaitForSeconds(0.2f); SyncCameraToManager(); }
+
+    private bool GetTerrainPositionAndRotation(Vector3 flatWorldPos, out Vector3 worldPos, out Quaternion worldRot)
+    {
+        Vector3 rayOrigin = flatWorldPos + Vector3.up * _raycastHeight;
+        RaycastHit[] hits = Physics.RaycastAll(rayOrigin, Vector3.down, _raycastDistance, _groundLayerMask, QueryTriggerInteraction.Ignore);
+        
+        if (hits != null && hits.Length > 0)
+        {
+            // Sort hits by distance (topmost first)
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+
+            foreach (var hit in hits)
+            {
+                if (hit.collider == null) continue;
+
+                // Ignore Player colliders
+                if (hit.collider.CompareTag("Player") || 
+                    hit.collider.GetComponentInParent<PlayerStateMachine>() != null || 
+                    hit.collider.GetComponentInParent<CharacterController>() != null)
+                    continue;
+
+                // Ignore ErisTile colliders
+                if (hit.collider.GetComponentInParent<ErisTile>() != null)
+                    continue;
+
+                // Ignore ErisMinigameManager colliders
+                if (hit.collider.GetComponentInParent<ErisMinigameManager>() != null)
+                    continue;
+
+                // Ignore ChessPiece instance or any ChessPiece colliders
+                if (_spawnedPieceInstance != null && (hit.collider.gameObject == _spawnedPieceInstance || hit.collider.transform.IsChildOf(_spawnedPieceInstance.transform)))
+                    continue;
+
+                if (hit.collider.name.Contains("ChessPiece") || hit.collider.CompareTag("ChessPiece"))
+                    continue;
+
+                // Ignore stand position colliders if any
+                if (ControllerStandPos != null && (hit.collider.transform == ControllerStandPos || hit.collider.transform.IsChildOf(ControllerStandPos)))
+                    continue;
+
+                if (ObserverStandPos != null && (hit.collider.transform == ObserverStandPos || hit.collider.transform.IsChildOf(ObserverStandPos)))
+                    continue;
+
+                // Valid terrain / ground hit found
+                worldPos = hit.point + hit.normal * _surfaceOffset;
+                worldRot = _alignToTerrainNormal ? Quaternion.FromToRotation(Vector3.up, hit.normal) * transform.rotation : transform.rotation;
+                return true;
+            }
+        }
+
+        worldPos = flatWorldPos;
+        worldRot = transform.rotation;
+        return false;
+    }
+
+    private Vector3 GetPieceTargetWorldPosition(Vector2Int gridPos, out Quaternion targetRotation)
+    {
+        ErisTile tile = GetTileAt(gridPos);
+        if (tile != null)
+        {
+            targetRotation = tile.transform.rotation;
+            return tile.transform.position + tile.transform.up * _pieceHeightOffset;
+        }
+
+        Vector3 flatWorldPos = transform.TransformPoint(new Vector3(gridPos.x * TILE_SPACING, 0, gridPos.y * TILE_SPACING));
+        GetTerrainPositionAndRotation(flatWorldPos, out Vector3 terrainPos, out Quaternion terrainRot);
+        targetRotation = terrainRot;
+        return terrainPos + terrainRot * Vector3.up * _pieceHeightOffset;
+    }
 
     private IEnumerator SpawnTilesWaveDiagonalSafe()
     {
@@ -196,8 +291,9 @@ public class ErisMinigameManager : NetworkBehaviour
             for (int x = 0; x <= sum; x++) {
                 int y = sum - x;
                 if (x < 10 && y < 10) {
-                    Vector3 worldPos = transform.TransformPoint(new Vector3(x * TILE_SPACING, 0, y * TILE_SPACING)); 
-                    GameObject tileObj = Instantiate(TilePrefab, worldPos, transform.rotation, transform);
+                    Vector3 flatWorldPos = transform.TransformPoint(new Vector3(x * TILE_SPACING, 0, y * TILE_SPACING)); 
+                    GetTerrainPositionAndRotation(flatWorldPos, out Vector3 worldPos, out Quaternion worldRot);
+                    GameObject tileObj = Instantiate(TilePrefab, worldPos, worldRot, transform);
                     ErisTile tile = tileObj.GetComponent<ErisTile>(); try { tile.Init(new Vector2Int(x, y)); } catch {}
                     _spawnedTiles.Add(tile);
                 }
@@ -242,11 +338,28 @@ public class ErisMinigameManager : NetworkBehaviour
 
     private void SyncCameraToManager() {
         var vcams = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
+        bool isController = (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId == _controllerId.Value);
+
+        Transform targetCamTransform = isController ? ControllerCameraPos : ObserverCameraPos;
+        Vector3 targetOffset = isController ? ControllerCameraOffset : ObserverCameraOffset;
+        float targetFOV = isController ? ControllerCameraFOV : ObserverCameraFOV;
+
         foreach (var vcam in vcams) {
             if (vcam.isActiveAndEnabled) {
-                vcam.Target.TrackingTarget = null; vcam.Target.LookAtTarget = null;
-                vcam.transform.position = transform.TransformPoint(CameraOffset); vcam.transform.rotation = Quaternion.Euler(90f, transform.eulerAngles.y, 0f);
-                var lens = vcam.Lens; lens.FieldOfView = CameraFOV; vcam.Lens = lens;
+                vcam.Target.TrackingTarget = null; 
+                vcam.Target.LookAtTarget = null;
+
+                if (targetCamTransform != null) {
+                    vcam.transform.position = targetCamTransform.position;
+                    vcam.transform.rotation = targetCamTransform.rotation;
+                } else {
+                    vcam.transform.position = transform.TransformPoint(targetOffset); 
+                    vcam.transform.rotation = Quaternion.Euler(90f, transform.eulerAngles.y, 0f);
+                }
+
+                var lens = vcam.Lens; 
+                lens.FieldOfView = targetFOV; 
+                vcam.Lens = lens;
             }
         }
     }
@@ -275,7 +388,7 @@ public class ErisMinigameManager : NetworkBehaviour
             yield return new WaitForSeconds(0.5f); 
             foreach (var step in _syncedPath) {
                 ErisTile tile = GetTileAt(step);
-                if (tile != null) { tile.SetColor(Color.green); if (RevealTileSFX != null) AudioManager.Instance.PlaySFX(RevealTileSFX); }
+                if (tile != null) { tile.SetColor(Color.green); PlayBoardSFX(RevealTileSFX, nameof(RevealTileSFX)); }
                 yield return new WaitForSeconds(0.2f); 
             }
             yield return new WaitForSeconds(2.5f); 
@@ -286,10 +399,10 @@ public class ErisMinigameManager : NetworkBehaviour
         if (_spawnedPieceInstance != null) return;
         
         Vector2Int gridPos = _pieceGridPos.Value.x != -1 ? _pieceGridPos.Value : new Vector2Int(0,0);
-        Vector3 worldStart = transform.TransformPoint(new Vector3(gridPos.x * TILE_SPACING, 0.5f, gridPos.y * TILE_SPACING));
+        Vector3 worldStart = GetPieceTargetWorldPosition(gridPos, out Quaternion targetRot);
         
         // KHÔNG gán 'transform' làm cha ở đây vì Prefab có thể chứa NetworkObject, gây crash nếu gán làm con của một NetworkObject khác mà không Spawn
-        _spawnedPieceInstance = Instantiate(ChessPiecePrefab, worldStart, transform.rotation); 
+        _spawnedPieceInstance = Instantiate(ChessPiecePrefab, worldStart, targetRot); 
         
         Debug.Log($"[ErisMinigameManager] ChessPiece spawned LOCALLY for client {NetworkManager.Singleton.LocalClientId}");
     }
@@ -348,7 +461,7 @@ public class ErisMinigameManager : NetworkBehaviour
 
     private IEnumerator WrongMoveRippleEffect(Vector2Int wrongPos) {
         _isReseting = true; _canInput = false; foreach (var t in _spawnedTiles) t.SetHighlight(false);
-        AudioManager.Instance.PlaySFX(WrongMoveSFX);
+        PlayBoardSFX(WrongMoveSFX, nameof(WrongMoveSFX));
         for (int dist = 0; dist < 20; dist++) {
             bool found = false;
             foreach (var tile in _spawnedTiles) { if (Mathf.Abs(tile.GridPos.x - wrongPos.x) + Mathf.Abs(tile.GridPos.y - wrongPos.y) == dist) { tile.ApplyTemporaryRed(); found = true; } }
@@ -364,38 +477,58 @@ public class ErisMinigameManager : NetworkBehaviour
         // Đảm bảo piece đã tồn tại
         if (_spawnedPieceInstance == null) SpawnChessPieceLocal();
         
-        Vector3 worldTarget = transform.TransformPoint(new Vector3(gridPos.x * TILE_SPACING, 0.5f, gridPos.y * TILE_SPACING));
+        Vector3 worldTarget = GetPieceTargetWorldPosition(gridPos, out Quaternion targetRot);
         if (_moveCoroutine != null) StopCoroutine(_moveCoroutine); 
-        _moveCoroutine = StartCoroutine(SmoothMovePiece(worldTarget, gridPos));
+        _moveCoroutine = StartCoroutine(SmoothMovePiece(worldTarget, targetRot, gridPos));
         
         ErisTile t = GetTileAt(gridPos); 
         if (t != null) { try { t.SetColor(Color.green, true); } catch {} }
         if (IsServer && _currentStepIndex.Value == _syncedPath.Length - 1) StartCoroutine(EndGameDelayed());
     }
 
-    private IEnumerator SmoothMovePiece(Vector3 target, Vector2Int gridPos) {
+    private IEnumerator SmoothMovePiece(Vector3 targetPos, Quaternion targetRot, Vector2Int gridPos) {
         if (_spawnedPieceInstance == null) yield break;
 
         // SNAP ngay lập tức nếu là vị trí khởi đầu
         if (_currentStepIndex.Value == 0 || _isReseting) {
-            _spawnedPieceInstance.transform.position = target;
-            _spawnedPieceInstance.transform.rotation = transform.rotation;
+            _spawnedPieceInstance.transform.position = targetPos;
+            _spawnedPieceInstance.transform.rotation = targetRot;
         }
 
         if (!_isReseting && _currentStepIndex.Value > 0 && _moveFeedback != null) { try { _moveFeedback.PlayFeedbacks(_spawnedPieceInstance.transform.position); } catch {} }
         
         float speed = (_isReseting || _currentStepIndex.Value == 0) ? 50f : 12f; 
-        while (Vector3.Distance(_spawnedPieceInstance.transform.position, target) > 0.01f) {
+        while (Vector3.Distance(_spawnedPieceInstance.transform.position, targetPos) > 0.01f) {
             if (_spawnedPieceInstance == null) yield break;
-            _spawnedPieceInstance.transform.position = Vector3.MoveTowards(_spawnedPieceInstance.transform.position, target, speed * Time.deltaTime);
-            _spawnedPieceInstance.transform.rotation = Quaternion.Lerp(_spawnedPieceInstance.transform.rotation, transform.rotation, Time.deltaTime * 10f);
+            _spawnedPieceInstance.transform.position = Vector3.MoveTowards(_spawnedPieceInstance.transform.position, targetPos, speed * Time.deltaTime);
+            _spawnedPieceInstance.transform.rotation = Quaternion.Lerp(_spawnedPieceInstance.transform.rotation, targetRot, Time.deltaTime * 10f);
             yield return null;
         }
-        if (_spawnedPieceInstance != null) _spawnedPieceInstance.transform.position = target;
-        if (!_isReseting && _currentStepIndex.Value > 0) AudioManager.Instance.PlaySFX(CorrectMoveSFX, _spawnedPieceInstance.transform.position);
+        if (_spawnedPieceInstance != null) {
+            _spawnedPieceInstance.transform.position = targetPos;
+            _spawnedPieceInstance.transform.rotation = targetRot;
+        }
+        if (!_isReseting && _currentStepIndex.Value > 0) PlayBoardSFX(CorrectMoveSFX, nameof(CorrectMoveSFX));
         HighlightPossibleMoves(gridPos);
         yield return new WaitForSeconds(0.05f); if (!_isReseting) _canInput = true;
     }
+
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.cyan;
+        for (int x = 0; x < 10; x++)
+        {
+            for (int y = 0; y < 10; y++)
+            {
+                Vector3 flatPos = transform.TransformPoint(new Vector3(x * TILE_SPACING, 0, y * TILE_SPACING));
+                GetTerrainPositionAndRotation(flatPos, out Vector3 worldPos, out Quaternion worldRot);
+                Gizmos.matrix = Matrix4x4.TRS(worldPos, worldRot, Vector3.one);
+                Gizmos.DrawWireCube(Vector3.zero, new Vector3(TILE_SPACING * 0.9f, 0.1f, TILE_SPACING * 0.9f));
+            }
+        }
+    }
+#endif
 
     private void HighlightPossibleMoves(Vector2Int center) {
         foreach (var t in _spawnedTiles) t.SetHighlight(false);
@@ -410,7 +543,7 @@ public class ErisMinigameManager : NetworkBehaviour
     private void SuccessEffectClientRpc(Vector2Int finalPos) { try { if (_gameSuccessFeedback != null) _gameSuccessFeedback.PlayFeedbacks(); } catch {} StartCoroutine(SuccessSequence(finalPos)); }
 
     private IEnumerator SuccessSequence(Vector2Int finalPos) {
-        _canInput = false; AudioManager.Instance.PlaySFX(SuccessSFX);
+        _canInput = false; PlayBoardSFX(SuccessSFX, nameof(SuccessSFX));
         for (int dist = 0; dist < 20; dist++) {
             bool found = false;
             foreach (var tile in _spawnedTiles) { if (Mathf.Abs(tile.GridPos.x - finalPos.x) + Mathf.Abs(tile.GridPos.y - finalPos.y) == dist) { tile.SetColor(Color.cyan, true); found = true; } }
@@ -444,6 +577,24 @@ public class ErisMinigameManager : NetworkBehaviour
     }
 
     private ErisTile GetTileAt(Vector2Int pos) => _spawnedTiles.Find(t => t.GridPos == pos);
+
+    private void PlayBoardSFX(SOAudioClip clip, string clipName = "")
+    {
+        if (clip == null || clip.Clip == null)
+        {
+            if (!string.IsNullOrEmpty(clipName))
+            {
+                Debug.LogWarning($"[ErisMinigameManager] Audio clip '{clipName}' is missing or unassigned in Inspector on {gameObject.name}!");
+            }
+            return;
+        }
+
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(clip);
+        }
+    }
+
     private void CleanupBoardImmediate() { 
         if (_spawnCoroutine != null) StopCoroutine(_spawnCoroutine); if (_pathLoopCoroutine != null) StopCoroutine(_pathLoopCoroutine);
         if (_idleWaveCoroutine != null) StopCoroutine(_idleWaveCoroutine);

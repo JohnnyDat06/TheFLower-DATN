@@ -89,12 +89,56 @@ namespace Game.Network
         /// </summary>
         public void ReportPlayerReady(ulong clientId)
         {
-            if (!IsServer || _isSpawningFinished) return;
+            if (!IsServer) return;
 
             Debug.Log($"[PlayerSpawner] Player {clientId} reported READY.");
             _readyPlayers.Add(clientId);
 
-            TryStartSynchronizedSpawn();
+            if (_isSpawningFinished)
+            {
+                Debug.Log($"[PlayerSpawner] Late-joining player {clientId} reported READY. Teleporting late joiner...");
+                StartCoroutine(ExecuteSinglePlayerSpawn(clientId));
+            }
+            else
+            {
+                TryStartSynchronizedSpawn();
+            }
+        }
+
+        private System.Collections.IEnumerator ExecuteSinglePlayerSpawn(ulong clientId)
+        {
+            if (!TryResolveSpawnPoints())
+            {
+                Debug.LogError($"[PlayerSpawner] Cannot spawn late player {clientId}; spawn points missing!");
+                yield break;
+            }
+
+            var clientIds = new List<ulong>(NetworkManager.ConnectedClientsIds);
+            clientIds.Sort();
+            int index = clientIds.IndexOf(clientId);
+            if (index < 0) index = (int)clientId;
+
+            int spawnIndex = index % spawnPoints.Length;
+            Vector3 spawnPos = spawnPoints[spawnIndex].position;
+            if (forceSameHeight) spawnPos.y = spawnPoints[0].position.y;
+
+            if (NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) && client.PlayerObject != null)
+            {
+                if (client.PlayerObject.TryGetComponent<NGOPlayerSync>(out var playerSync))
+                {
+                    bool teleportConfirmed = false;
+                    yield return playerSync.TeleportAndWaitForOwner(
+                        spawnPos,
+                        spawnPoints[spawnIndex].rotation,
+                        confirmed => teleportConfirmed = confirmed);
+
+                    if (teleportConfirmed)
+                    {
+                        _spawnedPlayers.Add(clientId);
+                        Debug.Log($"[PlayerSpawner] Late-joining player {clientId} successfully teleported to spawn point {spawnIndex}.");
+                    }
+                }
+            }
         }
 
         private void HandleClientDisconnected(ulong clientId)
