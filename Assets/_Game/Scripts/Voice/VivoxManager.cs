@@ -278,9 +278,23 @@ public class VivoxManager : MonoBehaviour
             
             await UgsServiceBootstrap.InitializeAsync();
 
-            // Kiểm tra lại lần nữa trước khi init Vivox
             if (UnityServices.State == ServicesInitializationState.Initialized)
             {
+                // Ensure player is signed in to UGS Authentication before initializing Vivox
+                // so Vivox binds to the UGS Token Provider instead of falling back to local anonymous tokens.
+                if (!AuthenticationService.Instance.IsSignedIn)
+                {
+                    Debug.Log("[VivoxManager] Signing in anonymously to UGS before initializing Vivox...");
+                    try
+                    {
+                        await AuthenticationService.Instance.SignInAnonymouslyAsync();
+                    }
+                    catch (Exception authEx)
+                    {
+                        Debug.LogWarning($"[VivoxManager] Sign-in during initialization failed: {authEx.Message}");
+                    }
+                }
+
                 await VivoxService.Instance.InitializeAsync();
                 _isInitialized = true;
                 Debug.Log("[VivoxManager] Vivox Service initialized successfully.");
@@ -300,7 +314,7 @@ public class VivoxManager : MonoBehaviour
 
     public async Task LoginAsync(string displayName = null)
     {
-        if (_isLoggedIn || _voiceLoginBlocked || Time.unscaledTime < _nextLoginAttemptTime) return;
+        if (_isLoggedIn || Time.unscaledTime < _nextLoginAttemptTime) return;
 
         // Keep the wrapper state in sync when Unity Services survives a Play Mode restart.
         if (VivoxService.Instance != null && VivoxService.Instance.IsLoggedIn)
@@ -339,7 +353,6 @@ public class VivoxManager : MonoBehaviour
             {
                 Debug.Log("[VivoxManager] Waiting for Authentication (Anonymous Sign-In)...");
                 
-                // Nếu chưa sign in, thử sign in luôn nếu AuthManager chưa làm
                 if (UnityServices.State == ServicesInitializationState.Initialized)
                 {
                     try 
@@ -348,7 +361,7 @@ public class VivoxManager : MonoBehaviour
                     }
                     catch (Exception authEx)
                     {
-                        Debug.LogWarning($"[VivoxManager] Manual sign-in attempt failed: {authEx.Message}. Waiting for AuthManager instead...");
+                        Debug.LogWarning($"[VivoxManager] Manual sign-in attempt failed: {authEx.Message}");
                     }
                 }
 
@@ -378,6 +391,7 @@ public class VivoxManager : MonoBehaviour
 
             await VivoxService.Instance.LoginAsync(options);
             _isLoggedIn = true;
+            _voiceLoginBlocked = false;
             
             ApplyVolumeSettings();
             SetMicrophoneMute(VoiceInputController.IsMutedByUser);
