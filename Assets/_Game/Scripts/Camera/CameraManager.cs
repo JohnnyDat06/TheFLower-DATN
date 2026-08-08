@@ -3,6 +3,8 @@ using Unity.Cinemachine;
 using Unity.Cinemachine.TargetTracking;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 
 
@@ -114,7 +116,11 @@ public class CameraManager : MonoBehaviour
         }
         Instance = this;
         PersistentSceneRoot.MarkDontDestroyOnLoad(transform);
-        _renderCamera = Camera.main;
+        _renderCamera = GetComponentInChildren<Camera>(true);
+        if (_renderCamera == null)
+        {
+            _renderCamera = Camera.main;
+        }
 
         // Auto-add để tránh trường hợp quên gắn service trong scene.
         if (GetComponent<CameraSettingsService>() == null)
@@ -160,6 +166,8 @@ public class CameraManager : MonoBehaviour
         _inputHandler = null;
         if (scene.name.Contains("Lobby")) return;
 
+        ApplySceneVisualSettings(scene);
+
         if (scene.name == Constants.Scenes.LEVEL_04)
         {
             ConfigureLevel04FlightFreeLook();
@@ -181,6 +189,137 @@ public class CameraManager : MonoBehaviour
         }
 
         RefreshLocalCameraInput();
+    }
+
+    /// <summary>
+    /// The gameplay camera rig persists between maps. Copy the visual settings from
+    /// the newly loaded scene's camera template so that its URP Volume layers and
+    /// camera-local post-processing profile do not remain stuck on the previous map.
+    /// </summary>
+    private void ApplySceneVisualSettings(Scene scene)
+    {
+        if (_renderCamera == null)
+        {
+            _renderCamera = GetComponentInChildren<Camera>(true);
+        }
+
+        if (_renderCamera == null || !scene.IsValid() || !scene.isLoaded) return;
+
+        Camera sceneCamera = null;
+        foreach (GameObject root in scene.GetRootGameObjects())
+        {
+            foreach (Camera candidate in root.GetComponentsInChildren<Camera>(true))
+            {
+                if (candidate == _renderCamera || candidate.name == "CameraTimeline") continue;
+
+                if (sceneCamera == null)
+                {
+                    sceneCamera = candidate;
+                }
+
+                if (candidate.CompareTag("MainCamera") && candidate.gameObject.activeInHierarchy)
+                {
+                    sceneCamera = candidate;
+                    break;
+                }
+            }
+
+            if (sceneCamera != null
+                && sceneCamera.CompareTag("MainCamera")
+                && sceneCamera.gameObject.activeInHierarchy)
+            {
+                break;
+            }
+        }
+
+        UniversalAdditionalCameraData renderData =
+            _renderCamera.GetUniversalAdditionalCameraData();
+
+        if (sceneCamera != null)
+        {
+            UniversalAdditionalCameraData sceneData =
+                sceneCamera.GetUniversalAdditionalCameraData();
+
+            _renderCamera.allowHDR = sceneCamera.allowHDR;
+            _renderCamera.allowMSAA = sceneCamera.allowMSAA;
+            _renderCamera.allowDynamicResolution = sceneCamera.allowDynamicResolution;
+            _renderCamera.backgroundColor = sceneCamera.backgroundColor;
+            _renderCamera.clearFlags = sceneCamera.clearFlags;
+            _renderCamera.useOcclusionCulling = sceneCamera.useOcclusionCulling;
+
+            renderData.renderPostProcessing = sceneData.renderPostProcessing;
+            renderData.volumeLayerMask = sceneData.volumeLayerMask;
+            renderData.volumeTrigger = _renderCamera.transform;
+            renderData.renderShadows = sceneData.renderShadows;
+            renderData.stopNaN = sceneData.stopNaN;
+            renderData.dithering = sceneData.dithering;
+            renderData.antialiasing = sceneData.antialiasing;
+            renderData.antialiasingQuality = sceneData.antialiasingQuality;
+
+            SyncCameraVolumes(sceneCamera);
+        }
+        else
+        {
+            // Fallback for scenes without a camera template: include every active
+            // Volume layer from the new scene instead of retaining the previous map.
+            int volumeMask = 0;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                foreach (Volume volume in root.GetComponentsInChildren<Volume>(true))
+                {
+                    if (volume.enabled && volume.gameObject.activeInHierarchy)
+                    {
+                        volumeMask |= 1 << volume.gameObject.layer;
+                    }
+                }
+            }
+
+            if (volumeMask != 0)
+            {
+                renderData.volumeLayerMask = volumeMask;
+            }
+            renderData.volumeTrigger = _renderCamera.transform;
+        }
+
+        Debug.Log($"[CameraManager] Applied visual settings for {scene.name}: "
+            + $"PostFX={renderData.renderPostProcessing}, "
+            + $"VolumeMask={renderData.volumeLayerMask.value}.");
+    }
+
+    private void SyncCameraVolumes(Camera sceneCamera)
+    {
+        Volume[] sourceVolumes = sceneCamera.GetComponents<Volume>();
+        Volume[] persistentVolumes = _renderCamera.GetComponents<Volume>();
+
+        for (int i = 0; i < persistentVolumes.Length; i++)
+        {
+            Volume target = persistentVolumes[i];
+            if (i >= sourceVolumes.Length)
+            {
+                target.enabled = false;
+                continue;
+            }
+
+            Volume source = sourceVolumes[i];
+            target.enabled = source.enabled;
+            target.isGlobal = source.isGlobal;
+            target.priority = source.priority;
+            target.blendDistance = source.blendDistance;
+            target.weight = source.weight;
+            target.sharedProfile = source.sharedProfile;
+        }
+
+        for (int i = persistentVolumes.Length; i < sourceVolumes.Length; i++)
+        {
+            Volume source = sourceVolumes[i];
+            Volume target = _renderCamera.gameObject.AddComponent<Volume>();
+            target.enabled = source.enabled;
+            target.isGlobal = source.isGlobal;
+            target.priority = source.priority;
+            target.blendDistance = source.blendDistance;
+            target.weight = source.weight;
+            target.sharedProfile = source.sharedProfile;
+        }
     }
 
     private void ConfigureLevel04FlightFreeLook()
