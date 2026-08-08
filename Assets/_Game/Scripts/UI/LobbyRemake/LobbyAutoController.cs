@@ -577,13 +577,29 @@ namespace Game.UI.LobbyAuto
             {
                 await _lobbyManager.SetPlayerReady(next);
                 _localReady = next;
+
+                if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null && NetworkManager.Singleton.LocalClient.PlayerObject != null)
+                {
+                    if (NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent<LobbyPlayerState>(out var localPlayer))
+                    {
+                        if (localPlayer.IsReady.Value != next)
+                        {
+                            localPlayer.ToggleReadyServerRpc();
+                        }
+                    }
+                }
+
                 bool soloLobby = (_currentLobby?.Players?.Count ?? 0) == 1;
                 SetStatus(next
                     ? (soloLobby ? "Ready - solo start enabled" : "Ready - waiting for your companion")
                     : "Not ready", next ? Green : Red);
             }
             catch (Exception exception) { SetStatus(FriendlyError(exception), Red); }
-            finally { SetBusy(false); }
+            finally
+            {
+                SetBusy(false);
+                RefreshRoomState();
+            }
         }
 
         private void StartJourney()
@@ -672,14 +688,20 @@ namespace Game.UI.LobbyAuto
         private bool CanStartJourney()
         {
             NetworkManager manager = NetworkManager.Singleton;
+            if (manager == null || !manager.IsHost) return false;
+
             int lobbyPlayerCount = _currentLobby?.Players?.Count ?? 0;
-            int connectedPlayerCount = manager?.ConnectedClientsIds.Count ?? 0;
-            return manager != null
-                && manager.IsHost
-                && lobbyPlayerCount >= 1
-                && lobbyPlayerCount <= 2
-                && connectedPlayerCount == lobbyPlayerCount
-                && _currentLobby.Players.All(IsReady);
+            int connectedPlayerCount = manager.ConnectedClientsIds.Count;
+
+            if (lobbyPlayerCount < 1 || lobbyPlayerCount > 2) return false;
+            if (connectedPlayerCount != lobbyPlayerCount) return false;
+
+            bool ugsAllReady = _currentLobby?.Players != null && _currentLobby.Players.Count > 0 && _currentLobby.Players.All(IsReady);
+
+            var playerStates = UnityEngine.Object.FindObjectsByType<LobbyPlayerState>(FindObjectsSortMode.None);
+            bool netcodeAllReady = playerStates.Length > 0 && playerStates.Length == connectedPlayerCount && playerStates.All(p => p.IsReady.Value);
+
+            return ugsAllReady || netcodeAllReady;
         }
 
         private void UpdatePlayerCard(int index, LobbyPlayerModel player)
