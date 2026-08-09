@@ -12,6 +12,7 @@ public sealed class BossController : MonoBehaviour
     private BossTargetSelector _targetSelector;
     private BossTargetIndicator _targetIndicator;
     private BossPawSlamAttack _pawSlamAttack;
+    private BossStunController _stunController;
 
     /// <summary>Current boss state for debug UI and later phase-specific controllers.</summary>
     public BossState CurrentState
@@ -26,11 +27,15 @@ public sealed class BossController : MonoBehaviour
     /// <summary>The player selected for the current non-combat cycle, if any.</summary>
     public Transform CurrentTarget => _debugCurrentTarget;
 
+    /// <summary>True while the Phase 8 dual-seal controller locks boss combat.</summary>
+    public bool IsStunned => _stunController != null && _stunController.IsStunned;
+
     private void Awake()
     {
         _targetSelector = GetComponent<BossTargetSelector>();
         _targetIndicator = GetComponent<BossTargetIndicator>();
         _pawSlamAttack = GetComponent<BossPawSlamAttack>();
+        _stunController = GetComponent<BossStunController>();
         CreateStateMachine(BossState.Idle);
     }
 
@@ -51,6 +56,12 @@ public sealed class BossController : MonoBehaviour
     public bool TryTransitionTo(BossState nextState)
     {
         EnsureStateMachine();
+        if (IsStunned && nextState != BossState.Defeated)
+        {
+            Debug.LogWarning($"[BossController] Rejected {nextState}; boss is Stunned.", this);
+            return false;
+        }
+
         bool transitioned = _stateMachine.TryTransitionTo(nextState);
         if (!transitioned)
             Debug.LogWarning($"[BossController] Rejected transition: {CurrentState} -> {nextState}", this);
@@ -82,6 +93,12 @@ public sealed class BossController : MonoBehaviour
     /// <summary>Starts one target-selection and Paw Slam cycle from Idle.</summary>
     public bool TryStartPawSlamCycle()
     {
+        if (IsStunned)
+        {
+            Debug.LogWarning("[BossController] Paw Slam cycle rejected; boss is Stunned.", this);
+            return false;
+        }
+
         if (CurrentState != BossState.Idle)
         {
             Debug.LogWarning($"[BossController] Paw Slam cycle requires Idle; current state is {CurrentState}.", this);
@@ -151,5 +168,12 @@ public sealed class BossController : MonoBehaviour
         if (_pawSlamAttack != null && _pawSlamAttack.TryBeginFromTelegraph()) return;
 
         Debug.LogError("[BossController] BossPawSlamAttack is missing or could not start from Telegraph.", this);
+    }
+
+    /// <summary>Clears any in-progress combat state when Phase 8 releases its Stun lock.</summary>
+    public void ResetToIdleAfterStun()
+    {
+        EnsureStateMachine();
+        _stateMachine.ResetToIdle();
     }
 }

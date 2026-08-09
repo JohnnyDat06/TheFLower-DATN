@@ -12,6 +12,10 @@ public sealed class BossAnimationController : MonoBehaviour
     [SerializeField] private Transform _telegraphVisual;
     [SerializeField] private Vector3 _raisedLocalPositionOffset = new(0f, 0.75f, 0f);
     [SerializeField] private Vector3 _raisedLocalEulerOffset = new(-8f, 0f, 0f);
+    [Tooltip("Độ hạ thấp local của model boss trong pose Stunned.")]
+    [SerializeField] private Vector3 _stunnedLocalPositionOffset = new(0f, -0.2f, 0f);
+    [Tooltip("Độ nghiêng local của model boss trong pose Stunned.")]
+    [SerializeField] private Vector3 _stunnedLocalEulerOffset = new(8f, 0f, 0f);
 
     private Vector3 _restLocalPosition;
     private Quaternion _restLocalRotation;
@@ -83,6 +87,19 @@ public sealed class BossAnimationController : MonoBehaviour
         if (!CaptureRestPose()) return;
         _telegraphVisual.localPosition = _restLocalPosition;
         _telegraphVisual.localRotation = _restLocalRotation;
+    }
+
+    /// <summary>Applies or clears the simple Phase 8 Stunned pose.</summary>
+    public void SetStunned(bool isStunned)
+    {
+        if (!CaptureRestPose()) return;
+
+        _telegraphVisual.localPosition = isStunned
+            ? _restLocalPosition + _stunnedLocalPositionOffset
+            : _restLocalPosition;
+        _telegraphVisual.localRotation = isStunned
+            ? _restLocalRotation * Quaternion.Euler(_stunnedLocalEulerOffset)
+            : _restLocalRotation;
     }
 
     private bool CaptureRestPose()

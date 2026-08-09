@@ -27,6 +27,17 @@ public sealed class BossStateMachine
         return true;
     }
 
+    /// <summary>Returns a non-defeated encounter to Idle when an external combat lock is released.</summary>
+    public bool ResetToIdle()
+    {
+        if (CurrentState is BossState.Defeated or BossState.Idle) return false;
+
+        BossState previousState = CurrentState;
+        CurrentState = BossState.Idle;
+        StateChanged?.Invoke(previousState, CurrentState);
+        return true;
+    }
+
     private bool CanTransitionTo(BossState nextState)
     {
         if (CurrentState == BossState.Defeated) return false;

@@ -11,6 +11,16 @@ public sealed class SealManager : MonoBehaviour
     /// <summary>Raised when one valid Rune-to-Seal interaction succeeds.</summary>
     public event Action<SealController> SealActivated;
 
+    /// <summary>True only when every configured Seal is currently Active.</summary>
+    public bool AreAllSealsActive
+    {
+        get
+        {
+            RefreshSealReferences();
+            return _seals.Length > 0 && Array.TrueForAll(_seals, seal => seal != null && seal.IsActivated);
+        }
+    }
+
     private void Awake()
     {
         RefreshSealReferences();
@@ -18,6 +28,7 @@ public sealed class SealManager : MonoBehaviour
 
     private void Update()
     {
+        if (!IsServerAuthority()) return;
         foreach (SealController seal in _seals) seal?.RefreshReadiness();
     }
 
