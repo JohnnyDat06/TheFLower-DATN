@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Moves one visible, non-damaging Shockwave band through the boss arena.
+/// Moves one visible Shockwave band through the boss arena.
 /// </summary>
 public sealed class ShockwaveController : MonoBehaviour
 {
@@ -30,6 +30,7 @@ public sealed class ShockwaveController : MonoBehaviour
 
         ShockwaveController controller = shockwaveObject.AddComponent<ShockwaveController>();
         ShockwaveHitbox hitbox = shockwaveObject.AddComponent<ShockwaveHitbox>();
+        shockwaveObject.AddComponent<BossShockwaveDamage>();
         hitbox.Configure(width, VisualDepth);
         controller.CreateVisual(width);
         controller.Initialize(direction, speed, maxRange);
