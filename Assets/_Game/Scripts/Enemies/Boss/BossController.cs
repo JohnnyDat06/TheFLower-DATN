@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Phase 1 owner for the Cat Sphinx's observable non-combat state machine.
+/// Owns the Cat Sphinx's observable state machine and starts the current attack cycle.
 /// </summary>
 public sealed class BossController : MonoBehaviour
 {
@@ -11,6 +11,7 @@ public sealed class BossController : MonoBehaviour
     private BossStateMachine _stateMachine;
     private BossTargetSelector _targetSelector;
     private BossTargetIndicator _targetIndicator;
+    private BossPawSlamAttack _pawSlamAttack;
 
     /// <summary>Current boss state for debug UI and later phase-specific controllers.</summary>
     public BossState CurrentState
@@ -29,7 +30,16 @@ public sealed class BossController : MonoBehaviour
     {
         _targetSelector = GetComponent<BossTargetSelector>();
         _targetIndicator = GetComponent<BossTargetIndicator>();
+        _pawSlamAttack = GetComponent<BossPawSlamAttack>();
         CreateStateMachine(BossState.Idle);
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.V))
+        {
+            TryStartPawSlamCycle();
+        }
     }
 
     private void OnDestroy()
@@ -63,19 +73,23 @@ public sealed class BossController : MonoBehaviour
         TryTransitionTo(nextState);
     }
 
-    [ContextMenu("Debug/Run Target Test Cycle")]
+    [ContextMenu("Debug/Run Paw Slam Test Cycle")]
     private void RunTestCycleForDebug()
+    {
+        TryStartPawSlamCycle();
+    }
+
+    /// <summary>Starts one target-selection and Paw Slam cycle from Idle.</summary>
+    public bool TryStartPawSlamCycle()
     {
         if (CurrentState != BossState.Idle)
         {
-            Debug.LogWarning($"[BossController] Test cycle requires Idle; current state is {CurrentState}.", this);
-            return;
+            Debug.LogWarning($"[BossController] Paw Slam cycle requires Idle; current state is {CurrentState}.", this);
+            return false;
         }
 
-        TryTransitionTo(BossState.SelectTarget);
-        TryTransitionTo(BossState.Telegraph);
-        TryTransitionTo(BossState.Recovery);
-        TryTransitionTo(BossState.Idle);
+        return TryTransitionTo(BossState.SelectTarget) &&
+               TryTransitionTo(BossState.Telegraph);
     }
 
     [ContextMenu("Debug/Force Defeated")]
@@ -90,6 +104,7 @@ public sealed class BossController : MonoBehaviour
         Debug.Log($"[BossController] {previousState} -> {nextState}", this);
 
         if (nextState == BossState.SelectTarget) SelectTargetForCycle();
+        if (nextState == BossState.Telegraph) BeginPawSlamFromTelegraph();
     }
 
     private void EnsureStateMachine()
@@ -128,5 +143,13 @@ public sealed class BossController : MonoBehaviour
         _debugCurrentTarget = target;
         _targetIndicator?.SetTarget(target);
         Debug.Log($"[BossController] Target selected: {target.name}", this);
+    }
+
+    private void BeginPawSlamFromTelegraph()
+    {
+        if (_pawSlamAttack == null) _pawSlamAttack = GetComponent<BossPawSlamAttack>();
+        if (_pawSlamAttack != null && _pawSlamAttack.TryBeginFromTelegraph()) return;
+
+        Debug.LogError("[BossController] BossPawSlamAttack is missing or could not start from Telegraph.", this);
     }
 }

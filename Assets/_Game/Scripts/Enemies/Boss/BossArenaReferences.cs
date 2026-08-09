@@ -28,6 +28,23 @@ public sealed class BossArenaReferences : MonoBehaviour
     [SerializeField] private Transform _shockwaveOrigin;
     [SerializeField] private Transform _facingDirection;
 
+    /// <summary>Origin used by the Phase 4 Shockwave prototype.</summary>
+    public Transform ShockwaveOrigin => _shockwaveOrigin;
+
+    /// <summary>World-space arena direction for Shockwaves, derived from the authored markers.</summary>
+    public Vector3 ShockwaveDirection
+    {
+        get
+        {
+            if (_shockwaveOrigin == null || _facingDirection == null) return Vector3.zero;
+
+            Vector3 direction = Vector3.ProjectOnPlane(
+                _facingDirection.position - _shockwaveOrigin.position,
+                Vector3.up);
+            return direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.zero;
+        }
+    }
+
     private void OnDrawGizmos()
     {
         DrawMarker(_playerOneSpawn, Color.blue);
