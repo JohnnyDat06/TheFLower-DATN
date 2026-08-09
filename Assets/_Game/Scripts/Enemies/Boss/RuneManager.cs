@@ -29,6 +29,12 @@ public sealed class RuneManager : MonoBehaviour
     [ContextMenu("Debug/Reset All Runes")]
     private void ResetAllRunesForDebug()
     {
+        ResetAllRunesForCycle();
+    }
+
+    /// <summary>Resets every Rune after an exposed Core closes without a Core hit.</summary>
+    public void ResetAllRunesForCycle()
+    {
         RefreshRuneReferences();
         foreach (RuneController rune in _runes) rune?.ResetRune();
     }

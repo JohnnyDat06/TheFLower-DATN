@@ -3,6 +3,5 @@ public enum SealState
 {
     Inactive,
     Ready,
-    Active,
-    Expired
+    Active
 }

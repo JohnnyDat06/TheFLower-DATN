@@ -46,10 +46,14 @@ public sealed class SealManager : MonoBehaviour
     [ContextMenu("Debug/Reset All Seals")]
     private void ResetAllSealsForDebug()
     {
+        ResetAllSealsForCycle();
+    }
+
+    /// <summary>Returns all Seals to Inactive after the Phase 9 Core exposure window expires.</summary>
+    public void ResetAllSealsForCycle()
+    {
         RefreshSealReferences();
-        foreach (SealController seal in _seals)
-            if (seal != null && seal.State != SealState.Inactive)
-                Debug.LogWarning("[SealManager] Resetting Seals requires a new Rune charge in Phase 7.", seal);
+        foreach (SealController seal in _seals) seal?.ResetSealForCycle();
     }
 
     private void RefreshSealReferences()

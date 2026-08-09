@@ -49,4 +49,11 @@ public sealed class BossStunController : MonoBehaviour
         _bossController?.ResetToIdleAfterStun();
         Debug.Log("[BossStunController] Dual Seal condition ended. Boss combat restored.", this);
     }
+
+    /// <summary>Releases the stun after the Core window has reset the dual-Seal condition.</summary>
+    public void ReleaseStunAfterCoreTimeout()
+    {
+        if (!IsStunned) return;
+        ExitStun();
+    }
 }

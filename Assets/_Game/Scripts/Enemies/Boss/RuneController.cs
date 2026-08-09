@@ -14,11 +14,14 @@ public sealed class RuneController : MonoBehaviour
     [SerializeField] private Vector3 _diamondLocalPosition = new(0f, 0.55f, 0f);
     [Tooltip("Tỷ lệ local của model kim cương.")]
     [SerializeField] private Vector3 _diamondLocalScale = Vector3.one;
+    [Tooltip("So giay Rune giu Charged neu chua duoc Seal consume; co the tinh chinh theo arena.")]
+    [SerializeField, Min(0.1f)] private float _chargedDuration = 3f;
 
     private SphereCollider _shockwaveTrigger;
     private Renderer[] _stateVisuals;
     private Light[] _stateLights;
     private RuneManager _manager;
+    private float _chargedUntil;
 
     /// <summary>Current state of this Rune.</summary>
     public RuneState State { get; private set; } = RuneState.Inactive;
@@ -36,12 +39,21 @@ public sealed class RuneController : MonoBehaviour
         ApplyVisualState();
     }
 
+    private void Update()
+    {
+        if (!IsServerAuthority() || State != RuneState.Charged || Time.time < _chargedUntil) return;
+
+        ResetRune();
+        Debug.Log($"[RuneController] {name} charge expired after {_chargedDuration:0.0} seconds.", this);
+    }
+
     /// <summary>Charges this Rune once. Only RuneManager may coordinate this change.</summary>
     public bool TryCharge()
     {
         if (State != RuneState.Inactive) return false;
 
         State = RuneState.Charged;
+        _chargedUntil = Time.time + _chargedDuration;
         ApplyVisualState();
         StateChanged?.Invoke(this, State);
         return true;
@@ -53,6 +65,7 @@ public sealed class RuneController : MonoBehaviour
         if (State != RuneState.Charged) return false;
 
         State = RuneState.Consumed;
+        _chargedUntil = 0f;
         ApplyVisualState();
         StateChanged?.Invoke(this, State);
         return true;
@@ -64,6 +77,7 @@ public sealed class RuneController : MonoBehaviour
         if (State == RuneState.Inactive) return;
 
         State = RuneState.Inactive;
+        _chargedUntil = 0f;
         ApplyVisualState();
         StateChanged?.Invoke(this, State);
     }
@@ -145,4 +159,7 @@ public sealed class RuneController : MonoBehaviour
         _stateVisuals = visual.GetComponentsInChildren<Renderer>(true);
         _stateLights = visual.GetComponentsInChildren<Light>(true);
     }
+
+    private static bool IsServerAuthority() =>
+        NetworkManager.Singleton == null || NetworkManager.Singleton.IsServer;
 }

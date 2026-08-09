@@ -31,6 +31,22 @@ public sealed class BossArenaReferences : MonoBehaviour
     /// <summary>Origin used by the Phase 4 Shockwave prototype.</summary>
     public Transform ShockwaveOrigin => _shockwaveOrigin;
 
+    /// <summary>First authored interaction marker for the future dual-Core mechanic.</summary>
+    public Transform CorePointA => _corePointA;
+
+    /// <summary>Second authored interaction marker for the future dual-Core mechanic.</summary>
+    public Transform CorePointB => _corePointB;
+
+    /// <summary>World-space midpoint between the two Core markers used for the Phase 9 Core visual.</summary>
+    public Vector3 CoreCenter
+    {
+        get
+        {
+            if (_corePointA == null || _corePointB == null) return transform.position;
+            return Vector3.Lerp(_corePointA.position, _corePointB.position, 0.5f);
+        }
+    }
+
     /// <summary>World-space arena direction for Shockwaves, derived from the authored markers.</summary>
     public Vector3 ShockwaveDirection
     {

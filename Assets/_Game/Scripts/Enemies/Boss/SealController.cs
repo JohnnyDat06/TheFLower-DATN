@@ -10,7 +10,7 @@ public sealed class SealController : MonoBehaviour, IInteractable
     [SerializeField] private RuneController _requiredRune;
     [Tooltip("Bán kính player có thể tìm và tương tác Seal.")]
     [SerializeField, Min(0.1f)] private float _interactionRadius = 1.2f;
-    [Tooltip("Số giây Seal giữ trạng thái Active trước khi Expired.")]
+    [Tooltip("So giay Seal giu trang thai Active truoc khi tu tat va reset Rune tuong ung.")]
     [SerializeField, Range(10f, 15f)] private float _activeDuration = 12f;
 
     private SphereCollider _interactionTrigger;
@@ -52,7 +52,9 @@ public sealed class SealController : MonoBehaviour, IInteractable
         if (!IsServerAuthority()) return;
 
         if (State == SealState.Active && Time.time >= _activeUntil)
-            SetState(SealState.Expired);
+            ResetAfterActiveTimeout();
+        else if (State == SealState.Ready && (_requiredRune == null || _requiredRune.State != RuneState.Charged))
+            SetState(SealState.Inactive);
         else if (State == SealState.Inactive)
             RefreshReadiness();
     }
@@ -89,6 +91,21 @@ public sealed class SealController : MonoBehaviour, IInteractable
         _activeUntil = Time.time + _activeDuration;
         SetState(SealState.Active);
         return true;
+    }
+
+    /// <summary>Clears this Seal's active timer so the next Rune-and-Seal cycle can begin.</summary>
+    public void ResetSealForCycle()
+    {
+        _activeUntil = 0f;
+        SetState(SealState.Inactive);
+    }
+
+    private void ResetAfterActiveTimeout()
+    {
+        _activeUntil = 0f;
+        _requiredRune?.ResetRune();
+        SetState(SealState.Inactive);
+        Debug.Log($"[SealController] {name} timed out and reset with its Rune.", this);
     }
 
     private void SetState(SealState nextState)
@@ -128,7 +145,6 @@ public sealed class SealController : MonoBehaviour, IInteractable
         {
             SealState.Ready => Color.yellow,
             SealState.Active => Color.green,
-            SealState.Expired => Color.red,
             _ => new Color(0.15f, 0.2f, 0.25f, 1f)
         };
         _stateVisual.material.color = color;
