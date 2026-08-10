@@ -15,6 +15,8 @@ public sealed class FloorPatternController : MonoBehaviour
     private BossController _bossController;
     private BossArenaReferences _arenaReferences;
     private LineRenderer _telegraphLine;
+    private Vector3 _targetTelegraphDirection;
+    private float _targetTelegraphUntil;
 
     private void Awake()
     {
@@ -26,16 +28,29 @@ public sealed class FloorPatternController : MonoBehaviour
 
     private void LateUpdate()
     {
-        bool shouldShow = _bossController != null &&
-                          _arenaReferences != null &&
-                          _bossController.CurrentState == BossState.Telegraph;
+        bool hasTargetTelegraph = Time.time < _targetTelegraphUntil;
+        bool shouldShow = _arenaReferences != null &&
+                          (hasTargetTelegraph ||
+                           (_bossController != null && _bossController.CurrentState == BossState.Telegraph));
         SetTelegraphVisible(shouldShow);
         if (!shouldShow) return;
 
         Vector3 origin = _arenaReferences.ShockwaveOrigin.position + Vector3.up * _heightOffset;
-        Vector3 direction = _arenaReferences.ShockwaveDirection;
+        Vector3 direction = hasTargetTelegraph
+            ? _targetTelegraphDirection
+            : _arenaReferences.ShockwaveDirection;
         _telegraphLine.SetPosition(0, origin);
         _telegraphLine.SetPosition(1, origin + direction * _telegraphLength);
+    }
+
+    /// <summary>Shows a temporary target or diagonal red telegraph used by the Phase 2 Target Slam.</summary>
+    public void ShowTargetTelegraph(Vector3 direction, float duration)
+    {
+        Vector3 flattenedDirection = Vector3.ProjectOnPlane(direction, Vector3.up).normalized;
+        if (flattenedDirection.sqrMagnitude < 0.0001f) return;
+
+        _targetTelegraphDirection = flattenedDirection;
+        _targetTelegraphUntil = Time.time + Mathf.Max(0f, duration);
     }
 
     private void CreateTelegraphLine()

@@ -1,22 +1,26 @@
 using UnityEngine;
 
-/// <summary>Runs the automatic Phase 1 loop and records the first Core Hit before Phase 2 is implemented.</summary>
+/// <summary>Runs Phase 1 and Phase 2 combat loops, then records the Phase 3 placeholder after Core Hit #2.</summary>
 public sealed class BossPhaseController : MonoBehaviour
 {
-    [Tooltip("Cau hinh mau Core va nhip tan cong cua Phase 1.")]
-    [SerializeField] private BossPhaseData _phaseOneData = new();
+    [Tooltip("Cau hinh mau Core va nhip tan cong cua Phase 1 va Phase 2.")]
+    [SerializeField] private BossPhaseData _phaseData = new();
     [Tooltip("Mau Core hien tai, hien thi de debug trong Inspector.")]
     [SerializeField] private int _debugCurrentCoreHealth;
-    [Tooltip("So Core Hit da duoc ghi nhan trong Phase 1, hien thi de debug trong Inspector.")]
-    [SerializeField] private int _debugPhaseOneCoreHits;
+    [Tooltip("Tong Core Hit da duoc ghi nhan, hien thi de debug trong Inspector.")]
+    [SerializeField] private int _debugCoreHitCount;
+    [Tooltip("Phase combat hien tai, hien thi de debug trong Inspector.")]
+    [SerializeField] private BossCombatPhase _debugCurrentPhase = BossCombatPhase.PhaseOne;
 
     private BossController _bossController;
     private BossCoreController _coreController;
     private BossStunController _stunController;
+    private BossTargetSlamAttack _targetSlamAttack;
     private float _nextAttackTime;
+    private bool _nextPhaseTwoAttackIsDiagonal;
 
-    /// <summary>True after Core Hit #1 has completed Phase 1 and before Phase 2 is implemented.</summary>
-    public bool IsPhaseTwoPlaceholder { get; private set; }
+    /// <summary>Current implemented combat phase, including the non-combat Phase 3 placeholder.</summary>
+    public BossCombatPhase CurrentPhase => _debugCurrentPhase;
 
     /// <summary>Remaining encounter Core-health after valid Core Hits.</summary>
     public int CurrentCoreHealth => _debugCurrentCoreHealth;
@@ -26,9 +30,10 @@ public sealed class BossPhaseController : MonoBehaviour
         _bossController = GetComponent<BossController>();
         _coreController = GetComponent<BossCoreController>();
         _stunController = GetComponent<BossStunController>();
-        _debugCurrentCoreHealth = _phaseOneData.MaxCoreHealth;
+        _targetSlamAttack = GetComponent<BossTargetSlamAttack>();
+        _debugCurrentCoreHealth = _phaseData.MaxCoreHealth;
         if (_coreController != null) _coreController.CoreHit += HandleCoreHit;
-        _nextAttackTime = Time.time + _phaseOneData.AttackCycleInterval;
+        _nextAttackTime = Time.time + _phaseData.AttackCycleInterval;
     }
 
     private void OnDestroy()
@@ -38,25 +43,74 @@ public sealed class BossPhaseController : MonoBehaviour
 
     private void Update()
     {
-        if (IsPhaseTwoPlaceholder || _bossController == null || _stunController == null) return;
-        if (_stunController.IsStunned || _bossController.CurrentState != BossState.Idle) return;
-        if (Time.time < _nextAttackTime) return;
+        if (_debugCurrentPhase == BossCombatPhase.PhaseThreePlaceholder ||
+            _bossController == null ||
+            _stunController == null ||
+            _stunController.IsStunned ||
+            Time.time < _nextAttackTime)
+            return;
+
+        if (_debugCurrentPhase == BossCombatPhase.PhaseOne)
+            RunPhaseOneAttack();
+        else
+            RunPhaseTwoAttack();
+    }
+
+    private void RunPhaseOneAttack()
+    {
+        if (_targetSlamAttack == null) _targetSlamAttack = GetComponent<BossTargetSlamAttack>();
+        if (_targetSlamAttack != null)
+        {
+            if (_targetSlamAttack.IsRunning) return;
+
+            if (_targetSlamAttack.TryStart(false))
+                _nextAttackTime = Time.time + _phaseData.AttackCycleInterval;
+            return;
+        }
+
+        if (_bossController.CurrentState != BossState.Idle) return;
 
         _bossController.TryStartPawSlamCycle();
-        _nextAttackTime = Time.time + _phaseOneData.AttackCycleInterval;
+        _nextAttackTime = Time.time + _phaseData.AttackCycleInterval;
+    }
+
+    private void RunPhaseTwoAttack()
+    {
+        if (_targetSlamAttack == null) _targetSlamAttack = GetComponent<BossTargetSlamAttack>();
+        if (_targetSlamAttack == null || _targetSlamAttack.IsRunning) return;
+
+        bool useDiagonal = _nextPhaseTwoAttackIsDiagonal;
+        if (!_targetSlamAttack.TryStart(useDiagonal)) return;
+
+        _nextPhaseTwoAttackIsDiagonal = !_nextPhaseTwoAttackIsDiagonal;
+        _nextAttackTime = Time.time + _phaseData.PhaseTwoAttackCycleInterval;
     }
 
     private void HandleCoreHit()
     {
-        if (IsPhaseTwoPlaceholder) return;
+        if (_debugCurrentPhase == BossCombatPhase.PhaseThreePlaceholder) return;
 
         _debugCurrentCoreHealth = Mathf.Max(0, _debugCurrentCoreHealth - 1);
-        _debugPhaseOneCoreHits++;
-        Debug.Log($"[BossPhaseController] Core Hit #{_debugPhaseOneCoreHits}. Boss Core-health: {_debugCurrentCoreHealth}/{_phaseOneData.MaxCoreHealth}.", this);
+        _debugCoreHitCount++;
+        Debug.Log($"[BossPhaseController] Core Hit #{_debugCoreHitCount}. Boss Core-health: {_debugCurrentCoreHealth}/{_phaseData.MaxCoreHealth}.", this);
 
-        if (_debugPhaseOneCoreHits < _phaseOneData.PhaseOneCoreHitsToComplete) return;
+        if (_debugCurrentPhase == BossCombatPhase.PhaseOne)
+        {
+            _debugCurrentPhase = BossCombatPhase.PhaseTwo;
+            _nextAttackTime = Time.time + _phaseData.PhaseTwoAttackCycleInterval;
+            Debug.Log("[BossPhaseController] Phase 1 complete. Phase 2 Guardian Rage started.", this);
+            return;
+        }
 
-        IsPhaseTwoPlaceholder = true;
-        Debug.Log("[BossPhaseController] Phase 1 complete. Boss is now in the Phase 2 placeholder state.", this);
+        _debugCurrentPhase = BossCombatPhase.PhaseThreePlaceholder;
+        Debug.Log("[BossPhaseController] Phase 2 complete. Boss is now in the Phase 3 placeholder state.", this);
     }
+}
+
+/// <summary>Implemented boss phase progression before Phase 3 attack combos are added.</summary>
+public enum BossCombatPhase
+{
+    PhaseOne,
+    PhaseTwo,
+    PhaseThreePlaceholder
 }
