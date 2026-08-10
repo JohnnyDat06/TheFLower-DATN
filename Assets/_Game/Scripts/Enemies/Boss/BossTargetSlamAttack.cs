@@ -33,20 +33,20 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
         if (_arenaReferences == null) _arenaReferences = GetComponent<BossArenaReferences>();
         if (_arenaReferences == null || _arenaReferences.ShockwaveOrigin == null) return false;
 
-        Vector3 targetDirection = Vector3.ProjectOnPlane(
-            target.position - _arenaReferences.ShockwaveOrigin.position,
-            Vector3.up).normalized;
+        Vector3 targetDirection = DirectionToTarget(target);
         if (targetDirection.sqrMagnitude < 0.0001f) return false;
 
+        float diagonalOffset = 0f;
         if (diagonal)
         {
             if (_diagonalPattern == null) _diagonalPattern = GetComponent<DiagonalShockwavePattern>();
-            targetDirection = _diagonalPattern != null
+            Vector3 diagonalDirection = _diagonalPattern != null
                 ? _diagonalPattern.GetNextDirection(targetDirection)
                 : targetDirection;
+            diagonalOffset = Vector3.SignedAngle(targetDirection, diagonalDirection, Vector3.up);
         }
 
-        _attackRoutine = StartCoroutine(RunAttack(targetDirection, diagonal));
+        _attackRoutine = StartCoroutine(RunAttack(target, diagonal, diagonalOffset));
         return true;
     }
 
@@ -67,15 +67,17 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
         _animationController?.ResetPose();
     }
 
-    private IEnumerator RunAttack(Vector3 direction, bool diagonal)
+    private IEnumerator RunAttack(Transform target, bool diagonal, float diagonalOffset)
     {
         _animationController?.PlayPawSlam();
-        _floorPatternController?.ShowTargetTelegraph(direction, _telegraphDuration);
 
         float elapsed = 0f;
+        Vector3 direction = DirectionToTarget(target, diagonalOffset);
         while (elapsed < _telegraphDuration)
         {
             elapsed += Time.deltaTime;
+            direction = DirectionToTarget(target, diagonalOffset);
+            _floorPatternController?.ShowTargetTelegraph(direction, 0.1f);
             if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
                 _animationController.SetTelegraphProgress(elapsed / _telegraphDuration);
             yield return null;
@@ -91,6 +93,10 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
         }
 
         _animationController?.ResetPose();
+        _floorPatternController?.ClearAttackTelegraphs();
+        yield return null;
+
+        direction = DirectionToTarget(target, diagonalOffset);
         ShockwaveController.Spawn(
             _arenaReferences.ShockwaveOrigin,
             direction,
@@ -99,6 +105,19 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
             _shockwaveRange);
         Debug.Log($"[BossTargetSlamAttack] {(diagonal ? "Diagonal" : "Target")} Slam impact.", this);
         _attackRoutine = null;
+    }
+
+    private Vector3 DirectionToTarget(Transform target, float diagonalOffset = 0f)
+    {
+        if (target == null || _arenaReferences == null || _arenaReferences.ShockwaveOrigin == null)
+            return Vector3.zero;
+
+        Vector3 direction = Vector3.ProjectOnPlane(
+            target.position - _arenaReferences.ShockwaveOrigin.position,
+            Vector3.up).normalized;
+        return Mathf.Abs(diagonalOffset) > 0.001f
+            ? Quaternion.AngleAxis(diagonalOffset, Vector3.up) * direction
+            : direction;
     }
 
     private bool TrySelectTarget(out Transform target)

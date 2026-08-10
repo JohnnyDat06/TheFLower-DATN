@@ -59,6 +59,10 @@ public sealed class DualCoreInteractionController : MonoBehaviour
     private void Update()
     {
         ResetExpiredAttempt();
+        if (Input.GetKeyDown(KeyCode.J))
+        {
+            DebugDualActivate();
+        }
     }
 
     private void Awake()

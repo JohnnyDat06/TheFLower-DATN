@@ -1,6 +1,6 @@
 using UnityEngine;
 
-/// <summary>Runs Phase 1 and Phase 2 combat loops, then records the Phase 3 placeholder after Core Hit #2.</summary>
+/// <summary>Runs Phase 1 and Phase 2 combat loops, then hands combat to the Phase 3 combo after Core Hit #2.</summary>
 public sealed class BossPhaseController : MonoBehaviour
 {
     [Tooltip("Cau hinh mau Core va nhip tan cong cua Phase 1 va Phase 2.")]
@@ -19,7 +19,7 @@ public sealed class BossPhaseController : MonoBehaviour
     private float _nextAttackTime;
     private bool _nextPhaseTwoAttackIsDiagonal;
 
-    /// <summary>Current implemented combat phase, including the non-combat Phase 3 placeholder.</summary>
+    /// <summary>Current implemented combat phase.</summary>
     public BossCombatPhase CurrentPhase => _debugCurrentPhase;
 
     /// <summary>Remaining encounter Core-health after valid Core Hits.</summary>
@@ -43,7 +43,7 @@ public sealed class BossPhaseController : MonoBehaviour
 
     private void Update()
     {
-        if (_debugCurrentPhase == BossCombatPhase.PhaseThreePlaceholder ||
+        if (_debugCurrentPhase == BossCombatPhase.PhaseThree ||
             _bossController == null ||
             _stunController == null ||
             _stunController.IsStunned ||
@@ -88,7 +88,7 @@ public sealed class BossPhaseController : MonoBehaviour
 
     private void HandleCoreHit()
     {
-        if (_debugCurrentPhase == BossCombatPhase.PhaseThreePlaceholder) return;
+        if (_debugCurrentPhase == BossCombatPhase.PhaseThree) return;
 
         _debugCurrentCoreHealth = Mathf.Max(0, _debugCurrentCoreHealth - 1);
         _debugCoreHitCount++;
@@ -102,15 +102,15 @@ public sealed class BossPhaseController : MonoBehaviour
             return;
         }
 
-        _debugCurrentPhase = BossCombatPhase.PhaseThreePlaceholder;
-        Debug.Log("[BossPhaseController] Phase 2 complete. Boss is now in the Phase 3 placeholder state.", this);
+        _debugCurrentPhase = BossCombatPhase.PhaseThree;
+        Debug.Log("[BossPhaseController] Phase 2 complete. Phase 3 combo started.", this);
     }
 }
 
-/// <summary>Implemented boss phase progression before Phase 3 attack combos are added.</summary>
+/// <summary>Implemented Cat Sphinx combat phase progression.</summary>
 public enum BossCombatPhase
 {
     PhaseOne,
     PhaseTwo,
-    PhaseThreePlaceholder
+    PhaseThree
 }
