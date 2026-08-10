@@ -39,14 +39,6 @@ public sealed class BossController : MonoBehaviour
         CreateStateMachine(BossState.Idle);
     }
 
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.V))
-        {
-            TryStartPawSlamCycle();
-        }
-    }
-
     private void OnDestroy()
     {
         if (_stateMachine != null) _stateMachine.StateChanged -= HandleStateChanged;

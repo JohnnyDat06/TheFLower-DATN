@@ -7,6 +7,8 @@ public sealed class SealManager : MonoBehaviour
 {
     [Tooltip("Các Seal thuộc arena; tự tìm các SealController con nếu để trống.")]
     [SerializeField] private SealController[] _seals;
+    private BossPhaseController _phaseController;
+    private DualRuneChallengeController _dualRuneChallenge;
 
     /// <summary>Raised when one valid Rune-to-Seal interaction succeeds.</summary>
     public event Action<SealController> SealActivated;
@@ -24,6 +26,8 @@ public sealed class SealManager : MonoBehaviour
     private void Awake()
     {
         RefreshSealReferences();
+        _phaseController = GetComponent<BossPhaseController>();
+        _dualRuneChallenge = GetComponent<DualRuneChallengeController>();
     }
 
     private void Update()
@@ -36,6 +40,11 @@ public sealed class SealManager : MonoBehaviour
     public bool TryActivateSeal(SealController seal, ulong playerId)
     {
         if (!IsServerAuthority() || seal == null || !seal.CanInteract || !IsPlayerInRange(playerId, seal.transform)) return false;
+        if (RequiresDualRuneChallenge() && !_dualRuneChallenge.IsChallengeComplete)
+        {
+            Debug.Log("[SealManager] Phase 3 Seal activation requires Rune_A and Rune_B to charge together first.", this);
+            return false;
+        }
         if (!seal.TryActivate()) return false;
 
         Debug.Log($"[SealManager] Player {playerId} activated {seal.name}.", seal);
@@ -60,6 +69,15 @@ public sealed class SealManager : MonoBehaviour
     {
         if (_seals == null || _seals.Length == 0)
             _seals = GetComponentsInChildren<SealController>(true);
+    }
+
+    private bool RequiresDualRuneChallenge()
+    {
+        _phaseController ??= GetComponent<BossPhaseController>();
+        _dualRuneChallenge ??= GetComponent<DualRuneChallengeController>();
+        return _phaseController != null &&
+               _phaseController.CurrentPhase == BossCombatPhase.PhaseThree &&
+               _dualRuneChallenge != null;
     }
 
     private static bool IsPlayerInRange(ulong playerId, Transform sealTransform)

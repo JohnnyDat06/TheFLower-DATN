@@ -40,7 +40,14 @@ public sealed class BossAttackSequence : MonoBehaviour
             return;
         }
 
-        if (Time.time < _nextStepTime || !TryStartCurrentStep()) return;
+        if (_phaseController.IsDebugManualAttackMode)
+        {
+            if (!Input.GetKeyDown(KeyCode.V)) return;
+        }
+        else if (Time.time < _nextStepTime)
+            return;
+
+        if (!TryStartCurrentStep()) return;
         _waitingForAttack = true;
     }
 

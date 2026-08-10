@@ -11,6 +11,8 @@ public sealed class BossPhaseController : MonoBehaviour
     [SerializeField] private int _debugCoreHitCount;
     [Tooltip("Phase combat hien tai, hien thi de debug trong Inspector.")]
     [SerializeField] private BossCombatPhase _debugCurrentPhase = BossCombatPhase.PhaseOne;
+    [Tooltip("Bat de Boss dung auto-attack; nhan V se chay mot don phu hop voi Phase hien tai. Tat de Boss danh binh thuong.")]
+    [SerializeField] private bool _debugManualAttackMode = true;
 
     private BossController _bossController;
     private BossCoreController _coreController;
@@ -24,6 +26,9 @@ public sealed class BossPhaseController : MonoBehaviour
 
     /// <summary>Remaining encounter Core-health after valid Core Hits.</summary>
     public int CurrentCoreHealth => _debugCurrentCoreHealth;
+
+    /// <summary>True when combat attacks are manually advanced with the V key for local testing.</summary>
+    public bool IsDebugManualAttackMode => _debugManualAttackMode;
 
     private void Awake()
     {
@@ -46,8 +51,14 @@ public sealed class BossPhaseController : MonoBehaviour
         if (_debugCurrentPhase == BossCombatPhase.PhaseThree ||
             _bossController == null ||
             _stunController == null ||
-            _stunController.IsStunned ||
-            Time.time < _nextAttackTime)
+            _stunController.IsStunned)
+            return;
+
+        if (_debugManualAttackMode)
+        {
+            if (!Input.GetKeyDown(KeyCode.V)) return;
+        }
+        else if (Time.time < _nextAttackTime)
             return;
 
         if (_debugCurrentPhase == BossCombatPhase.PhaseOne)
@@ -88,11 +99,15 @@ public sealed class BossPhaseController : MonoBehaviour
 
     private void HandleCoreHit()
     {
-        if (_debugCurrentPhase == BossCombatPhase.PhaseThree) return;
-
         _debugCurrentCoreHealth = Mathf.Max(0, _debugCurrentCoreHealth - 1);
         _debugCoreHitCount++;
         Debug.Log($"[BossPhaseController] Core Hit #{_debugCoreHitCount}. Boss Core-health: {_debugCurrentCoreHealth}/{_phaseData.MaxCoreHealth}.", this);
+
+        if (_debugCurrentPhase == BossCombatPhase.PhaseThree)
+        {
+            Debug.Log("[BossPhaseController] Final Core Hit recorded. Boss Defeat will be handled in Phase 17.", this);
+            return;
+        }
 
         if (_debugCurrentPhase == BossCombatPhase.PhaseOne)
         {
