@@ -2,29 +2,41 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-/// <summary>Owns one arena tile's independent Normal, Cracked, Warning and Fall lifecycle.</summary>
+/// <summary>Owns one arena tile's three-hit Normal, Cracked, Warning and Fall lifecycle.</summary>
 public sealed class FloorTile : MonoBehaviour
 {
-    [Tooltip("So giay Tile o trang thai Cracked truoc khi canh bao Warning.")]
-    [SerializeField, Min(0f)] private float _crackedToWarningDelay = 1.5f;
-    [Tooltip("So giay Tile canh bao Warning truoc khi roi.")]
-    [SerializeField, Min(0f)] private float _warningToFallDelay = 0.5f;
-    [Tooltip("Thoi gian Tile di chuyen xuong khi roi.")]
+    [Tooltip("Thoi gian Tile di chuyen xuong sau lan Shockwave thu ba.")]
     [SerializeField, Min(0.05f)] private float _fallDuration = 0.45f;
-    [Tooltip("Khoang cach Tile roi xuong truoc khi bi disable.")]
+    [Tooltip("Khoang cach Tile roi xuong sau lan Shockwave thu ba.")]
     [SerializeField, Min(0.1f)] private float _fallDistance = 5f;
+    [Tooltip("Bien do rung local de Warning state de nhan biet truoc lan Shockwave thu ba.")]
+    [SerializeField, Min(0f)] private float _warningShakeAmount = 0.06f;
 
     private Renderer[] _renderers;
     private Collider[] _colliders;
     private Color[] _normalColors;
     private Vector3 _initialLocalPosition;
-    private Coroutine _stateRoutine;
+    private Coroutine _fallRoutine;
     private bool _hasInitialState;
 
     /// <summary>Current tile lifecycle state for Inspector and manager queries.</summary>
     public FloorTileState State { get; private set; } = FloorTileState.Normal;
 
-    /// <summary>Raised whenever the tile enters a new lifecycle state.</summary>
+    /// <summary>World-space visual centre used by the straight Shockwave pattern query.</summary>
+    public Vector3 WorldCenter
+    {
+        get
+        {
+            if (_renderers == null || _renderers.Length == 0) return transform.position;
+
+            Bounds combinedBounds = _renderers[0].bounds;
+            for (int index = 1; index < _renderers.Length; index++)
+                combinedBounds.Encapsulate(_renderers[index].bounds);
+            return combinedBounds.center;
+        }
+    }
+
+    /// <summary>Raised whenever the tile changes state after a valid Shockwave hit.</summary>
     public event Action<FloorTile, FloorTileState> StateChanged;
 
     private void Awake()
@@ -34,20 +46,43 @@ public sealed class FloorTile : MonoBehaviour
         ApplyStateVisual();
     }
 
-    /// <summary>Starts this tile's lifecycle once. Repeated damage cannot create duplicate routines.</summary>
-    public bool TryDamage()
+    private void Update()
     {
-        if (State != FloorTileState.Normal || _stateRoutine != null) return false;
+        if (State != FloorTileState.Warning) return;
 
-        _stateRoutine = StartCoroutine(RunDamageLifecycle());
-        return true;
+        float shakeX = Mathf.Sin(Time.time * 55f) * _warningShakeAmount;
+        transform.localPosition = _initialLocalPosition + new Vector3(shakeX, 0f, 0f);
     }
 
-    /// <summary>Restores this tile for the Phase 12 standalone debug cycle.</summary>
+    /// <summary>Advances exactly one state per Shockwave hit; the third hit starts the Fall.</summary>
+    public bool TryDamage()
+    {
+        if (_fallRoutine != null || State == FloorTileState.Fall) return false;
+
+        switch (State)
+        {
+            case FloorTileState.Normal:
+                SetState(FloorTileState.Cracked);
+                return true;
+            case FloorTileState.Cracked:
+                SetState(FloorTileState.Warning);
+                return true;
+            case FloorTileState.Warning:
+                transform.localPosition = _initialLocalPosition;
+                SetState(FloorTileState.Fall);
+                foreach (Collider tileCollider in _colliders) tileCollider.enabled = false;
+                _fallRoutine = StartCoroutine(RunFall());
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>Restores this tile for the Phase 12 and Phase 13 debug cycle.</summary>
     public void ResetTile()
     {
-        if (_stateRoutine != null) StopCoroutine(_stateRoutine);
-        _stateRoutine = null;
+        if (_fallRoutine != null) StopCoroutine(_fallRoutine);
+        _fallRoutine = null;
         gameObject.SetActive(true);
         CacheComponents();
         CaptureInitialState();
@@ -62,17 +97,8 @@ public sealed class FloorTile : MonoBehaviour
         TryDamage();
     }
 
-    private IEnumerator RunDamageLifecycle()
+    private IEnumerator RunFall()
     {
-        SetState(FloorTileState.Cracked);
-        if (_crackedToWarningDelay > 0f) yield return new WaitForSeconds(_crackedToWarningDelay);
-
-        SetState(FloorTileState.Warning);
-        if (_warningToFallDelay > 0f) yield return new WaitForSeconds(_warningToFallDelay);
-
-        SetState(FloorTileState.Fall);
-        foreach (Collider tileCollider in _colliders) tileCollider.enabled = false;
-
         Vector3 fallStartPosition = transform.localPosition;
         Vector3 fallEndPosition = fallStartPosition + Vector3.down * _fallDistance;
         float elapsed = 0f;
@@ -84,7 +110,7 @@ public sealed class FloorTile : MonoBehaviour
         }
 
         transform.localPosition = fallEndPosition;
-        _stateRoutine = null;
+        _fallRoutine = null;
         gameObject.SetActive(false);
     }
 
@@ -141,9 +167,15 @@ public sealed class FloorTile : MonoBehaviour
 
     private static void SetRendererColor(Renderer renderer, Color color, Color emission)
     {
-        Material material = renderer.material;
-        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
-        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
-        if (material.HasProperty("_EmissionColor")) material.SetColor("_EmissionColor", emission);
+        foreach (Material material in renderer.materials)
+        {
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+            if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+            if (!material.HasProperty("_EmissionColor")) continue;
+
+            material.SetColor("_EmissionColor", emission);
+            if (emission.maxColorComponent > 0f) material.EnableKeyword("_EMISSION");
+            else material.DisableKeyword("_EMISSION");
+        }
     }
 }
