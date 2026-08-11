@@ -101,6 +101,17 @@ public sealed class BossController : MonoBehaviour
                TryTransitionTo(BossState.Telegraph);
     }
 
+    /// <summary>Permanently ends Cat Sphinx combat after the final valid Core Hit.</summary>
+    public void Defeat()
+    {
+        EnsureStateMachine();
+        if (CurrentState == BossState.Defeated) return;
+
+        _debugCurrentTarget = null;
+        _targetIndicator?.SetTarget(null);
+        TryTransitionTo(BossState.Defeated);
+    }
+
     [ContextMenu("Debug/Force Defeated")]
     private void ForceDefeatedForDebug()
     {

@@ -46,9 +46,10 @@ public sealed class BossEncounterManager : NetworkBehaviour
         base.OnNetworkDespawn();
     }
 
-    private void OnDestroy()
+    public override void OnDestroy()
     {
         if (Instance == this) Instance = null;
+        base.OnDestroy();
     }
 
     /// <summary>Called by the server-side room trigger when a player enters the arena.</summary>

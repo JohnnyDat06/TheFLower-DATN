@@ -30,6 +30,14 @@ public sealed class BossPhaseController : MonoBehaviour
     /// <summary>True when combat attacks are manually advanced with the V key for local testing.</summary>
     public bool IsDebugManualAttackMode => _debugManualAttackMode;
 
+    /// <summary>Sets the encounter Core-health to zero for the Phase 17 local defeat test only.</summary>
+    public void DebugSetFinalCoreHit()
+    {
+        _debugCurrentCoreHealth = 0;
+        _debugCoreHitCount = _phaseData.MaxCoreHealth;
+        Debug.Log("[BossPhaseController] Debug final Core Hit set Core-health to 0.", this);
+    }
+
     private void Awake()
     {
         _bossController = GetComponent<BossController>();

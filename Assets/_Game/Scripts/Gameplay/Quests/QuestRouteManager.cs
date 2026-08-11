@@ -79,10 +79,11 @@ public class QuestRouteManager : NetworkBehaviour
         base.OnNetworkDespawn();
     }
 
-    private void OnDestroy()
+    public override void OnDestroy()
     {
         currentStep.OnValueChanged -= HandleStepChanged;
         routeCompleted.OnValueChanged -= HandleRouteCompleted;
+        base.OnDestroy();
     }
 
     private void Update()

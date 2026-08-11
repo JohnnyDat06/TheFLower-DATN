@@ -37,6 +37,9 @@ public sealed class BossArenaReferences : MonoBehaviour
     /// <summary>Second authored interaction marker for the future dual-Core mechanic.</summary>
     public Transform CorePointB => _corePointB;
 
+    /// <summary>Authored exit marker that becomes traversable only after the boss is defeated.</summary>
+    public Transform ExitDoor => _exitDoor;
+
     /// <summary>World-space midpoint between the two Core markers used for the Phase 9 Core visual.</summary>
     public Vector3 CoreCenter
     {

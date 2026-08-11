@@ -21,12 +21,21 @@ public sealed class BossAnimationController : MonoBehaviour
     [SerializeField] private Vector3 _stunnedLocalPositionOffset = new(0f, -0.2f, 0f);
     [Tooltip("Do nghieng local cua model boss trong pose Stunned.")]
     [SerializeField] private Vector3 _stunnedLocalEulerOffset = new(8f, 0f, 0f);
+    [Tooltip("Do ha thap local cua boss khi Defeat va Exit Door duoc unlock; khong anh huong pose Stunned.")]
+    [SerializeField] private Vector3 _defeatedLocalPositionOffset = new(0f, -1.25f, 0f);
+    [Tooltip("So giay boss ha tu tu xuong san sau Core Hit #3; tang gia tri de ha cham hon.")]
+    [SerializeField, Min(0.05f)] private float _defeatedTransitionDuration = 2f;
     [Tooltip("Thoi gian noi suy de boss ha xuong/hoi phuc pose Stunned, tranh dich chuyen tuc thi.")]
     [SerializeField, Min(0.05f)] private float _stunnedTransitionDuration = 0.75f;
 
     private Vector3 _restLocalPosition;
     private Quaternion _restLocalRotation;
     private bool _hasRestPose;
+    private bool _isDefeated;
+    private bool _defeatedPoseSettled;
+    private Vector3 _defeatedStartLocalPosition;
+    private Quaternion _defeatedStartLocalRotation;
+    private float _defeatedTransitionElapsed;
     private Coroutine _stunnedPoseTransition;
 
     /// <summary>True when the Cat Sphinx Animator has the generated Paw Slam state.</summary>
@@ -37,6 +46,36 @@ public sealed class BossAnimationController : MonoBehaviour
         if (_animator == null) _animator = GetComponentInChildren<Animator>();
         ResolveTelegraphVisual();
         CaptureRestPose();
+    }
+
+    private void LateUpdate()
+    {
+        if (!_isDefeated || !CaptureRestPose()) return;
+
+        // Animator updates before LateUpdate. Driving every transition frame here keeps its
+        // Idle clip from restoring the model position before the player can see the descent.
+        Vector3 targetPosition = _restLocalPosition + _defeatedLocalPositionOffset;
+        if (!_defeatedPoseSettled)
+        {
+            _defeatedTransitionElapsed += Time.deltaTime;
+            float progress = Mathf.SmoothStep(
+                0f,
+                1f,
+                _defeatedTransitionElapsed / _defeatedTransitionDuration);
+            _telegraphVisual.localPosition = Vector3.Lerp(
+                _defeatedStartLocalPosition,
+                targetPosition,
+                progress);
+            _telegraphVisual.localRotation = Quaternion.Slerp(
+                _defeatedStartLocalRotation,
+                _restLocalRotation,
+                progress);
+            _defeatedPoseSettled = progress >= 1f;
+            return;
+        }
+
+        _telegraphVisual.localPosition = targetPosition;
+        _telegraphVisual.localRotation = _restLocalRotation;
     }
 
     /// <summary>Starts the authored Paw Slam clip when the Cat Sphinx rig is available.</summary>
@@ -103,6 +142,7 @@ public sealed class BossAnimationController : MonoBehaviour
     /// <summary>Smoothly lowers the boss into, or restores it from, the Phase 8 Stunned pose.</summary>
     public void SetStunned(bool isStunned)
     {
+        if (_isDefeated) return;
         if (!CaptureRestPose()) return;
 
         StopStunnedPoseTransition();
@@ -113,6 +153,22 @@ public sealed class BossAnimationController : MonoBehaviour
             ? _restLocalRotation * Quaternion.Euler(_stunnedLocalEulerOffset)
             : _restLocalRotation;
         _stunnedPoseTransition = StartCoroutine(TransitionStunnedPose(targetPosition, targetRotation));
+    }
+
+    /// <summary>Leaves the Cat Sphinx in its lowered stone-statue pose after defeat.</summary>
+    public void SetDefeated()
+    {
+        if (!CaptureRestPose()) return;
+
+        _isDefeated = true;
+        _defeatedPoseSettled = false;
+        _defeatedTransitionElapsed = 0f;
+        StopStunnedPoseTransition();
+        if (_animator != null && _animator.runtimeAnimatorController != null)
+            _animator.Play("Idle", 0, 0f);
+
+        _defeatedStartLocalPosition = _telegraphVisual.localPosition;
+        _defeatedStartLocalRotation = _telegraphVisual.localRotation;
     }
 
     private IEnumerator TransitionStunnedPose(Vector3 targetPosition, Quaternion targetRotation)
