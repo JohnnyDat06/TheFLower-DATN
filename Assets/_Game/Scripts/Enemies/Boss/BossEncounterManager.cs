@@ -76,10 +76,20 @@ public sealed class BossEncounterManager : NetworkBehaviour
         StartCoroutine(WipeRoutine());
     }
 
-    public bool TryGetRespawnPoint(ulong clientId, out Transform point)
+    /// <summary>Resolves a respawn pose, preferring the most recently reached shared checkpoint.</summary>
+    public bool TryGetRespawnPose(ulong clientId, out Vector3 position, out Quaternion rotation)
     {
-        point = clientId == NetworkManager.ServerClientId ? _hostRespawnPoint : _clientRespawnPoint;
-        return point != null;
+        Transform initialPoint = clientId == NetworkManager.ServerClientId ? _hostRespawnPoint : _clientRespawnPoint;
+        rotation = initialPoint != null ? initialPoint.rotation : Quaternion.identity;
+
+        if (RespawnManager.Instance != null &&
+            RespawnManager.Instance.TryGetCurrentSpawnPosition(clientId, out position))
+        {
+            return true;
+        }
+
+        position = initialPoint != null ? initialPoint.position : default;
+        return initialPoint != null;
     }
 
     public void CompleteEncounterServer()
@@ -113,12 +123,12 @@ public sealed class BossEncounterManager : NetworkBehaviour
         {
             if (client.PlayerObject == null) continue;
             bool teleportConfirmed = true;
-            if (TryGetRespawnPoint(client.ClientId, out Transform point) &&
+            if (TryGetRespawnPose(client.ClientId, out Vector3 respawnPosition, out Quaternion respawnRotation) &&
                 client.PlayerObject.TryGetComponent<NGOPlayerSync>(out var sync))
             {
                 yield return sync.TeleportAndConfirmWithRetry(
-                    point.position,
-                    point.rotation,
+                    respawnPosition,
+                    respawnRotation,
                     confirmed => teleportConfirmed = confirmed);
             }
             else

@@ -80,12 +80,12 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
         if (TryGetPlayerHealth(clientId, out NetworkObject playerObject, out PlayerHealth health) && health.IsDead)
         {
             bool teleportConfirmed = true;
-            if (_encounter.TryGetRespawnPoint(clientId, out Transform point) &&
+            if (_encounter.TryGetRespawnPose(clientId, out Vector3 respawnPosition, out Quaternion respawnRotation) &&
                 playerObject.TryGetComponent<NGOPlayerSync>(out var sync))
             {
                 yield return sync.TeleportAndConfirmWithRetry(
-                    point.position,
-                    point.rotation,
+                    respawnPosition,
+                    respawnRotation,
                     confirmed => teleportConfirmed = confirmed);
             }
             else

@@ -11,6 +11,10 @@ public sealed class FloorTile : MonoBehaviour
     [SerializeField, Min(0.1f)] private float _fallDistance = 5f;
     [Tooltip("Bien do rung local de Warning state de nhan biet truoc lan Shockwave thu ba.")]
     [SerializeField, Min(0f)] private float _warningShakeAmount = 0.06f;
+    [Tooltip("Mau sàn sau khi trung Shockwave lan dau (trang thai Cracked).")]
+    [SerializeField] private Color _firstShockwaveColor = new(0.06f, 0.5f, 0.58f, 1f);
+    [Tooltip("Mau sàn trong luc roi xuong o trang thai Fall.")]
+    [SerializeField] private Color _fallColor = new(1f, 0.78f, 0.08f, 1f);
 
     private Renderer[] _renderers;
     private Collider[] _colliders;
@@ -161,9 +165,9 @@ public sealed class FloorTile : MonoBehaviour
         {
             Color color = State switch
             {
-                FloorTileState.Cracked => new Color(0.45f, 0.25f, 0.12f, 1f),
+                FloorTileState.Cracked => _firstShockwaveColor,
                 FloorTileState.Warning => new Color(1f, 0.42f, 0.05f, 1f),
-                FloorTileState.Fall => new Color(0.16f, 0.04f, 0.02f, 1f),
+                FloorTileState.Fall => _fallColor,
                 _ => _normalColors != null && index < _normalColors.Length ? _normalColors[index] : Color.white
             };
             SetRendererColor(_renderers[index], color, State == FloorTileState.Warning ? color * 0.7f : Color.black);

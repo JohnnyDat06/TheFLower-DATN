@@ -119,6 +119,19 @@ public class RespawnManager : NetworkBehaviour
         Debug.Log($"[RespawnManager] Seeded initial spawn for owner {clientId}: {position}");
     }
 
+    /// <summary>
+    /// Returns the latest server-authoritative spawn position for one player.
+    /// Boss-room revive systems use this so a reached checkpoint is not replaced
+    /// by the arena's initial spawn point.
+    /// </summary>
+    public bool TryGetCurrentSpawnPosition(ulong clientId, out Vector3 position)
+    {
+        bool isHost = NetworkManager != null && clientId == NetworkManager.ServerClientId;
+        bool hasSpawnPoint = isHost ? _hasHostSpawnPoint : _hasClientSpawnPoint;
+        position = isHost ? _currentHostSpawnPos.Value : _currentClientSpawnPos.Value;
+        return hasSpawnPoint && IsFinite(position);
+    }
+
     private void SeedConfiguredSpawnPoints()
     {
         if (_initialHostSpawnPoint != null)
