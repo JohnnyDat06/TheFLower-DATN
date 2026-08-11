@@ -106,6 +106,13 @@ public sealed class DualRuneChallengeController : MonoBehaviour
         _runeACharged = false;
         _runeBCharged = false;
     }
+
+    /// <summary>Clears the Phase 3 Rune timing challenge for a complete encounter retry.</summary>
+    public void ResetEncounterState()
+    {
+        ResetChallenge();
+        enabled = true;
+    }
 }
 
 /// <summary>Runtime status used to inspect the Phase 3 two-Rune timing challenge.</summary>

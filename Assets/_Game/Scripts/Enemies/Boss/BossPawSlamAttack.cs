@@ -63,6 +63,15 @@ public sealed class BossPawSlamAttack : MonoBehaviour
         return true;
     }
 
+    /// <summary>Cancels the current local routine before the server resets the encounter.</summary>
+    public void ResetEncounterState()
+    {
+        if (_attackRoutine != null) StopCoroutine(_attackRoutine);
+        _attackRoutine = null;
+        _animationController?.ResetPose();
+        enabled = true;
+    }
+
     private IEnumerator RunAttackRoutine()
     {
         _animationController?.PlayPawSlam();

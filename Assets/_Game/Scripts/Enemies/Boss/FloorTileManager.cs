@@ -42,6 +42,13 @@ public sealed class FloorTileManager : MonoBehaviour
         return true;
     }
 
+    /// <summary>Restores every authored arena tile before a new boss phase or a full wipe retry.</summary>
+    public void ResetAllTilesForEncounter()
+    {
+        if (_tiles == null) return;
+        foreach (FloorTile tile in _tiles) tile?.ResetTile();
+    }
+
     [ContextMenu("Debug/Damage First Tile")]
     private void DamageFirstTileForDebug()
     {
@@ -64,7 +71,6 @@ public sealed class FloorTileManager : MonoBehaviour
     [ContextMenu("Debug/Reset All Tiles")]
     private void ResetAllTilesForDebug()
     {
-        if (_tiles == null) return;
-        foreach (FloorTile tile in _tiles) tile?.ResetTile();
+        ResetAllTilesForEncounter();
     }
 }

@@ -89,6 +89,16 @@ public sealed class BossAttackSequence : MonoBehaviour
             Debug.Log("[BossAttackSequence] Double Paw changed to Single Target Slam because only one player is alive.", this);
         return _doublePawFallbackRunning;
     }
+
+    /// <summary>Clears Phase 3 combo progress before a full encounter retry.</summary>
+    public void ResetEncounterState()
+    {
+        _nextStep = PhaseThreeStep.LeftPaw;
+        _waitingForAttack = false;
+        _doublePawFallbackRunning = false;
+        _nextStepTime = 0f;
+        enabled = true;
+    }
 }
 
 /// <summary>Fixed order of the Phase 3 attack combo.</summary>

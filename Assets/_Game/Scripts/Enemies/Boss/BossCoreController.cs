@@ -90,6 +90,13 @@ public sealed class BossCoreController : MonoBehaviour
         SetCoreVisualVisible(State == BossCoreState.Exposed);
     }
 
+    /// <summary>Locks and hides the Core for a complete boss encounter retry.</summary>
+    public void ResetEncounterState()
+    {
+        LockCore();
+        enabled = true;
+    }
+
     private void ResetPuzzleCycle()
     {
         _sealManager?.ResetAllSealsForCycle();

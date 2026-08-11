@@ -18,6 +18,7 @@ public sealed class BossPhaseController : MonoBehaviour
     private BossCoreController _coreController;
     private BossStunController _stunController;
     private BossTargetSlamAttack _targetSlamAttack;
+    private FloorTileManager _floorTileManager;
     private float _nextAttackTime;
     private bool _nextPhaseTwoAttackIsDiagonal;
 
@@ -49,12 +50,24 @@ public sealed class BossPhaseController : MonoBehaviour
         _debugCoreHitCount = Mathf.Max(0, coreHitCount);
     }
 
+    /// <summary>Restores Phase 1 and all Core-health after a server-authoritative full-party wipe.</summary>
+    public void ResetEncounterState()
+    {
+        _debugCurrentCoreHealth = _phaseData.MaxCoreHealth;
+        _debugCoreHitCount = 0;
+        _debugCurrentPhase = BossCombatPhase.PhaseOne;
+        _nextPhaseTwoAttackIsDiagonal = false;
+        _nextAttackTime = Time.time + _phaseData.AttackCycleInterval;
+        enabled = true;
+    }
+
     private void Awake()
     {
         _bossController = GetComponent<BossController>();
         _coreController = GetComponent<BossCoreController>();
         _stunController = GetComponent<BossStunController>();
         _targetSlamAttack = GetComponent<BossTargetSlamAttack>();
+        _floorTileManager = GetComponent<FloorTileManager>();
         _debugCurrentCoreHealth = _phaseData.MaxCoreHealth;
         if (_coreController != null) _coreController.CoreHit += HandleCoreHit;
         _nextAttackTime = Time.time + _phaseData.AttackCycleInterval;
@@ -124,20 +137,29 @@ public sealed class BossPhaseController : MonoBehaviour
 
         if (_debugCurrentPhase == BossCombatPhase.PhaseThree)
         {
+            ResetFloorTilesForNextPhase();
             Debug.Log("[BossPhaseController] Final Core Hit recorded. Boss Defeat will be handled in Phase 17.", this);
             return;
         }
 
         if (_debugCurrentPhase == BossCombatPhase.PhaseOne)
         {
+            ResetFloorTilesForNextPhase();
             _debugCurrentPhase = BossCombatPhase.PhaseTwo;
             _nextAttackTime = Time.time + _phaseData.PhaseTwoAttackCycleInterval;
             Debug.Log("[BossPhaseController] Phase 1 complete. Phase 2 Guardian Rage started.", this);
             return;
         }
 
+        ResetFloorTilesForNextPhase();
         _debugCurrentPhase = BossCombatPhase.PhaseThree;
         Debug.Log("[BossPhaseController] Phase 2 complete. Phase 3 combo started.", this);
+    }
+
+    private void ResetFloorTilesForNextPhase()
+    {
+        if (_floorTileManager == null) _floorTileManager = GetComponent<FloorTileManager>();
+        _floorTileManager?.ResetAllTilesForEncounter();
     }
 }
 

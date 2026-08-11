@@ -65,4 +65,12 @@ public sealed class BossStunController : MonoBehaviour
         IsStunned = isStunned;
         _animationController?.SetStunned(isStunned);
     }
+
+    /// <summary>Clears the combat lock and returns the boss from Stunned to its normal pose.</summary>
+    public void ResetEncounterState()
+    {
+        if (IsStunned) ExitStun();
+        else _animationController?.SetStunned(false);
+        enabled = true;
+    }
 }

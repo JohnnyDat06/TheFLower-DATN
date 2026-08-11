@@ -66,6 +66,18 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
         return true;
     }
 
+    /// <summary>Cancels the current target Slam before the server resets the encounter.</summary>
+    public void ResetEncounterState()
+    {
+        if (_attackRoutine != null) StopCoroutine(_attackRoutine);
+        _attackRoutine = null;
+        _isDiagonal = false;
+        _currentTelegraphDirection = Vector3.zero;
+        _floorPatternController?.ClearAttackTelegraphs();
+        _animationController?.ResetPose();
+        enabled = true;
+    }
+
     private void Awake()
     {
         _targetSelector = GetComponent<BossTargetSelector>();

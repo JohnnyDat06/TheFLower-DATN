@@ -43,6 +43,14 @@ public sealed class DualCoreInteractionController : MonoBehaviour
         _replicatedPendingPoint = pointId is >= 0 and <= 1 ? pointId : -1;
     }
 
+    /// <summary>Clears both local and replicated dual-Core activation progress for a retry.</summary>
+    public void ResetEncounterState()
+    {
+        ResetAttempt();
+        _replicatedPendingPoint = -1;
+        enabled = true;
+    }
+
     /// <summary>Records a player activation and registers exactly one Core Hit only on a valid dual activation.</summary>
     public bool TryActivatePoint(CoreInteractionPoint point, ulong playerId)
     {

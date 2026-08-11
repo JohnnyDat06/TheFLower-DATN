@@ -123,6 +123,14 @@ public sealed class BossController : MonoBehaviour
         _targetIndicator?.SetTarget(target);
     }
 
+    /// <summary>Restores the authoritative boss state to Idle for a fresh encounter attempt.</summary>
+    public void ResetEncounterState()
+    {
+        _debugCurrentTarget = null;
+        _targetIndicator?.SetTarget(null);
+        CreateStateMachine(BossState.Idle);
+    }
+
     [ContextMenu("Debug/Force Defeated")]
     private void ForceDefeatedForDebug()
     {

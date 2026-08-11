@@ -32,6 +32,16 @@ public sealed class BossEarthquakeAttack : MonoBehaviour
         return true;
     }
 
+    /// <summary>Cancels the Earthquake telegraph before the server resets the encounter.</summary>
+    public void ResetEncounterState()
+    {
+        if (_routine != null) StopCoroutine(_routine);
+        _routine = null;
+        _floorPatternController?.ClearAttackTelegraphs();
+        _animationController?.ResetPose();
+        enabled = true;
+    }
+
     private void Awake()
     {
         _animationController = GetComponent<BossAnimationController>();

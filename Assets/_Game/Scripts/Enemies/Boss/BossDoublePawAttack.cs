@@ -42,6 +42,18 @@ public sealed class BossDoublePawAttack : MonoBehaviour
         return true;
     }
 
+    /// <summary>Cancels the current Double Paw routine before the server resets the encounter.</summary>
+    public void ResetEncounterState()
+    {
+        if (_routine != null) StopCoroutine(_routine);
+        _routine = null;
+        _firstTelegraphDirection = Vector3.zero;
+        _secondTelegraphDirection = Vector3.zero;
+        _floorPatternController?.ClearAttackTelegraphs();
+        _animationController?.ResetPose();
+        enabled = true;
+    }
+
     private void Awake()
     {
         _animationController = GetComponent<BossAnimationController>();

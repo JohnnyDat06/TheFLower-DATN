@@ -23,6 +23,7 @@ public sealed class BossEncounterManager : NetworkBehaviour
         NetworkVariableWritePermission.Server);
     private readonly HashSet<ulong> _playersInEntry = new();
     private bool _resetInProgress;
+    private BossNetworkState _bossNetworkState;
 
     public EncounterState State => _state.Value;
     public SOBossEncounterConfig Config => _config;
@@ -31,6 +32,7 @@ public sealed class BossEncounterManager : NetworkBehaviour
     private void Awake()
     {
         Instance = this;
+        _bossNetworkState = GetComponent<BossNetworkState>();
     }
 
     public override void OnNetworkSpawn()
@@ -104,6 +106,8 @@ public sealed class BossEncounterManager : NetworkBehaviour
         _state.Value = EncounterState.WipeReset;
         yield return new WaitForSeconds(_config != null ? _config.WipeResetDelay : 2f);
 
+        if (_bossNetworkState == null) _bossNetworkState = GetComponent<BossNetworkState>();
+        _bossNetworkState?.ResetEncounterServer();
         ResetTargets();
         foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList)
         {

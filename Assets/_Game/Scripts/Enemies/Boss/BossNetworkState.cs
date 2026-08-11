@@ -38,6 +38,7 @@ public sealed class BossNetworkState : NetworkBehaviour
     private BossTargetSlamAttack _targetSlamAttack;
     private BossDoublePawAttack _doublePawAttack;
     private BossEarthquakeAttack _earthquakeAttack;
+    private BossAttackSequence _attackSequence;
     private BossAnimationController _animationController;
     private FloorPatternController _floorPatternController;
     private RuneManager _runeManager;
@@ -45,6 +46,7 @@ public sealed class BossNetworkState : NetworkBehaviour
     private BossStunController _stunController;
     private BossCoreController _coreController;
     private DualCoreInteractionController _dualCoreController;
+    private DualRuneChallengeController _dualRuneChallengeController;
     private BossPhaseController _phaseController;
     private FloorTileManager _floorTileManager;
     private BossDefeatController _defeatController;
@@ -162,6 +164,31 @@ public sealed class BossNetworkState : NetworkBehaviour
         }
 
         RequestCoreInteractionRpc((int)point.PointId);
+    }
+
+    /// <summary>Restores the authoritative boss attempt after BossEncounterManager detects a full-party wipe.</summary>
+    public void ResetEncounterServer()
+    {
+        if (!IsServer) return;
+        CacheArenaComponents();
+
+        _pawSlamAttack?.ResetEncounterState();
+        _targetSlamAttack?.ResetEncounterState();
+        _doublePawAttack?.ResetEncounterState();
+        _earthquakeAttack?.ResetEncounterState();
+        _attackSequence?.ResetEncounterState();
+        _floorPatternController?.ClearAttackTelegraphs();
+
+        _sealManager?.ResetAllSealsForCycle();
+        _runeManager?.ResetAllRunesForCycle();
+        _dualCoreController?.ResetEncounterState();
+        _dualRuneChallengeController?.ResetEncounterState();
+        _coreController?.ResetEncounterState();
+        _stunController?.ResetEncounterState();
+        _floorTileManager?.ResetAllTilesForEncounter();
+        _phaseController?.ResetEncounterState();
+        _bossController?.ResetEncounterState();
+        Debug.Log("[BossNetworkState] Full-party wipe reset Cat Sphinx and every FloorTile to Phase 1.", this);
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -460,6 +487,7 @@ public sealed class BossNetworkState : NetworkBehaviour
         _targetSlamAttack ??= arena.GetComponent<BossTargetSlamAttack>();
         _doublePawAttack ??= arena.GetComponent<BossDoublePawAttack>();
         _earthquakeAttack ??= arena.GetComponent<BossEarthquakeAttack>();
+        _attackSequence ??= arena.GetComponent<BossAttackSequence>();
         _animationController ??= arena.GetComponent<BossAnimationController>();
         _floorPatternController ??= arena.GetComponent<FloorPatternController>();
         _runeManager ??= arena.GetComponent<RuneManager>();
@@ -467,6 +495,7 @@ public sealed class BossNetworkState : NetworkBehaviour
         _stunController ??= arena.GetComponent<BossStunController>();
         _coreController ??= arena.GetComponent<BossCoreController>();
         _dualCoreController ??= arena.GetComponent<DualCoreInteractionController>();
+        _dualRuneChallengeController ??= arena.GetComponent<DualRuneChallengeController>();
         _phaseController ??= arena.GetComponent<BossPhaseController>();
         _floorTileManager ??= arena.GetComponent<FloorTileManager>();
         _defeatController ??= arena.GetComponent<BossDefeatController>();
