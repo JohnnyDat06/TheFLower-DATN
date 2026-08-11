@@ -18,9 +18,10 @@ public sealed class BossPhaseController : MonoBehaviour
     private BossCoreController _coreController;
     private BossStunController _stunController;
     private BossTargetSlamAttack _targetSlamAttack;
+    private BossDoublePawAttack _doublePawAttack;
     private FloorTileManager _floorTileManager;
     private float _nextAttackTime;
-    private bool _nextPhaseTwoAttackIsDiagonal;
+    private bool _nextPhaseTwoAttackIsDoublePaw;
 
     /// <summary>Current implemented combat phase.</summary>
     public BossCombatPhase CurrentPhase => _debugCurrentPhase;
@@ -56,7 +57,7 @@ public sealed class BossPhaseController : MonoBehaviour
         _debugCurrentCoreHealth = _phaseData.MaxCoreHealth;
         _debugCoreHitCount = 0;
         _debugCurrentPhase = BossCombatPhase.PhaseOne;
-        _nextPhaseTwoAttackIsDiagonal = false;
+        _nextPhaseTwoAttackIsDoublePaw = false;
         _nextAttackTime = Time.time + _phaseData.AttackCycleInterval;
         enabled = true;
     }
@@ -67,6 +68,7 @@ public sealed class BossPhaseController : MonoBehaviour
         _coreController = GetComponent<BossCoreController>();
         _stunController = GetComponent<BossStunController>();
         _targetSlamAttack = GetComponent<BossTargetSlamAttack>();
+        _doublePawAttack = GetComponent<BossDoublePawAttack>();
         _floorTileManager = GetComponent<FloorTileManager>();
         _debugCurrentCoreHealth = _phaseData.MaxCoreHealth;
         if (_coreController != null) _coreController.CoreHit += HandleCoreHit;
@@ -120,12 +122,24 @@ public sealed class BossPhaseController : MonoBehaviour
     private void RunPhaseTwoAttack()
     {
         if (_targetSlamAttack == null) _targetSlamAttack = GetComponent<BossTargetSlamAttack>();
-        if (_targetSlamAttack == null || _targetSlamAttack.IsRunning) return;
+        if (_doublePawAttack == null) _doublePawAttack = GetComponent<BossDoublePawAttack>();
+        if (_targetSlamAttack == null || _targetSlamAttack.IsRunning ||
+            (_doublePawAttack != null && _doublePawAttack.IsRunning))
+            return;
 
-        bool useDiagonal = _nextPhaseTwoAttackIsDiagonal;
-        if (!_targetSlamAttack.TryStart(useDiagonal)) return;
+        bool started;
+        if (_nextPhaseTwoAttackIsDoublePaw)
+        {
+            started = _doublePawAttack != null && _doublePawAttack.TryStart();
+            if (!started) started = _targetSlamAttack.TryStart(false);
+        }
+        else
+        {
+            started = _targetSlamAttack.TryStart(false);
+        }
+        if (!started) return;
 
-        _nextPhaseTwoAttackIsDiagonal = !_nextPhaseTwoAttackIsDiagonal;
+        _nextPhaseTwoAttackIsDoublePaw = !_nextPhaseTwoAttackIsDoublePaw;
         _nextAttackTime = Time.time + _phaseData.PhaseTwoAttackCycleInterval;
     }
 

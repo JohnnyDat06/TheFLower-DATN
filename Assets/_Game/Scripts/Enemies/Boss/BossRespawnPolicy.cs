@@ -50,13 +50,17 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
 
     private void HandlePlayerDied(ulong clientId)
     {
-        if (!IsServer || _encounter == null || !_encounter.IsActive) return;
+        if (!IsServer || _encounter == null) return;
         if (CountDeadPlayers() >= 2)
         {
             CancelAllServerRoutines();
             _encounter.NotifyBothPlayersDeadServer();
             return;
         }
+
+        // A single-player auto-respawn belongs only to active combat. Full-party wipe
+        // detection above must also work during Intro after an earlier retry.
+        if (!_encounter.IsActive) return;
 
         if (_pendingRespawns.ContainsKey(clientId)) return;
         _pendingRespawns[clientId] = StartCoroutine(AutoRespawnRoutine(clientId));

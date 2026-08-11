@@ -58,6 +58,7 @@ public sealed class BossNetworkState : NetworkBehaviour
     private double _serverAttackStartedAt;
     private BossNetworkAttackType _clientAttackType;
     private bool _clientAttackPoseReset;
+    private int _lastAppliedFloorResetRevision = -1;
 
     /// <summary>The active Cat Sphinx network adapter in Final_Boss_Room.</summary>
     public static BossNetworkState Instance { get; private set; }
@@ -238,7 +239,8 @@ public sealed class BossNetworkState : NetworkBehaviour
             PendingCorePoint = _dualCoreController != null ? _dualCoreController.PendingPointId : -1,
             IsStunned = _stunController != null && _stunController.IsStunned,
             IsDefeated = _defeatController != null && _defeatController.IsDefeated,
-            IsExitDoorUnlocked = _defeatController != null && _defeatController.IsExitDoorUnlocked
+            IsExitDoorUnlocked = _defeatController != null && _defeatController.IsExitDoorUnlocked,
+            FloorResetRevision = _floorTileManager != null ? _floorTileManager.ResetRevision : 0
         };
 
         _attackSnapshot.Value = BuildServerAttackSnapshot();
@@ -338,6 +340,11 @@ public sealed class BossNetworkState : NetworkBehaviour
         _coreController?.ApplyNetworkState((BossCoreState)snapshot.CoreState);
         _dualCoreController?.ApplyNetworkPendingPoint(snapshot.PendingCorePoint);
         _defeatController?.ApplyNetworkState(snapshot.IsDefeated, snapshot.IsExitDoorUnlocked);
+        if (_lastAppliedFloorResetRevision != snapshot.FloorResetRevision)
+        {
+            _floorTileManager?.ResetAllTilesForEncounter();
+            _lastAppliedFloorResetRevision = snapshot.FloorResetRevision;
+        }
     }
 
     private void ApplyReplicatedTargetIfAvailable()
@@ -580,6 +587,7 @@ public struct BossFightNetworkSnapshot : INetworkSerializable, IEquatable<BossFi
     public bool IsStunned;
     public bool IsDefeated;
     public bool IsExitDoorUnlocked;
+    public int FloorResetRevision;
 
     public void NetworkSerialize<T>(BufferSerializer<T> serializer) where T : IReaderWriter
     {
@@ -593,6 +601,7 @@ public struct BossFightNetworkSnapshot : INetworkSerializable, IEquatable<BossFi
         serializer.SerializeValue(ref IsStunned);
         serializer.SerializeValue(ref IsDefeated);
         serializer.SerializeValue(ref IsExitDoorUnlocked);
+        serializer.SerializeValue(ref FloorResetRevision);
     }
 
     public bool Equals(BossFightNetworkSnapshot other) =>
@@ -605,7 +614,8 @@ public struct BossFightNetworkSnapshot : INetworkSerializable, IEquatable<BossFi
         PendingCorePoint == other.PendingCorePoint &&
         IsStunned == other.IsStunned &&
         IsDefeated == other.IsDefeated &&
-        IsExitDoorUnlocked == other.IsExitDoorUnlocked;
+        IsExitDoorUnlocked == other.IsExitDoorUnlocked &&
+        FloorResetRevision == other.FloorResetRevision;
 }
 
 /// <summary>Short-lived attack cue used to present the same telegraph and pose on Client.</summary>

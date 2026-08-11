@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>Owns the moving Shockwave trigger and straight FloorTile query.</summary>
@@ -13,14 +14,12 @@ public sealed class ShockwaveHitbox : MonoBehaviour
     [SerializeField, Min(0.1f)] private float _floorLineHalfWidth = 1.25f;
     [Tooltip("Nua do sau wave front dung de khong bo sot tam Tile giua hai frame.")]
     [SerializeField, Min(0.1f)] private float _floorFrontHalfDepth = 1.5f;
-    [Tooltip("Khoang cach Shockwave phai di them truoc khi damage Tile tiep theo tren cung mot duong thang.")]
-    [SerializeField, Min(0.1f)] private float _minimumFloorDamageStepDistance = 3.5f;
     [Tooltip("Mau cyan cua moving Shockwave; duong telegraph truoc impact dung mau do rieng.")]
     [SerializeField] private Color _movingShockwaveColor = new(0.05f, 0.9f, 1f, 0.95f);
 
     private FloorTileManager _floorTileManager;
-    private Vector3 _lastFloorDamagePosition;
-    private bool _hasDamagedFloorTile;
+    private readonly HashSet<FloorTile> _damagedFloorTiles = new();
+    private Vector3 _previousFloorScanPosition;
     private bool _damagesFloor = true;
 
     /// <summary>Raised when a collider first enters the moving Shockwave trigger.</summary>
@@ -38,8 +37,11 @@ public sealed class ShockwaveHitbox : MonoBehaviour
         _trigger.isTrigger = true;
         _trigger.center = new Vector3(0f, 0.35f, 0f);
         _trigger.size = new Vector3(width, 0.8f, depth);
+        _floorLineHalfWidth = Mathf.Max(_floorLineHalfWidth, width * 0.5f);
         _damagesFloor = damagesFloor;
         _floorTileManager = FindFirstObjectByType<FloorTileManager>();
+        _damagedFloorTiles.Clear();
+        _previousFloorScanPosition = transform.position;
     }
 
     private void Start()
@@ -61,19 +63,15 @@ public sealed class ShockwaveHitbox : MonoBehaviour
     private void LateUpdate()
     {
         if (!_damagesFloor || _floorTileManager == null) return;
-        if (_hasDamagedFloorTile &&
-            Vector3.Distance(transform.position, _lastFloorDamagePosition) < _minimumFloorDamageStepDistance)
-            return;
 
-        if (!_floorTileManager.TryDamageNextStraightWaveTile(
+        _floorTileManager.DamageStraightWaveSegment(
+            _previousFloorScanPosition,
             transform.position,
             transform.forward,
             _floorLineHalfWidth,
-            _floorFrontHalfDepth))
-            return;
-
-        _lastFloorDamagePosition = transform.position;
-        _hasDamagedFloorTile = true;
+            _floorFrontHalfDepth,
+            _damagedFloorTiles);
+        _previousFloorScanPosition = transform.position;
     }
 
     private void OnTriggerEnter(Collider other)

@@ -1,12 +1,12 @@
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>Validates that two different players activate different Core points within one sync window.</summary>
+/// <summary>Validates that two different players activate either Core point within one sync window.</summary>
 public sealed class DualCoreInteractionController : MonoBehaviour
 {
     [Tooltip("Thoi gian toi da giua hai kich hoat Core hop le.")]
     [SerializeField, Range(1f, 2f)] private float _syncWindow = 1.5f;
-    [Tooltip("Core chi nhan mot hit sau khi hai diem duoc kich hoat dung dieu kien.")]
+    [Tooltip("Core chi nhan mot hit sau khi hai player khac nhau tuong tac Core trong thoi gian dong bo.")]
     [SerializeField] private BossCoreController _coreController;
 
     private CoreInteractionPoint _firstPoint;
@@ -26,10 +26,10 @@ public sealed class DualCoreInteractionController : MonoBehaviour
         if (point == null || _coreController == null || !_coreController.CanAcceptDualActivation)
             return false;
 
-        if (!IsServerAuthority()) return _replicatedPendingPoint != (int)point.PointId;
+        if (!IsServerAuthority()) return true;
 
         ResetExpiredAttempt();
-        return _firstPoint == null || _firstPoint != point;
+        return true;
     }
 
     /// <summary>Returns true while this exact point is waiting for the other player to activate the other point.</summary>
@@ -51,7 +51,7 @@ public sealed class DualCoreInteractionController : MonoBehaviour
         enabled = true;
     }
 
-    /// <summary>Records a player activation and registers exactly one Core Hit only on a valid dual activation.</summary>
+    /// <summary>Registers one Core Hit only after two different players interact with either Core point.</summary>
     public bool TryActivatePoint(CoreInteractionPoint point, ulong playerId)
     {
         if (!CanActivatePoint(point)) return false;
@@ -67,7 +67,7 @@ public sealed class DualCoreInteractionController : MonoBehaviour
 
         if (_firstPlayerId == playerId)
         {
-            Debug.LogWarning("[DualCoreInteractionController] One player cannot activate both Core points.", point);
+            Debug.LogWarning("[DualCoreInteractionController] The second Core interaction must come from the other player.", point);
             return false;
         }
 

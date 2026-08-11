@@ -5,7 +5,7 @@ using UnityEngine;
 [RequireComponent(typeof(SphereCollider))]
 public sealed class CoreInteractionPoint : MonoBehaviour, IInteractable
 {
-    [Tooltip("Dinh danh diem Core nay; A va B phai duoc kich hoat boi hai player khac nhau.")]
+    [Tooltip("Dinh danh diem Core nay. Hai player khac nhau co the kich hoat cung mot diem hoac hai diem khac nhau.")]
     [SerializeField] private CorePointId _pointId;
     [Tooltip("Ban kinh player co the tim thay diem tuong tac Core.")]
     [SerializeField, Min(0.1f)] private float _interactionRadius = 1.2f;
