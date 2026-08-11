@@ -45,7 +45,7 @@ public class AudioManager : MonoBehaviour
             return;
         }
         _instance = this;
-        DontDestroyOnLoad(gameObject);
+        PersistentSceneRoot.MarkDontDestroyOnLoad(transform);
         LoadVolumeSettings();
         InitializePool();
         _uiSource = CreateNewSFXSource("UISource");

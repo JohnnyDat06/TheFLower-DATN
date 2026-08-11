@@ -17,6 +17,9 @@ public sealed class ShockwaveController : MonoBehaviour
     /// <summary>Raised for authoritative Shockwaves so BossNetworkState can mirror their visuals.</summary>
     public static event Action<ShockwaveSpawnInfo> ShockwaveSpawned;
 
+    /// <summary>Raised once for every local Shockwave visual, including replicated Client visuals.</summary>
+    public static event Action<ShockwaveSpawnInfo> ShockwaveVisualSpawned;
+
     /// <summary>Creates a Phase 4 Shockwave prototype at the supplied scene marker.</summary>
     public static ShockwaveController Spawn(
         Transform origin,
@@ -58,15 +61,14 @@ public sealed class ShockwaveController : MonoBehaviour
 
         controller.CreateVisual(width);
         controller.Initialize(direction, speed, maxRange);
-        if (raiseNetworkEvent)
-        {
-            ShockwaveSpawned?.Invoke(new ShockwaveSpawnInfo(
-                position,
-                direction.normalized,
-                speed,
-                width,
-                maxRange));
-        }
+        ShockwaveSpawnInfo spawnInfo = new(
+            position,
+            direction.normalized,
+            speed,
+            width,
+            maxRange);
+        ShockwaveVisualSpawned?.Invoke(spawnInfo);
+        if (raiseNetworkEvent) ShockwaveSpawned?.Invoke(spawnInfo);
         return controller;
     }
 

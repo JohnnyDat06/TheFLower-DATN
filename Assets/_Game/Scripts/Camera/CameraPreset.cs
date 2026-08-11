@@ -13,5 +13,6 @@ public enum CameraPreset
     GateFocus = 7,
     WarpAscent = 8,
     StarfallSoft = 9,
-    TerrainRevealWide = 10
+    TerrainRevealWide = 10,
+    BossTopDown = 11
 }

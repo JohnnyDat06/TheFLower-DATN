@@ -27,6 +27,13 @@ public sealed class FloorPatternController : MonoBehaviour
     private float _doubleTelegraphUntil;
     private float _earthquakeTelegraphUntil;
 
+    /// <summary>True while any visible boss attack warning is active on the arena floor.</summary>
+    public bool HasActiveTelegraph =>
+        Time.time < _targetTelegraphUntil ||
+        Time.time < _doubleTelegraphUntil ||
+        Time.time < _earthquakeTelegraphUntil ||
+        (_bossController != null && _bossController.CurrentState == BossState.Telegraph);
+
     private void Awake()
     {
         _bossController = GetComponent<BossController>();

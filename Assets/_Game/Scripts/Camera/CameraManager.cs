@@ -360,7 +360,8 @@ public class CameraManager : MonoBehaviour
             { CameraPreset.StarfallSoft, _vcamFlyDown },
             { CameraPreset.TerrainRevealWide, _vcamFlyDown },
             { CameraPreset.TopDownController, _vcamTopDownController },
-            { CameraPreset.TopDownObserver, _vcamTopDownObserver }
+            { CameraPreset.TopDownObserver, _vcamTopDownObserver },
+            { CameraPreset.BossTopDown, null }
         };
 
         _configMap = new Dictionary<CameraPreset, SOCameraConfig>
@@ -559,6 +560,32 @@ public class CameraManager : MonoBehaviour
             
             Debug.Log($"[CameraManager] Đã gán Target cho {kvp.Key}: Follow={followTarget.name}");
         }
+    }
+
+    /// <summary>Registers a scene-owned Cinemachine camera with the persistent local camera rig.</summary>
+    public void RegisterSceneCamera(CameraPreset preset, CinemachineCamera sceneCamera)
+    {
+        if (sceneCamera == null) return;
+        if (_vcamMap == null) InitializeMaps();
+
+        if (_vcamMap.TryGetValue(preset, out CinemachineCamera previousCamera) &&
+            previousCamera != null && previousCamera != sceneCamera)
+        {
+            previousCamera.Priority.Value = PRIORITY_INACTIVE;
+        }
+
+        _vcamMap[preset] = sceneCamera;
+    }
+
+    /// <summary>Removes a scene-owned camera without retaining a destroyed reference after scene unload.</summary>
+    public void UnregisterSceneCamera(CameraPreset preset, CinemachineCamera sceneCamera)
+    {
+        if (_vcamMap == null || !_vcamMap.TryGetValue(preset, out CinemachineCamera registeredCamera) ||
+            registeredCamera != sceneCamera)
+            return;
+
+        registeredCamera.Priority.Value = PRIORITY_INACTIVE;
+        _vcamMap[preset] = null;
     }
 
     /// <summary>
@@ -826,7 +853,8 @@ public class CameraManager : MonoBehaviour
             or CameraPreset.Platformer
             or CameraPreset.Cutscene
             or CameraPreset.TopDownController
-            or CameraPreset.TopDownObserver;
+            or CameraPreset.TopDownObserver
+            or CameraPreset.BossTopDown;
     }
 
     private static float ResolveFlightHeading(CinemachineCamera camera)

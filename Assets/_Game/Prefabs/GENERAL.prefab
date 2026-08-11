@@ -34,6 +34,7 @@ Transform:
   - {fileID: 5423999192977404461}
   - {fileID: 3735695954419684216}
   - {fileID: 7424803869972914958}
+  - {fileID: 6240168836780002374}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &910111111111111111
@@ -345,6 +346,51 @@ MonoBehaviour:
   _keyboardToggleKey: 103
   _enableGamepadToggle: 0
   _lockPlayerInputWhileOpen: 1
+--- !u!1 &4442746780822094351
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6240168836780002374}
+  - component: {fileID: 5002734712403235631}
+  m_Layer: 0
+  m_Name: AudioManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6240168836780002374
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4442746780822094351}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 4492026926297080810}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5002734712403235631
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4442746780822094351}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b7835efd9b0dd0e4aa723b9cdf6d240e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  MainMixer: {fileID: 24100000, guid: c9efc030bee9d1843845c2413e22aaef, type: 2}
 --- !u!1 &5364213849478849585
 GameObject:
   m_ObjectHideFlags: 0
@@ -471,7 +517,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7968271739955975105, guid: 7113fc323c952344f9d73115c3acf712, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 3802290181
+      value: 3859819919
       objectReference: {fileID: 0}
     - target: {fileID: 7968271739955975105, guid: 7113fc323c952344f9d73115c3acf712, type: 3}
       propertyPath: InScenePlacedSourceGlobalObjectIdHash
@@ -899,7 +945,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 642179201388142258, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 4094169383
+      value: 2774839706
       objectReference: {fileID: 0}
     - target: {fileID: 694043317380070603, guid: c5f141f8dd294564faa41a06e0d4ff29, type: 3}
       propertyPath: field of view
