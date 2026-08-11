@@ -27,6 +27,9 @@ public sealed class BossPhaseController : MonoBehaviour
     /// <summary>Remaining encounter Core-health after valid Core Hits.</summary>
     public int CurrentCoreHealth => _debugCurrentCoreHealth;
 
+    /// <summary>Total valid Core Hits recorded by the authoritative encounter.</summary>
+    public int CoreHitCount => _debugCoreHitCount;
+
     /// <summary>True when combat attacks are manually advanced with the V key for local testing.</summary>
     public bool IsDebugManualAttackMode => _debugManualAttackMode;
 
@@ -36,6 +39,14 @@ public sealed class BossPhaseController : MonoBehaviour
         _debugCurrentCoreHealth = 0;
         _debugCoreHitCount = _phaseData.MaxCoreHealth;
         Debug.Log("[BossPhaseController] Debug final Core Hit set Core-health to 0.", this);
+    }
+
+    /// <summary>Copies authoritative phase and Core-health values to a non-simulating Client.</summary>
+    public void ApplyNetworkState(BossCombatPhase phase, int currentCoreHealth, int coreHitCount)
+    {
+        _debugCurrentPhase = phase;
+        _debugCurrentCoreHealth = Mathf.Max(0, currentCoreHealth);
+        _debugCoreHitCount = Mathf.Max(0, coreHitCount);
     }
 
     private void Awake()

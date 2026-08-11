@@ -13,6 +13,16 @@ public sealed class SealManager : MonoBehaviour
     /// <summary>Raised when one valid Rune-to-Seal interaction succeeds.</summary>
     public event Action<SealController> SealActivated;
 
+    /// <summary>Stable authored Seal order used by BossNetworkState.</summary>
+    public SealController[] Seals
+    {
+        get
+        {
+            RefreshSealReferences();
+            return _seals;
+        }
+    }
+
     /// <summary>True only when every configured Seal is currently Active.</summary>
     public bool AreAllSealsActive
     {

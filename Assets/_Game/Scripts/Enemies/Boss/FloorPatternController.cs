@@ -9,6 +9,8 @@ public sealed class FloorPatternController : MonoBehaviour
     [SerializeField, Min(0.02f)] private float _telegraphWidth = 0.28f;
     [Tooltip("Do cao cua duong do so voi ShockwaveOrigin de tranh bi san che.")]
     [SerializeField, Min(0f)] private float _heightOffset = 0.3f;
+    [Tooltip("Do nang them cua vung do Earthquake de nam ro tren mat san va khong bi z-fighting.")]
+    [SerializeField, Min(0f)] private float _earthquakeSurfaceLift = 0.18f;
     [Tooltip("Mau duong canh bao truoc khi Boss dap.")]
     [SerializeField] private Color _telegraphColor = new(1f, 0.03f, 0.02f, 1f);
 
@@ -17,6 +19,7 @@ public sealed class FloorPatternController : MonoBehaviour
     private LineRenderer _telegraphLine;
     private LineRenderer _secondaryTelegraphLine;
     private LineRenderer _earthquakeRing;
+    private GameObject _earthquakeArea;
     private Vector3 _targetTelegraphDirection;
     private Vector3 _doubleLeftDirection;
     private Vector3 _doubleRightDirection;
@@ -37,13 +40,19 @@ public sealed class FloorPatternController : MonoBehaviour
         bool hasTargetTelegraph = Time.time < _targetTelegraphUntil;
         bool hasDoubleTelegraph = Time.time < _doubleTelegraphUntil;
         bool hasEarthquakeTelegraph = Time.time < _earthquakeTelegraphUntil;
-        bool shouldShow = _arenaReferences != null &&
-                          (hasTargetTelegraph || hasDoubleTelegraph || hasEarthquakeTelegraph ||
-                           (_bossController != null && _bossController.CurrentState == BossState.Telegraph));
-        SetTelegraphVisible(shouldShow);
+        bool shouldShowLane = _arenaReferences != null &&
+                              (hasTargetTelegraph || hasDoubleTelegraph ||
+                               (_bossController != null && _bossController.CurrentState == BossState.Telegraph));
+        SetTelegraphVisible(shouldShowLane);
         if (_secondaryTelegraphLine != null) _secondaryTelegraphLine.enabled = hasDoubleTelegraph;
         if (_earthquakeRing != null) _earthquakeRing.enabled = hasEarthquakeTelegraph;
-        if (!shouldShow || _arenaReferences == null) return;
+        if (_earthquakeArea != null) _earthquakeArea.SetActive(hasEarthquakeTelegraph);
+        if (hasEarthquakeTelegraph)
+        {
+            UpdateEarthquakeArea();
+            UpdateEarthquakeRing();
+        }
+        if (!shouldShowLane || _arenaReferences == null) return;
 
         Vector3 origin = _arenaReferences.ShockwaveOrigin.position + Vector3.up * _heightOffset;
         Vector3 direction = hasTargetTelegraph || hasDoubleTelegraph
@@ -58,8 +67,6 @@ public sealed class FloorPatternController : MonoBehaviour
             _secondaryTelegraphLine.SetPosition(0, origin);
             _secondaryTelegraphLine.SetPosition(1, origin + _doubleRightDirection * _telegraphLength);
         }
-
-        if (hasEarthquakeTelegraph) UpdateEarthquakeRing();
     }
 
     /// <summary>Shows a temporary target or diagonal red telegraph used by the Phase 2 Target Slam.</summary>
@@ -94,9 +101,10 @@ public sealed class FloorPatternController : MonoBehaviour
         SetTelegraphVisible(false);
         if (_secondaryTelegraphLine != null) _secondaryTelegraphLine.enabled = false;
         if (_earthquakeRing != null) _earthquakeRing.enabled = false;
+        if (_earthquakeArea != null) _earthquakeArea.SetActive(false);
     }
 
-    /// <summary>Shows a wider red centre-line warning for the Phase 3 Earthquake impact.</summary>
+    /// <summary>Shows a red danger area over the whole authored FloorTile arena for Earthquake.</summary>
     public void ShowEarthquakeTelegraph(float duration)
     {
         _earthquakeTelegraphUntil = Time.time + Mathf.Max(0f, duration);
@@ -124,6 +132,7 @@ public sealed class FloorPatternController : MonoBehaviour
         _secondaryTelegraphLine = CreateAdditionalLine("Double Paw Telegraph", lineShader, 2);
         _earthquakeRing = CreateAdditionalLine("Earthquake Outer Ring Telegraph", lineShader, 33);
         _earthquakeRing.loop = true;
+        CreateEarthquakeArea(lineShader);
     }
 
     private LineRenderer CreateAdditionalLine(string objectName, Shader shader, int positionCount)
@@ -166,13 +175,80 @@ public sealed class FloorPatternController : MonoBehaviour
                 if (tile != null) outerRadius = Mathf.Max(outerRadius, Vector3.Distance(transform.position, tile.WorldCenter));
         }
 
-        Vector3 centre = transform.position + Vector3.up * _heightOffset;
+        Vector3 centre = transform.position + Vector3.up * (_heightOffset + _earthquakeSurfaceLift);
         for (int index = 0; index < _earthquakeRing.positionCount; index++)
         {
             float angle = index / (float)(_earthquakeRing.positionCount - 1) * Mathf.PI * 2f;
             Vector3 point = centre + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * outerRadius * 0.72f;
             _earthquakeRing.SetPosition(index, point);
         }
+    }
+
+    private void CreateEarthquakeArea(Shader shader)
+    {
+        _earthquakeArea = GameObject.CreatePrimitive(PrimitiveType.Plane);
+        _earthquakeArea.name = "Earthquake Full Arena Telegraph";
+        _earthquakeArea.transform.SetParent(transform, false);
+        Collider areaCollider = _earthquakeArea.GetComponent<Collider>();
+        if (areaCollider != null) Destroy(areaCollider);
+
+        Renderer areaRenderer = _earthquakeArea.GetComponent<Renderer>();
+        if (areaRenderer != null)
+        {
+            areaRenderer.material = new Material(shader);
+            areaRenderer.material.color = new Color(
+                _telegraphColor.r,
+                _telegraphColor.g,
+                _telegraphColor.b,
+                0.42f);
+        }
+
+        _earthquakeArea.SetActive(false);
+    }
+
+    private void UpdateEarthquakeArea()
+    {
+        if (_earthquakeArea == null) return;
+
+        FloorTileManager tileManager = GetComponent<FloorTileManager>();
+        FloorTile[] tiles = tileManager != null ? tileManager.Tiles : null;
+        if (tiles == null || tiles.Length == 0)
+        {
+            _earthquakeArea.transform.position = transform.position + Vector3.up * (_heightOffset + _earthquakeSurfaceLift);
+            _earthquakeArea.transform.localScale = new Vector3(3f, 1f, 3f);
+            return;
+        }
+
+        float minX = float.MaxValue;
+        float maxX = float.MinValue;
+        float minZ = float.MaxValue;
+        float maxZ = float.MinValue;
+        float groundY = 0f;
+        int validTileCount = 0;
+        foreach (FloorTile tile in tiles)
+        {
+            if (tile == null) continue;
+
+            Vector3 centre = tile.WorldCenter;
+            minX = Mathf.Min(minX, centre.x);
+            maxX = Mathf.Max(maxX, centre.x);
+            minZ = Mathf.Min(minZ, centre.z);
+            maxZ = Mathf.Max(maxZ, centre.z);
+            groundY += centre.y;
+            validTileCount++;
+        }
+
+        if (validTileCount == 0) return;
+
+        const float EdgePadding = 1.5f;
+        float width = maxX - minX + EdgePadding * 2f;
+        float depth = maxZ - minZ + EdgePadding * 2f;
+        _earthquakeArea.transform.position = new Vector3(
+            (minX + maxX) * 0.5f,
+            groundY / validTileCount + _heightOffset + _earthquakeSurfaceLift,
+            (minZ + maxZ) * 0.5f);
+        // Unity Plane is 10 by 10 world units at unit scale.
+        _earthquakeArea.transform.localScale = new Vector3(width / 10f, 1f, depth / 10f);
     }
 
     private void SetTelegraphVisible(bool isVisible)

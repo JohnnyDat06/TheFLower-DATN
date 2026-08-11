@@ -16,9 +16,13 @@ public sealed class BossDefeatController : MonoBehaviour
     private BossAnimationController _animationController;
     private BossArenaReferences _arenaReferences;
     private GameObject _fallbackDoorBarrier;
+    private bool _isExitDoorUnlocked;
 
     /// <summary>True after the final Core Hit permanently stops boss combat and unlocks the exit.</summary>
     public bool IsDefeated => _debugIsDefeated;
+
+    /// <summary>True after the authoritative final Core Hit removes the exit blocker.</summary>
+    public bool IsExitDoorUnlocked => _isExitDoorUnlocked;
 
     private void Awake()
     {
@@ -56,6 +60,13 @@ public sealed class BossDefeatController : MonoBehaviour
         DefeatBoss();
     }
 
+    /// <summary>Applies the Host-owned terminal boss and Exit Door state on Client.</summary>
+    public void ApplyNetworkState(bool isDefeated, bool isExitDoorUnlocked)
+    {
+        if (isDefeated && !_debugIsDefeated) DefeatBoss();
+        if (isExitDoorUnlocked && !_isExitDoorUnlocked) UnlockExitDoor();
+    }
+
     private void DefeatBoss()
     {
         _debugIsDefeated = true;
@@ -86,6 +97,7 @@ public sealed class BossDefeatController : MonoBehaviour
 
     private void UnlockExitDoor()
     {
+        _isExitDoorUnlocked = true;
         if (_arenaReferences == null || _arenaReferences.ExitDoor == null) return;
 
         foreach (Collider doorCollider in _arenaReferences.ExitDoor.GetComponentsInChildren<Collider>(true))

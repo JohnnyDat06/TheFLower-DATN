@@ -82,6 +82,14 @@ public sealed class BossCoreController : MonoBehaviour
         return true;
     }
 
+    /// <summary>Applies the Host-owned Core state and visibility on Client.</summary>
+    public void ApplyNetworkState(BossCoreState state)
+    {
+        State = state;
+        _exposedUntil = 0f;
+        SetCoreVisualVisible(State == BossCoreState.Exposed);
+    }
+
     private void ResetPuzzleCycle()
     {
         _sealManager?.ResetAllSealsForCycle();

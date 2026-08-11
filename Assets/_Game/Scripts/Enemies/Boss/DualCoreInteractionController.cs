@@ -12,22 +12,36 @@ public sealed class DualCoreInteractionController : MonoBehaviour
     private CoreInteractionPoint _firstPoint;
     private ulong _firstPlayerId;
     private float _firstActivationTime;
+    private int _replicatedPendingPoint = -1;
 
     /// <summary>True while the Core is Exposed, allowing point markers to be visible before interaction.</summary>
     public bool IsCoreExposed => _coreController != null && _coreController.CanAcceptDualActivation;
 
+    /// <summary>Pending Core point identifier, or -1 when no activation is waiting.</summary>
+    public int PendingPointId => _firstPoint != null ? (int)_firstPoint.PointId : -1;
+
     /// <summary>Returns true when the supplied point may be used during the exposed Core window.</summary>
     public bool CanActivatePoint(CoreInteractionPoint point)
     {
-        if (!IsServerAuthority() || point == null || _coreController == null || !_coreController.CanAcceptDualActivation)
+        if (point == null || _coreController == null || !_coreController.CanAcceptDualActivation)
             return false;
+
+        if (!IsServerAuthority()) return _replicatedPendingPoint != (int)point.PointId;
 
         ResetExpiredAttempt();
         return _firstPoint == null || _firstPoint != point;
     }
 
     /// <summary>Returns true while this exact point is waiting for the other player to activate the other point.</summary>
-    public bool IsPointPending(CoreInteractionPoint point) => _firstPoint == point;
+    public bool IsPointPending(CoreInteractionPoint point) => IsServerAuthority()
+        ? _firstPoint == point
+        : point != null && _replicatedPendingPoint == (int)point.PointId;
+
+    /// <summary>Copies the Host-owned pending Core point for Client marker feedback.</summary>
+    public void ApplyNetworkPendingPoint(int pointId)
+    {
+        _replicatedPendingPoint = pointId is >= 0 and <= 1 ? pointId : -1;
+    }
 
     /// <summary>Records a player activation and registers exactly one Core Hit only on a valid dual activation.</summary>
     public bool TryActivatePoint(CoreInteractionPoint point, ulong playerId)

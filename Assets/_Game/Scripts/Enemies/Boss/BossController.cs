@@ -112,6 +112,17 @@ public sealed class BossController : MonoBehaviour
         TryTransitionTo(BossState.Defeated);
     }
 
+    /// <summary>Applies an authoritative Host state without starting gameplay logic on Client.</summary>
+    public void ApplyNetworkState(BossState state, Transform target)
+    {
+        EnsureStateMachine();
+        if (_stateMachine.CurrentState != state) CreateStateMachine(state);
+
+        _debugCurrentTarget = target;
+        if (_targetIndicator == null) _targetIndicator = GetComponent<BossTargetIndicator>();
+        _targetIndicator?.SetTarget(target);
+    }
+
     [ContextMenu("Debug/Force Defeated")]
     private void ForceDefeatedForDebug()
     {

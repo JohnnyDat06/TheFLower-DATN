@@ -22,9 +22,23 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
     private FloorPatternController _floorPatternController;
     private DiagonalShockwavePattern _diagonalPattern;
     private Coroutine _attackRoutine;
+    private Vector3 _currentTelegraphDirection;
+    private bool _isDiagonal;
 
     /// <summary>True while the Phase 2 target telegraph, impact or recovery is running.</summary>
     public bool IsRunning => _attackRoutine != null;
+
+    /// <summary>Current server-sampled warning direction replicated to Client.</summary>
+    public Vector3 CurrentTelegraphDirection => _currentTelegraphDirection;
+
+    /// <summary>True when the running Target Slam includes the alternating diagonal offset.</summary>
+    public bool IsDiagonal => _isDiagonal;
+
+    /// <summary>Telegraph duration replicated to remote peers by BossNetworkState.</summary>
+    public float TelegraphDuration => _telegraphDuration;
+
+    /// <summary>Slam descent duration replicated to remote peers by BossNetworkState.</summary>
+    public float ImpactReturnDuration => _impactReturnDuration;
 
     /// <summary>Starts one target-selected attack. When diagonal is true, the outgoing Shockwave alternates left/right.</summary>
     public bool TryStart(bool diagonal)
@@ -46,6 +60,8 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
             diagonalOffset = Vector3.SignedAngle(targetDirection, diagonalDirection, Vector3.up);
         }
 
+        _isDiagonal = diagonal;
+        _currentTelegraphDirection = DirectionToTarget(target, diagonalOffset);
         _attackRoutine = StartCoroutine(RunAttack(target, diagonal, diagonalOffset));
         return true;
     }
@@ -77,6 +93,7 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
         {
             elapsed += Time.deltaTime;
             direction = DirectionToTarget(target, diagonalOffset);
+            _currentTelegraphDirection = direction;
             _floorPatternController?.ShowTargetTelegraph(direction, 0.1f);
             if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
                 _animationController.SetTelegraphProgress(elapsed / _telegraphDuration);
@@ -97,6 +114,7 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
         yield return null;
 
         direction = DirectionToTarget(target, diagonalOffset);
+        _currentTelegraphDirection = direction;
         ShockwaveController.Spawn(
             _arenaReferences.ShockwaveOrigin,
             direction,

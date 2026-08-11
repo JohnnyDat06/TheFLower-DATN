@@ -1,3 +1,4 @@
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>One of the two player interaction points required to create a single Core Hit.</summary>
@@ -18,6 +19,9 @@ public sealed class CoreInteractionPoint : MonoBehaviour, IInteractable
 
     /// <summary>Stable identity used by the dual-activation validation.</summary>
     public CorePointId PointId => _pointId;
+
+    /// <summary>Maximum server-authoritative distance accepted for a Client interaction request.</summary>
+    public float ServerInteractionDistance => _interactionRadius + 2.2f;
 
     /// <inheritdoc />
     public string InteractionPrompt => $"Activate Core Point {_pointId}";
@@ -47,6 +51,12 @@ public sealed class CoreInteractionPoint : MonoBehaviour, IInteractable
     /// <inheritdoc />
     public void Interact(ulong playerId)
     {
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
+        {
+            BossNetworkState.Instance?.RequestCoreInteraction(this);
+            return;
+        }
+
         _dualController?.TryActivatePoint(this, playerId);
     }
 

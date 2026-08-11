@@ -56,4 +56,13 @@ public sealed class BossStunController : MonoBehaviour
         if (!IsStunned) return;
         ExitStun();
     }
+
+    /// <summary>Applies the Host-owned Stunned pose without running Client combat decisions.</summary>
+    public void ApplyNetworkState(bool isStunned)
+    {
+        if (IsStunned == isStunned) return;
+
+        IsStunned = isStunned;
+        _animationController?.SetStunned(isStunned);
+    }
 }

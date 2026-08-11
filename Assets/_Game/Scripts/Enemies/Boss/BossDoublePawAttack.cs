@@ -15,9 +15,20 @@ public sealed class BossDoublePawAttack : MonoBehaviour
     private BossArenaReferences _arenaReferences;
     private FloorPatternController _floorPatternController;
     private Coroutine _routine;
+    private Vector3 _firstTelegraphDirection;
+    private Vector3 _secondTelegraphDirection;
 
     /// <summary>True while the Double Paw attack owns the combat timeline.</summary>
     public bool IsRunning => _routine != null;
+
+    /// <summary>Current warning direction toward the first valid player.</summary>
+    public Vector3 FirstTelegraphDirection => _firstTelegraphDirection;
+
+    /// <summary>Current warning direction toward the second valid player.</summary>
+    public Vector3 SecondTelegraphDirection => _secondTelegraphDirection;
+
+    /// <summary>Telegraph duration replicated to remote peers by BossNetworkState.</summary>
+    public float TelegraphDuration => _telegraphDuration;
 
     /// <summary>Starts one Double Paw Slam when no previous instance is running.</summary>
     public bool TryStart()
@@ -25,6 +36,8 @@ public sealed class BossDoublePawAttack : MonoBehaviour
         if (_routine != null || _arenaReferences == null || _arenaReferences.ShockwaveOrigin == null) return false;
         if (!TryGetTwoPlayers(out Transform firstPlayer, out Transform secondPlayer)) return false;
 
+        _firstTelegraphDirection = DirectionTo(firstPlayer);
+        _secondTelegraphDirection = DirectionTo(secondPlayer);
         _routine = StartCoroutine(RunAttack(firstPlayer, secondPlayer));
         return true;
     }
@@ -48,6 +61,8 @@ public sealed class BossDoublePawAttack : MonoBehaviour
             elapsed += Time.deltaTime;
             firstDirection = DirectionTo(firstPlayer);
             secondDirection = DirectionTo(secondPlayer);
+            _firstTelegraphDirection = firstDirection;
+            _secondTelegraphDirection = secondDirection;
             _floorPatternController?.ShowDoubleTelegraph(firstDirection, secondDirection, 0.1f);
             if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
                 _animationController.SetTelegraphProgress(elapsed / _telegraphDuration);
@@ -62,6 +77,8 @@ public sealed class BossDoublePawAttack : MonoBehaviour
         // the player's final telegraphed position instead of a stale position from attack start.
         firstDirection = DirectionTo(firstPlayer);
         secondDirection = DirectionTo(secondPlayer);
+        _firstTelegraphDirection = firstDirection;
+        _secondTelegraphDirection = secondDirection;
         SpawnAtBothPlayers(firstDirection, secondDirection);
         Debug.Log("[BossDoublePawAttack] Double Paw impact.", this);
         _routine = null;

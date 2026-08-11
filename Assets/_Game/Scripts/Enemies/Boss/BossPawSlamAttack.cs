@@ -32,6 +32,12 @@ public sealed class BossPawSlamAttack : MonoBehaviour
     /// <summary>Whether a telegraph, impact or recovery is currently in progress.</summary>
     public bool IsRunning => _attackRoutine != null;
 
+    /// <summary>Telegraph duration replicated to remote peers by BossNetworkState.</summary>
+    public float TelegraphDuration => _telegraphDuration;
+
+    /// <summary>Slam descent duration replicated to remote peers by BossNetworkState.</summary>
+    public float ImpactReturnDuration => _impactReturnDuration;
+
     private void Awake()
     {
         _bossController = GetComponent<BossController>();

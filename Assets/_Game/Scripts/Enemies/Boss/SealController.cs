@@ -63,6 +63,12 @@ public sealed class SealController : MonoBehaviour, IInteractable
     public void Interact(ulong playerId)
     {
         if (!CanInteract) return;
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
+        {
+            BossNetworkState.Instance?.RequestSealInteraction(this);
+            return;
+        }
+
         if (_manager == null) _manager = GetComponentInParent<SealManager>();
         _manager?.TryActivateSeal(this, playerId);
     }
@@ -98,6 +104,15 @@ public sealed class SealController : MonoBehaviour, IInteractable
     {
         _activeUntil = 0f;
         SetState(SealState.Inactive);
+    }
+
+    /// <summary>Applies the Host-owned Seal state and refreshes Client visuals.</summary>
+    public void ApplyNetworkState(SealState state)
+    {
+        if (State == state) return;
+
+        _activeUntil = 0f;
+        SetState(state);
     }
 
     private void ResetAfterActiveTimeout()

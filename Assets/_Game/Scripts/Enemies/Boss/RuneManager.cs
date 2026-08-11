@@ -11,6 +11,16 @@ public sealed class RuneManager : MonoBehaviour
     /// <summary>Raised whenever a Rune enters the Charged state.</summary>
     public event Action<RuneController> RuneCharged;
 
+    /// <summary>Stable authored Rune order used by BossNetworkState.</summary>
+    public RuneController[] Runes
+    {
+        get
+        {
+            RefreshRuneReferences();
+            return _runes;
+        }
+    }
+
     private void Awake()
     {
         RefreshRuneReferences();

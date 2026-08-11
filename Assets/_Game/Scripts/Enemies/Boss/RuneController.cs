@@ -82,6 +82,17 @@ public sealed class RuneController : MonoBehaviour
         StateChanged?.Invoke(this, State);
     }
 
+    /// <summary>Applies the Host-owned Rune state and refreshes Client visuals.</summary>
+    public void ApplyNetworkState(RuneState state)
+    {
+        if (State == state) return;
+
+        State = state;
+        _chargedUntil = 0f;
+        ApplyVisualState();
+        StateChanged?.Invoke(this, State);
+    }
+
     [ContextMenu("Debug/Charge Rune")]
     private void ChargeRuneForDebug()
     {

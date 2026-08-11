@@ -13,6 +13,7 @@ public sealed class BossAttackSequence : MonoBehaviour
     private BossEarthquakeAttack _earthquakeAttack;
     private PhaseThreeStep _nextStep;
     private bool _waitingForAttack;
+    private bool _doublePawFallbackRunning;
     private float _nextStepTime;
 
     private void Awake()
@@ -35,6 +36,7 @@ public sealed class BossAttackSequence : MonoBehaviour
             if (IsCurrentAttackRunning()) return;
 
             _waitingForAttack = false;
+            _doublePawFallbackRunning = false;
             _nextStepTime = Time.time + _comboStepDelay;
             _nextStep = (PhaseThreeStep)(((int)_nextStep + 1) % 4);
             return;
@@ -57,7 +59,7 @@ public sealed class BossAttackSequence : MonoBehaviour
         {
             PhaseThreeStep.LeftPaw => _targetSlamAttack != null && _targetSlamAttack.TryStart(false),
             PhaseThreeStep.RightPaw => _targetSlamAttack != null && _targetSlamAttack.TryStart(false),
-            PhaseThreeStep.DoublePaw => _doublePawAttack != null && _doublePawAttack.TryStart(),
+            PhaseThreeStep.DoublePaw => TryStartDoublePawOrSingleTargetFallback(),
             PhaseThreeStep.Earthquake => _earthquakeAttack != null && _earthquakeAttack.TryStart(),
             _ => false
         };
@@ -69,10 +71,24 @@ public sealed class BossAttackSequence : MonoBehaviour
     private bool IsCurrentAttackRunning() => _nextStep switch
     {
         PhaseThreeStep.LeftPaw or PhaseThreeStep.RightPaw => _targetSlamAttack != null && _targetSlamAttack.IsRunning,
-        PhaseThreeStep.DoublePaw => _doublePawAttack != null && _doublePawAttack.IsRunning,
+        PhaseThreeStep.DoublePaw => (_doublePawAttack != null && _doublePawAttack.IsRunning) ||
+                                   (_doublePawFallbackRunning && _targetSlamAttack != null && _targetSlamAttack.IsRunning),
         PhaseThreeStep.Earthquake => _earthquakeAttack != null && _earthquakeAttack.IsRunning,
         _ => false
     };
+
+    private bool TryStartDoublePawOrSingleTargetFallback()
+    {
+        _doublePawFallbackRunning = false;
+        if (_doublePawAttack != null && _doublePawAttack.TryStart()) return true;
+
+        // A downed player is not a legal Double Paw target. Continue the Phase 3 combo by
+        // directing one normal target slam at the remaining living player instead of stalling.
+        _doublePawFallbackRunning = _targetSlamAttack != null && _targetSlamAttack.TryStart(false);
+        if (_doublePawFallbackRunning)
+            Debug.Log("[BossAttackSequence] Double Paw changed to Single Target Slam because only one player is alive.", this);
+        return _doublePawFallbackRunning;
+    }
 }
 
 /// <summary>Fixed order of the Phase 3 attack combo.</summary>

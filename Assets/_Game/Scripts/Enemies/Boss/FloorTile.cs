@@ -91,6 +91,18 @@ public sealed class FloorTile : MonoBehaviour
         SetState(FloorTileState.Normal);
     }
 
+    /// <summary>Advances or resets this Client tile to the Host-owned critical state.</summary>
+    public void ApplyNetworkState(FloorTileState state)
+    {
+        if (State == state) return;
+        if (state == FloorTileState.Normal || (int)state < (int)State) ResetTile();
+
+        while ((int)State < (int)state)
+        {
+            if (!TryDamage()) break;
+        }
+    }
+
     [ContextMenu("Debug/Damage Tile")]
     private void DamageTileForDebug()
     {

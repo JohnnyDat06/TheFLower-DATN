@@ -21,12 +21,13 @@ public sealed class ShockwaveHitbox : MonoBehaviour
     private FloorTileManager _floorTileManager;
     private Vector3 _lastFloorDamagePosition;
     private bool _hasDamagedFloorTile;
+    private bool _damagesFloor = true;
 
     /// <summary>Raised when a collider first enters the moving Shockwave trigger.</summary>
     public event Action<Collider> TriggerEntered;
 
     /// <summary>Configures a ground-level trigger matching the visible Shockwave band.</summary>
-    public void Configure(float width, float depth)
+    public void Configure(float width, float depth, bool damagesFloor = true)
     {
         if (_trigger == null) _trigger = GetComponent<BoxCollider>();
         if (_rigidbody == null) _rigidbody = GetComponent<Rigidbody>();
@@ -37,6 +38,7 @@ public sealed class ShockwaveHitbox : MonoBehaviour
         _trigger.isTrigger = true;
         _trigger.center = new Vector3(0f, 0.35f, 0f);
         _trigger.size = new Vector3(width, 0.8f, depth);
+        _damagesFloor = damagesFloor;
         _floorTileManager = FindFirstObjectByType<FloorTileManager>();
     }
 
@@ -58,7 +60,7 @@ public sealed class ShockwaveHitbox : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_floorTileManager == null) return;
+        if (!_damagesFloor || _floorTileManager == null) return;
         if (_hasDamagedFloorTile &&
             Vector3.Distance(transform.position, _lastFloorDamagePosition) < _minimumFloorDamageStepDistance)
             return;
