@@ -21,12 +21,8 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         public RectTransform Fill;
         public TMP_Text Name;
         public TMP_Text Value;
-        public GameObject WorldNameRoot;
-        public RectTransform WorldNameRect;
-        public TMP_Text WorldName;
         public PlayerHealth Health;
         public LobbyPlayerState State;
-        public Vector3 WorldNameOffset = Vector3.up * 1.8f;
         public float Target = 1f;
         public float Displayed = 1f;
         public bool FillFromRight;
@@ -37,9 +33,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
     private PlayerBar _host;
     private PlayerBar _client;
     private RectTransform _canvasRect;
-    private Camera _worldCamera;
     private float _searchTimer;
-    private bool _worldNameplatesHiddenByMenu;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InstallForGameplayScenes()
@@ -78,12 +72,6 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         BuildInterface();
     }
 
-    private void OnEnable()
-    {
-        EventBus.OnGamePaused += HideWorldNameplates;
-        EventBus.OnGameResumed += ShowWorldNameplates;
-    }
-
     private void Update()
     {
         _searchTimer -= Time.unscaledDeltaTime;
@@ -96,41 +84,12 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         AnimateBar(_host);
         AnimateBar(_client);
 
-        if (_worldNameplatesHiddenByMenu)
-        {
-            SetWorldNameplateActive(_host, false);
-            SetWorldNameplateActive(_client, false);
-            return;
-        }
-
-        UpdateWorldNameplate(_host);
-        UpdateWorldNameplate(_client);
     }
 
     private void OnDestroy()
     {
-        EventBus.OnGamePaused -= HideWorldNameplates;
-        EventBus.OnGameResumed -= ShowWorldNameplates;
         Unbind(_host);
         Unbind(_client);
-    }
-
-    private void HideWorldNameplates()
-    {
-        _worldNameplatesHiddenByMenu = true;
-        SetWorldNameplateActive(_host, false);
-        SetWorldNameplateActive(_client, false);
-    }
-
-    private void ShowWorldNameplates()
-    {
-        _worldNameplatesHiddenByMenu = false;
-    }
-
-    private static void SetWorldNameplateActive(PlayerBar bar, bool active)
-    {
-        if (bar?.WorldNameRoot != null)
-            bar.WorldNameRoot.SetActive(active);
     }
 
     private void BuildInterface()
@@ -197,17 +156,12 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         TMP_Text name = CreateHudTextBadge(root, "PlayerNameBadge", host, true, host ? "HOST" : "CLIENT");
         TMP_Text value = CreateHudTextBadge(root, "HealthValueBadge", host, false, "100 / 100");
 
-        CreateWorldNameplate(parent, host, out GameObject worldNameRoot, out RectTransform worldNameRect, out TMP_Text worldName);
-
         return new PlayerBar
         {
             Root = rootObject,
             Fill = fill,
             Name = name,
             Value = value,
-            WorldNameRoot = worldNameRoot,
-            WorldNameRect = worldNameRect,
-            WorldName = worldName,
             FillFromRight = !host
         };
     }
@@ -235,8 +189,6 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         bar.Health.OnHealthChanged += bar == _host ? HandleHostHealthChanged : HandleClientHealthChanged;
         bar.Target = Mathf.Clamp01(health.CurrentHealth / Mathf.Max(1f, health.MaxHealth));
         bar.Displayed = bar.Target;
-        bar.WorldNameOffset = CalculateWorldNameOffset(health.transform);
-
         if (health.TryGetComponent(out LobbyPlayerState state))
         {
             bar.State = state;
@@ -257,7 +209,6 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
 
         UpdateValueText(bar);
         bar.Root.SetActive(true);
-        bar.WorldNameRoot.SetActive(true);
     }
 
     private void Unbind(PlayerBar bar)
@@ -274,7 +225,6 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         bar.Health = null;
         bar.State = null;
         if (bar.Root != null) bar.Root.SetActive(false);
-        if (bar.WorldNameRoot != null) bar.WorldNameRoot.SetActive(false);
     }
 
     private static void AnimateBar(PlayerBar bar)
@@ -317,83 +267,6 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         if (bar == null) return;
         string playerName = string.IsNullOrWhiteSpace(value) ? "PLAYER" : value.Trim();
         if (bar.Name != null) bar.Name.text = playerName;
-        if (bar.WorldName != null) bar.WorldName.text = playerName;
-        if (bar.WorldNameRect != null)
-            bar.WorldNameRect.sizeDelta = new Vector2(Mathf.Clamp(92f + playerName.Length * 9f, 132f, 260f), 42f);
-    }
-
-    private void UpdateWorldNameplate(PlayerBar bar)
-    {
-        if (bar?.WorldNameRoot == null || bar.Health == null || !bar.Health.IsSpawned)
-        {
-            if (bar?.WorldNameRoot != null) bar.WorldNameRoot.SetActive(false);
-            return;
-        }
-
-        if (_worldCamera == null || !_worldCamera.isActiveAndEnabled)
-            _worldCamera = Camera.main;
-        if (_worldCamera == null || _canvasRect == null)
-        {
-            bar.WorldNameRoot.SetActive(false);
-            return;
-        }
-
-        Vector3 screenPoint = _worldCamera.WorldToScreenPoint(bar.Health.transform.position + bar.WorldNameOffset);
-        bool isVisible = screenPoint.z > 0f;
-        bar.WorldNameRoot.SetActive(isVisible);
-        if (!isVisible) return;
-
-        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, screenPoint, null, out Vector2 localPoint))
-            bar.WorldNameRect.anchoredPosition = localPoint;
-    }
-
-    private static Vector3 CalculateWorldNameOffset(Transform player)
-    {
-        float highestPoint = player.position.y + 1.4f;
-        foreach (Renderer renderer in player.GetComponentsInChildren<Renderer>())
-        {
-            if (renderer.enabled && renderer.gameObject.activeInHierarchy)
-                highestPoint = Mathf.Max(highestPoint, renderer.bounds.max.y);
-        }
-
-        float height = Mathf.Clamp(highestPoint - player.position.y + 0.28f, 1.3f, 3.2f);
-        return Vector3.up * height;
-    }
-
-    private static void CreateWorldNameplate(RectTransform parent, bool host, out GameObject root, out RectTransform rootRect, out TMP_Text label)
-    {
-        rootRect = CreateRect(parent, host ? "HostWorldName" : "ClientWorldName");
-        root = rootRect.gameObject;
-        rootRect.anchorMin = new Vector2(0.5f, 0.5f);
-        rootRect.anchorMax = new Vector2(0.5f, 0.5f);
-        rootRect.pivot = new Vector2(0.5f, 0.5f);
-        rootRect.sizeDelta = new Vector2(150f, 42f);
-
-        Image outline = root.AddComponent<Image>();
-        outline.sprite = GetRoundedSprite();
-        outline.type = Image.Type.Sliced;
-        outline.color = host ? new Color(1f, 0.72f, 0.18f, 0.96f) : new Color(0.48f, 0.93f, 0.77f, 0.96f);
-        outline.raycastTarget = false;
-        Shadow shadow = root.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0f, 0.08f, 0.06f, 0.72f);
-        shadow.effectDistance = new Vector2(0f, -3f);
-
-        Image background = CreateImage(rootRect, "Background", Vector2.zero, Vector2.one, new Vector2(3f, 3f), new Vector2(-3f, -3f), new Color(0.02f, 0.20f, 0.16f, 0.94f));
-        background.sprite = GetRoundedSprite();
-        background.type = Image.Type.Sliced;
-        background.raycastTarget = false;
-
-        label = CreateLabel(rootRect, host ? "HOST" : "CLIENT", 19f, FontStyles.Bold);
-        label.alignment = TextAlignmentOptions.Center;
-        label.color = Color.white;
-        label.enableAutoSizing = true;
-        label.fontSizeMin = 13f;
-        label.fontSizeMax = 19f;
-        label.rectTransform.anchorMin = Vector2.zero;
-        label.rectTransform.anchorMax = Vector2.one;
-        label.rectTransform.offsetMin = new Vector2(12f, 5f);
-        label.rectTransform.offsetMax = new Vector2(-12f, -5f);
-        root.SetActive(false);
     }
 
     private static TMP_Text CreateHudTextBadge(RectTransform parent, string objectName, bool host, bool isName, string text)

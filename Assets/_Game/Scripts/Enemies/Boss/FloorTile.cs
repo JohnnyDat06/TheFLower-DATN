@@ -12,7 +12,7 @@ public sealed class FloorTile : MonoBehaviour
     [Tooltip("Bien do rung local de Warning state de nhan biet truoc lan Shockwave thu ba.")]
     [SerializeField, Min(0f)] private float _warningShakeAmount = 0.06f;
     [Tooltip("Mau sàn sau khi trung Shockwave lan dau (trang thai Cracked).")]
-    [SerializeField] private Color _firstShockwaveColor = new(0.42f, 0.16f, 0.045f, 1f);
+    [SerializeField] private Color _firstShockwaveColor = new(0.62f, 0.26f, 0.10f, 1f);
     [Tooltip("Warning tile uses a muted earthen orange so the brick texture remains readable.")]
     [SerializeField] private Color _warningColor = new(0.72f, 0.32f, 0.075f, 1f);
     [Tooltip("Mau sàn trong luc roi xuong o trang thai Fall.")]
