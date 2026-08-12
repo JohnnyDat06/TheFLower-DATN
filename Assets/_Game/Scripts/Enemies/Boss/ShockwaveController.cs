@@ -59,7 +59,6 @@ public sealed class ShockwaveController : MonoBehaviour
             hitbox.Configure(width, VisualDepth, damagesFloor);
         }
 
-        controller.CreateVisual(width);
         controller.Initialize(direction, speed, maxRange);
         ShockwaveSpawnInfo spawnInfo = new(
             position,
@@ -90,20 +89,6 @@ public sealed class ShockwaveController : MonoBehaviour
         _isInitialized = _travelDirection.sqrMagnitude > 0.0001f;
     }
 
-    private void CreateVisual(float width)
-    {
-        GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        visual.name = "Visual";
-        visual.transform.SetParent(transform, false);
-        visual.transform.localPosition = new Vector3(0f, 0.06f, 0f);
-        visual.transform.localScale = new Vector3(width, 0.12f, VisualDepth);
-
-        Collider visualCollider = visual.GetComponent<Collider>();
-        if (visualCollider != null) Destroy(visualCollider);
-
-        Renderer renderer = visual.GetComponent<Renderer>();
-        if (renderer != null) renderer.material.color = new Color(0.05f, 0.9f, 1f, 0.95f);
-    }
 }
 
 /// <summary>Exact spawn data sent from the authoritative Shockwave to remote visual replicas.</summary>

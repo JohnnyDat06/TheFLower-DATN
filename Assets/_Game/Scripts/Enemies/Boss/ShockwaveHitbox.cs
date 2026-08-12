@@ -14,9 +14,6 @@ public sealed class ShockwaveHitbox : MonoBehaviour
     [SerializeField, Min(0.1f)] private float _floorLineHalfWidth = 1.25f;
     [Tooltip("Nua do sau wave front dung de khong bo sot tam Tile giua hai frame.")]
     [SerializeField, Min(0.1f)] private float _floorFrontHalfDepth = 1.5f;
-    [Tooltip("Mau cyan cua moving Shockwave; duong telegraph truoc impact dung mau do rieng.")]
-    [SerializeField] private Color _movingShockwaveColor = new(0.05f, 0.9f, 1f, 0.95f);
-
     private FloorTileManager _floorTileManager;
     private readonly HashSet<FloorTile> _damagedFloorTiles = new();
     private Vector3 _previousFloorScanPosition;
@@ -42,22 +39,6 @@ public sealed class ShockwaveHitbox : MonoBehaviour
         _floorTileManager = FindFirstObjectByType<FloorTileManager>();
         _damagedFloorTiles.Clear();
         _previousFloorScanPosition = transform.position;
-    }
-
-    private void Start()
-    {
-        Transform visual = transform.Find("Visual");
-        if (visual == null) return;
-
-        foreach (Renderer renderer in visual.GetComponentsInChildren<Renderer>(true))
-        {
-            foreach (Material material in renderer.materials)
-            {
-                if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", _movingShockwaveColor);
-                if (material.HasProperty("_Color")) material.SetColor("_Color", _movingShockwaveColor);
-                if (material.HasProperty("_EmissionColor")) material.SetColor("_EmissionColor", _movingShockwaveColor * 1.2f);
-            }
-        }
     }
 
     private void LateUpdate()
