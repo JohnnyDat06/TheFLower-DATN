@@ -282,11 +282,11 @@ public class ErisMinigameManager : NetworkBehaviour
         get
         {
             if (LocalRole == ErisRole.Controller && IsSoloSelection)
-                return "Báº¡n Ä‘Ã£ khÃ³a vai trÃ²: NGÆ¯á»œI ÄIá»€U KHIá»‚N Â· CÃ³ thá»ƒ báº¯t Ä‘áº§u solo hoáº·c chá» NgÆ°á»i Quan SÃ¡t";
-            if (LocalRole != ErisRole.None) return $"Báº¡n Ä‘Ã£ khÃ³a vai trÃ²: {RoleDisplayName(LocalRole)}";
+                return "\u0042\u1ea1n \u0111\u00e3 kh\u00f3a vai tr\u00f2: NG\u01af\u1edcI \u0110I\u1ec0U KHI\u1ec2N \u00b7 C\u00f3 th\u1ec3 b\u1eaft \u0111\u1ea7u solo ho\u1eb7c ch\u1edd Ng\u01b0\u1eddi Quan S\u00e1t";
+            if (LocalRole != ErisRole.None) return $"\u0042\u1ea1n \u0111\u00e3 kh\u00f3a vai tr\u00f2: {RoleDisplayName(LocalRole)}";
             if (_roleControllerId.Value != ulong.MaxValue || _roleObserverId.Value != ulong.MaxValue)
-                return "Má»™t vai trÃ² Ä‘Ã£ bá»‹ khÃ³a Â· HÃ£y chá»n vai trÃ² cÃ²n láº¡i";
-            return "Chá»n vai trÃ² cá»§a báº¡n";
+                return "\u004d\u1ed9t vai tr\u00f2 \u0111\u00e3 b\u1ecb kh\u00f3a \u00b7 H\u00e3y ch\u1ecdn vai tr\u00f2 c\u00f2n l\u1ea1i";
+            return "\u0043h\u1ecdn vai tr\u00f2 c\u1ee7a b\u1ea1n";
         }
     }
 
@@ -548,7 +548,7 @@ public class ErisMinigameManager : NetworkBehaviour
 
     private static string RoleDisplayName(ErisRole role)
     {
-        return role == ErisRole.Controller ? "NGÆ¯á»œI ÄIá»€U KHIá»‚N" : "NGÆ¯á»œI QUAN SÃT";
+        return role == ErisRole.Controller ? "\u004e\u0047\u01af\u1edcI \u0110I\u1ec0U KHI\u1ec2N" : "\u004e\u0047\u01af\u1edcI QUAN S\u00c1T";
     }
 
     public bool IsRoleLocked(ErisRole role)
