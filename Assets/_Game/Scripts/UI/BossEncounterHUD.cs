@@ -8,6 +8,7 @@ using UnityEngine.UI;
 public sealed class BossEncounterHUD : MonoBehaviour
 {
     private const ulong NoClient = ulong.MaxValue;
+    private const float ObjectivePanelBottomOffset = 28f;
 
     private CanvasGroup _root;
     private TMP_Text _objective;
@@ -65,10 +66,10 @@ public sealed class BossEncounterHUD : MonoBehaviour
         scaler.referenceResolution = new Vector2(1920f, 1080f);
 
         RectTransform panel = CreateRect(canvasObject.transform, "BossObjectivePanel");
-        panel.anchorMin = new Vector2(0.5f, 1f);
-        panel.anchorMax = new Vector2(0.5f, 1f);
-        panel.pivot = new Vector2(0.5f, 1f);
-        panel.anchoredPosition = new Vector2(0f, -28f);
+        panel.anchorMin = new Vector2(0.5f, 0f);
+        panel.anchorMax = new Vector2(0.5f, 0f);
+        panel.pivot = new Vector2(0.5f, 0f);
+        panel.anchoredPosition = new Vector2(0f, ObjectivePanelBottomOffset);
         panel.sizeDelta = new Vector2(620f, 118f);
         Image background = panel.gameObject.AddComponent<Image>();
         background.color = new Color(0.04f, 0.025f, 0.09f, 0.88f);

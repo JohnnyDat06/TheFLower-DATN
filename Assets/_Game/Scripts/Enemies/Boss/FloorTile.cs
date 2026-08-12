@@ -12,9 +12,13 @@ public sealed class FloorTile : MonoBehaviour
     [Tooltip("Bien do rung local de Warning state de nhan biet truoc lan Shockwave thu ba.")]
     [SerializeField, Min(0f)] private float _warningShakeAmount = 0.06f;
     [Tooltip("Mau sàn sau khi trung Shockwave lan dau (trang thai Cracked).")]
-    [SerializeField] private Color _firstShockwaveColor = new(0.06f, 0.5f, 0.58f, 1f);
+    [SerializeField] private Color _firstShockwaveColor = new(0.62f, 0.26f, 0.10f, 1f);
+    [Tooltip("Warning tile uses a muted earthen orange so the brick texture remains readable.")]
+    [SerializeField] private Color _warningColor = new(0.72f, 0.32f, 0.075f, 1f);
     [Tooltip("Mau sàn trong luc roi xuong o trang thai Fall.")]
-    [SerializeField] private Color _fallColor = new(1f, 0.78f, 0.08f, 1f);
+    [SerializeField] private Color _fallColor = new(0.82f, 0.5f, 0.12f, 1f);
+    [Tooltip("Very small Warning emission. Set to zero to show only the brick color.")]
+    [SerializeField, Range(0f, 0.15f)] private float _warningEmissionIntensity = 0.025f;
 
     private Renderer[] _renderers;
     private Collider[] _colliders;
@@ -166,11 +170,14 @@ public sealed class FloorTile : MonoBehaviour
             Color color = State switch
             {
                 FloorTileState.Cracked => _firstShockwaveColor,
-                FloorTileState.Warning => new Color(1f, 0.42f, 0.05f, 1f),
+                FloorTileState.Warning => _warningColor,
                 FloorTileState.Fall => _fallColor,
                 _ => _normalColors != null && index < _normalColors.Length ? _normalColors[index] : Color.white
             };
-            SetRendererColor(_renderers[index], color, State == FloorTileState.Warning ? color * 0.7f : Color.black);
+            Color emission = State == FloorTileState.Warning
+                ? color * _warningEmissionIntensity
+                : Color.black;
+            SetRendererColor(_renderers[index], color, emission);
         }
     }
 
