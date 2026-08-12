@@ -27,6 +27,19 @@ namespace Game.Network
         private const float TeleportRetryDelay = 0.1f;
         private const float SpawnPhysicsSettleDelay = 0.1f;
 
+        /// <summary>
+        /// Overrides the scene spawn markers for the direct MainMap2 test only.
+        /// The normal Lobby flow never calls this method.
+        /// </summary>
+        public void OverrideSpawnPointsForDirectTest(Vector3 firstPosition, Vector3 secondPosition)
+        {
+            if (!TryResolveSpawnPoints()) return;
+
+            spawnPoints[0].SetPositionAndRotation(firstPosition, Quaternion.identity);
+            spawnPoints[1].SetPositionAndRotation(secondPosition, Quaternion.identity);
+            Debug.Log($"[PlayerSpawner] Direct test spawn points set to {firstPosition} and {secondPosition}.");
+        }
+
         private void Awake()
         {
             Instance = this;

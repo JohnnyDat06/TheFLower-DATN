@@ -31,7 +31,14 @@ public class CheckpointTrigger : MonoBehaviour
 
         // Chỉ Server mới xác nhận Checkpoint để tránh gọi sự kiện nhiều lần rác
         if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer) return;
-        if (!other.CompareTag("Player")) return;
+        NetworkObject playerObject = other.GetComponentInParent<NetworkObject>();
+        if (playerObject == null) return;
+        if (!other.CompareTag("Player")
+            && !playerObject.CompareTag("Player")
+            && playerObject.GetComponent<PlayerController>() == null)
+        {
+            return;
+        }
 
         // Nếu designer quên gắn Transform vào inspector, lấy biến GameObject hiện tại làm gốc
         Vector3 hostPos = _hostSpawnPoint != null ? _hostSpawnPoint.position : transform.position + Vector3.right;

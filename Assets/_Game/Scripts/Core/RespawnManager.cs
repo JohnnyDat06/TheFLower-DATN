@@ -14,6 +14,8 @@ public class RespawnManager : NetworkBehaviour
 
     [Header("Settings")]
     [SerializeField] private float _respawnDelay = 3f;
+    [SerializeField] private float _fallRespawnY = -80f;
+    [SerializeField] private float _fallRespawnDelay = 0.15f;
     [SerializeField] private Transform _initialHostSpawnPoint;
     [SerializeField] private Transform _initialClientSpawnPoint;
 
@@ -181,6 +183,76 @@ public class RespawnManager : NetworkBehaviour
     /// Sự kiện này được bắn từ PlayerHealth qua ClientRpc nên sẽ chạy trên cả Host và Client.
     /// </summary>
     private readonly System.Collections.Generic.HashSet<ulong> _respawningPlayers = new();
+    private readonly System.Collections.Generic.Dictionary<ulong, int> _respawnRequestVersions = new();
+
+    private int BeginRespawnRequest(ulong clientId)
+    {
+        int version = _respawnRequestVersions.TryGetValue(clientId, out int previous)
+            ? previous + 1
+            : 1;
+        _respawnRequestVersions[clientId] = version;
+        _respawningPlayers.Add(clientId);
+        return version;
+    }
+
+    private bool IsCurrentRespawnRequest(ulong clientId, int version)
+    {
+        return _respawnRequestVersions.TryGetValue(clientId, out int current)
+            && current == version;
+    }
+
+    private void FinishRespawnRequest(ulong clientId, int version)
+    {
+        if (!IsCurrentRespawnRequest(clientId, version)) return;
+        _respawnRequestVersions.Remove(clientId);
+        _respawningPlayers.Remove(clientId);
+    }
+
+    /// <summary>
+    /// Requests a server-authoritative immediate respawn at the owner's latest
+    /// checkpoint. Used by minigames that must reset their arena promptly after
+    /// a player dies instead of waiting for the normal world delay.
+    /// </summary>
+    public void RequestImmediateRespawn(ulong clientId)
+    {
+        if (!IsServer || SceneManager.GetActiveScene().name == Constants.Scenes.BOSS_FINAL)
+        {
+            return;
+        }
+
+        int requestVersion = BeginRespawnRequest(clientId);
+        StartCoroutine(RespawnRoutine(clientId, true, requestVersion));
+    }
+
+    private void Update()
+    {
+        if (!IsServer || NetworkManager.Singleton == null) return;
+
+        // A player can lose the board/ground without producing a normal death
+        // event. Detect that on the server before the owner falls indefinitely.
+        foreach (ulong clientId in NetworkManager.Singleton.ConnectedClientsIds)
+        {
+            if (!NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out NetworkClient client)
+                || client.PlayerObject == null
+                || _respawningPlayers.Contains(clientId))
+            {
+                continue;
+            }
+
+            Vector3 position = client.PlayerObject.transform.position;
+            if (!IsFinite(position) || position.y > _fallRespawnY) continue;
+
+            if (_respawningPlayers.Add(clientId))
+            {
+                Debug.LogWarning($"[RespawnManager] Player {clientId} fell below Y={_fallRespawnY}; immediate checkpoint respawn requested.");
+                int requestVersion = _respawnRequestVersions.TryGetValue(clientId, out int previous)
+                    ? previous + 1
+                    : 1;
+                _respawnRequestVersions[clientId] = requestVersion;
+                StartCoroutine(RespawnRoutine(clientId, true, requestVersion));
+            }
+        }
+    }
 
     private void HandlePlayerDied(ulong clientId)
     {
@@ -189,19 +261,24 @@ public class RespawnManager : NetworkBehaviour
 
         // Respawn is server-authoritative. Previously every peer moved its local
         // copy, racing ClientNetworkTransform/physics and causing players to fling.
-        if (!IsServer || !_respawningPlayers.Add(clientId)) return;
-        StartCoroutine(RespawnRoutine(clientId));
+        if (!IsServer || _respawningPlayers.Contains(clientId)) return;
+        int requestVersion = BeginRespawnRequest(clientId);
+        StartCoroutine(RespawnRoutine(clientId, false, requestVersion));
     }
 
-    private IEnumerator RespawnRoutine(ulong clientId)
+    private IEnumerator RespawnRoutine(ulong clientId, bool fellOutOfWorld, int requestVersion)
     {
-        yield return new WaitForSeconds(_respawnDelay);
+        float delay = fellOutOfWorld ? Mathf.Max(0f, _fallRespawnDelay) : Mathf.Max(0f, _respawnDelay);
+        yield return new WaitForSecondsRealtime(delay);
+
+        // A later immediate request supersedes the old normal-delay routine.
+        if (!IsCurrentRespawnRequest(clientId, requestVersion)) yield break;
 
         if (!IsServer || NetworkManager.Singleton == null ||
             !NetworkManager.Singleton.ConnectedClients.TryGetValue(clientId, out var client) ||
             client.PlayerObject == null)
         {
-            _respawningPlayers.Remove(clientId);
+            FinishRespawnRequest(clientId, requestVersion);
             yield break;
         }
 
@@ -212,7 +289,7 @@ public class RespawnManager : NetworkBehaviour
         if (!hasSpawnPoint || !IsFinite(spawnPos))
         {
             Debug.LogError($"[RespawnManager] Refusing to respawn owner {clientId}; no valid PlayerSpawner point was seeded.");
-            _respawningPlayers.Remove(clientId);
+            FinishRespawnRequest(clientId, requestVersion);
             yield break;
         }
         Quaternion spawnRotation = netObj.transform.rotation;
@@ -234,13 +311,13 @@ public class RespawnManager : NetworkBehaviour
         if (!teleportConfirmed)
         {
             Debug.LogError($"[RespawnManager] Respawn aborted for owner {clientId}; teleport was not confirmed. Player remains dead instead of reviving at an unsafe pose.");
-            _respawningPlayers.Remove(clientId);
+            FinishRespawnRequest(clientId, requestVersion);
             yield break;
         }
 
         PlayerHealth health = netObj.GetComponent<PlayerHealth>();
         if (health != null) health.ReviveAtHealthPercent(1f);
-        _respawningPlayers.Remove(clientId);
+        FinishRespawnRequest(clientId, requestVersion);
     }
 
     private static bool IsFinite(Vector3 position)
