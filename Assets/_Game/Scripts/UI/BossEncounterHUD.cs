@@ -17,6 +17,14 @@ public sealed class BossEncounterHUD : MonoBehaviour
     private float _searchTimer;
     private BossEncounterManager _encounter;
     private BossRespawnPolicy _respawn;
+    private BossPhaseController _phaseController;
+    private RuneManager _runeManager;
+    private SealManager _sealManager;
+    private BossStunController _stunController;
+    private BossCoreController _coreController;
+    private DualCoreInteractionController _dualCoreController;
+    private DualRuneChallengeController _dualRuneChallenge;
+    private BossDefeatController _defeatController;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InstallAfterSceneLoad()
@@ -49,6 +57,7 @@ public sealed class BossEncounterHUD : MonoBehaviour
             _searchTimer = 0.25f;
             _encounter = BossEncounterManager.Instance;
             if (_respawn == null) _respawn = Object.FindFirstObjectByType<BossRespawnPolicy>();
+            CacheCombatControllers();
         }
 
         PresentState();
@@ -108,28 +117,37 @@ public sealed class BossEncounterHUD : MonoBehaviour
             return;
         }
 
+        // Defeat is replicated by BossDefeatController, so this hides the objective panel
+        // at the same time for both Host and Client instead of leaving stale combat guidance.
+        if (_defeatController != null && _defeatController.IsDefeated)
+        {
+            _root.alpha = 0f;
+            return;
+        }
+
         _root.alpha = 1f;
         switch (_encounter.State)
         {
             case BossEncounterManager.EncounterState.WaitingForPlayers:
-                _objective.text = "NHIỆM VỤ: Tập hợp tại cổng lõi";
-                _status.text = "Chờ cả hai người chơi vào đấu trường";
+                _objective.text = "Gather at the Core Gate";
+                _status.text = "Wait for both players to enter the arena";
                 break;
             case BossEncounterManager.EncounterState.Intro:
-                _objective.text = "NHIỆM VỤ: Phá hủy Lõi Cai Ngục";
-                _status.text = "Đấu trường đang bị phong tỏa";
+                _objective.text = "Destroy the Warden Core";
+                _status.text = "The arena is sealed";
                 break;
             case BossEncounterManager.EncounterState.Active:
-                _objective.text = "NHIỆM VỤ: Dùng cơ chế đấu trường để hạ boss";
+                _objective.text = "Use the arena mechanism to defeat the boss";
                 PresentActiveStatus();
+                if (!IsLocalReviveMessageActive()) PresentCombatGuidance();
                 break;
             case BossEncounterManager.EncounterState.WipeReset:
-                _objective.text = "LÕI ĐÃ ÁP ĐẢO CẢ HAI";
-                _status.text = "Đang tái tạo đấu trường...";
+                _objective.text = "Both players have fallen";
+                _status.text = "Resetting the arena...";
                 break;
             case BossEncounterManager.EncounterState.Victory:
-                _objective.text = "NHIỆM VỤ HOÀN THÀNH";
-                _status.text = "Lõi Cai Ngục đã bị phá hủy";
+                _objective.text = "Objective complete";
+                _status.text = "The Warden Core has been destroyed";
                 break;
         }
     }
@@ -139,34 +157,136 @@ public sealed class BossEncounterHUD : MonoBehaviour
         _progress.fillAmount = 0f;
         if (_respawn == null || NetworkManager.Singleton == null)
         {
-            _status.text = "Phối hợp, né đòn và kích hoạt cơ chế";
+            _status.text = "Coordinate, dodge attacks, and activate the arena mechanism";
             return;
         }
 
         ulong localId = NetworkManager.Singleton.LocalClientId;
         if (_respawn.CountdownTarget == localId)
         {
-            _status.text = $"Bạn đã gục — hồi sinh sau {_respawn.CountdownRemaining:0.0}s";
+            _status.text = $"You are down. Respawning in {_respawn.CountdownRemaining:0.0} seconds.";
             return;
         }
         if (_respawn.Reviver == localId)
         {
             _progress.fillAmount = _respawn.ReviveProgress;
-            _status.text = $"Đang cứu đồng đội... {_respawn.ReviveProgress * 100f:0}%";
+            _status.text = $"Reviving teammate... {_respawn.ReviveProgress * 100f:0}%";
             return;
         }
         if (_respawn.ReviveTarget == localId)
         {
             _progress.fillAmount = _respawn.ReviveProgress;
-            _status.text = $"Đồng đội đang cứu bạn... {_respawn.ReviveProgress * 100f:0}%";
+            _status.text = $"Teammate is reviving you... {_respawn.ReviveProgress * 100f:0}%";
             return;
         }
         if (_respawn.TryGetLocalReviveCandidate(out ulong targetId) && targetId != NoClient)
         {
-            _status.text = "Giữ Interact để cứu đồng đội (5 giây, hồi 60% HP)";
+            _status.text = "Hold Interact to revive your teammate (5 seconds, restores 60% HP)";
             return;
         }
-        _status.text = "Phối hợp, né đòn và kích hoạt cơ chế";
+        _status.text = "Coordinate, dodge attacks, and activate the arena mechanism";
+    }
+
+    private void CacheCombatControllers()
+    {
+        _phaseController ??= Object.FindFirstObjectByType<BossPhaseController>();
+        _runeManager ??= Object.FindFirstObjectByType<RuneManager>();
+        _sealManager ??= Object.FindFirstObjectByType<SealManager>();
+        _stunController ??= Object.FindFirstObjectByType<BossStunController>();
+        _coreController ??= Object.FindFirstObjectByType<BossCoreController>();
+        _dualCoreController ??= Object.FindFirstObjectByType<DualCoreInteractionController>();
+        _dualRuneChallenge ??= Object.FindFirstObjectByType<DualRuneChallengeController>();
+        _defeatController ??= Object.FindFirstObjectByType<BossDefeatController>();
+    }
+
+    private bool IsLocalReviveMessageActive()
+    {
+        if (_respawn == null || NetworkManager.Singleton == null) return false;
+
+        ulong localId = NetworkManager.Singleton.LocalClientId;
+        return _respawn.CountdownTarget == localId ||
+               _respawn.Reviver == localId ||
+               _respawn.ReviveTarget == localId ||
+               (_respawn.TryGetLocalReviveCandidate(out ulong targetId) && targetId != NoClient);
+    }
+
+    private void PresentCombatGuidance()
+    {
+        _objective.text = GetPhaseObjective();
+        _status.text = GetCombatInstruction();
+    }
+
+    private string GetPhaseObjective()
+    {
+        if (_defeatController != null && _defeatController.IsDefeated)
+            return "Objective complete";
+
+        return _phaseController?.CurrentPhase switch
+        {
+            BossCombatPhase.PhaseOne => "Phase 1. Break the defense.",
+            BossCombatPhase.PhaseTwo => "Phase 2. The Guardian is enraged.",
+            BossCombatPhase.PhaseThree => "Phase 3. Complete the Diamond challenge.",
+            _ => "Use the arena mechanism to defeat the boss."
+        };
+    }
+
+    private string GetCombatInstruction()
+    {
+        if (_defeatController != null && _defeatController.IsDefeated)
+            return "The exit is open. Both players can proceed to the Exit Door.";
+
+        if (_coreController != null && _coreController.State == BossCoreState.Exposed)
+        {
+            if (_dualCoreController != null && _dualCoreController.PendingPointId >= 0)
+                return "One Core Point is active. Your teammate should activate the other Core Point now.";
+
+            return "The boss is stunned. Both players should activate the two Core Points together.";
+        }
+
+        if (_stunController != null && _stunController.IsStunned)
+            return "The boss is stunned. Move to the Core and prepare a coordinated strike.";
+
+        if (_phaseController != null &&
+            _phaseController.CurrentPhase == BossCombatPhase.PhaseThree &&
+            _dualRuneChallenge != null &&
+            !_dualRuneChallenge.IsChallengeComplete)
+        {
+            int chargedRunes = CountRunes(RuneState.Charged);
+            return chargedRunes == 0
+                ? "Guide a Shockwave through both Diamonds at nearly the same time."
+                : "One Diamond is charged. Guide a Shockwave through the other Diamond now.";
+        }
+
+        if (CountSeals(SealState.Ready) > 0)
+            return "A Diamond is charged. Go to the matching Seal and press Interact.";
+
+        if (CountSeals(SealState.Active) > 0)
+            return "One Seal is active. Your teammate should activate the remaining Seal.";
+
+        if (CountRunes(RuneState.Charged) > 0)
+            return "A Diamond is charged. Quickly reach the matching Seal.";
+
+        return "Dodge the boss attacks and guide a Shockwave through a Diamond to charge it.";
+    }
+
+    private int CountRunes(RuneState state)
+    {
+        if (_runeManager == null || _runeManager.Runes == null) return 0;
+
+        int count = 0;
+        foreach (RuneController rune in _runeManager.Runes)
+            if (rune != null && rune.State == state) count++;
+        return count;
+    }
+
+    private int CountSeals(SealState state)
+    {
+        if (_sealManager == null || _sealManager.Seals == null) return 0;
+
+        int count = 0;
+        foreach (SealController seal in _sealManager.Seals)
+            if (seal != null && seal.State == state) count++;
+        return count;
     }
 
     private static RectTransform CreateRect(Transform parent, string name)

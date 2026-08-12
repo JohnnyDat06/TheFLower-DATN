@@ -17,8 +17,6 @@ public sealed class BossArenaReferences : MonoBehaviour
     [SerializeField] private Transform _sealB;
     [SerializeField] private Transform _runeA;
     [SerializeField] private Transform _runeB;
-    [SerializeField] private Transform _runeC;
-    [SerializeField] private Transform _runeD;
     [SerializeField] private Transform _corePointA;
     [SerializeField] private Transform _corePointB;
     [SerializeField] private Transform _exitDoor;
@@ -72,8 +70,6 @@ public sealed class BossArenaReferences : MonoBehaviour
         DrawMarker(_sealB, Color.yellow);
         DrawMarker(_runeA, Color.cyan);
         DrawMarker(_runeB, Color.cyan);
-        DrawMarker(_runeC, Color.cyan);
-        DrawMarker(_runeD, Color.cyan);
         DrawMarker(_corePointA, Color.magenta);
         DrawMarker(_corePointB, Color.magenta);
         DrawMarker(_exitDoor, Color.green);

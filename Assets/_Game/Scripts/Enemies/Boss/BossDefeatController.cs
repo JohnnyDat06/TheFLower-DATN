@@ -43,8 +43,10 @@ public sealed class BossDefeatController : MonoBehaviour
 
     private void HandleCoreHit()
     {
+        // The Phase 2 hit transitions the encounter into Phase 3. Check the final
+        // Core Hit count as well, otherwise that transition can be mistaken for defeat.
         if (_debugIsDefeated || _phaseController == null ||
-            _phaseController.CurrentPhase != BossCombatPhase.PhaseThree)
+            !_phaseController.HasReachedFinalCoreHit)
             return;
 
         DefeatBoss();

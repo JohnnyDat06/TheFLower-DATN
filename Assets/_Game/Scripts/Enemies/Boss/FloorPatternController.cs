@@ -179,7 +179,10 @@ public sealed class FloorPatternController : MonoBehaviour
         if (tiles != null)
         {
             foreach (FloorTile tile in tiles)
-                if (tile != null) outerRadius = Mathf.Max(outerRadius, Vector3.Distance(transform.position, tile.WorldCenter));
+            {
+                if (!IsStandingTile(tile)) continue;
+                outerRadius = Mathf.Max(outerRadius, Vector3.Distance(transform.position, tile.WorldCenter));
+            }
         }
 
         Vector3 centre = transform.position + Vector3.up * (_heightOffset + _earthquakeSurfaceLift);
@@ -234,7 +237,9 @@ public sealed class FloorPatternController : MonoBehaviour
         int validTileCount = 0;
         foreach (FloorTile tile in tiles)
         {
-            if (tile == null) continue;
+            // Fallen tiles are inactive below the arena. Including their bounds lowers
+            // the warning plane beneath the remaining floor, leaving it visible only in holes.
+            if (!IsStandingTile(tile)) continue;
 
             Vector3 centre = tile.WorldCenter;
             minX = Mathf.Min(minX, centre.x);
@@ -257,6 +262,12 @@ public sealed class FloorPatternController : MonoBehaviour
         // Unity Plane is 10 by 10 world units at unit scale.
         _earthquakeArea.transform.localScale = new Vector3(width / 10f, 1f, depth / 10f);
     }
+
+    /// <summary>Returns true only for a tile that can still visually support the Earthquake warning.</summary>
+    private static bool IsStandingTile(FloorTile tile) =>
+        tile != null &&
+        tile.gameObject.activeInHierarchy &&
+        tile.State != FloorTileState.Fall;
 
     private void SetTelegraphVisible(bool isVisible)
     {

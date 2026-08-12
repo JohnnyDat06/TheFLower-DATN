@@ -77,7 +77,9 @@ public sealed class SealManager : MonoBehaviour
 
     private void RefreshSealReferences()
     {
-        if (_seals == null || _seals.Length == 0)
+        // A deleted Seal leaves a null slot in Unity's serialized array. Rebuild it so
+        // the network state keeps the same compact order on Host and Client.
+        if (_seals == null || _seals.Length == 0 || Array.Exists(_seals, seal => seal == null))
             _seals = GetComponentsInChildren<SealController>(true);
     }
 

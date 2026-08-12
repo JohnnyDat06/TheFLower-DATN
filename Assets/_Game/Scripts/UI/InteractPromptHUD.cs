@@ -24,10 +24,10 @@ public class InteractPromptHUD : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _actionLabel;
 
     [Header("Positioning")]
-    [Tooltip("Offset thêm (tính theo đơn vị World) để Prompt nổi lên phía trên Interactable.")]
+    [Tooltip("Offset in world space above the selected interactable.")]
     [SerializeField] private Vector3 _worldOffset = new Vector3(0f, 1.5f, 0f);
 
-    [Tooltip("Offset pixel bổ sung sau khi đã convert sang Screen Space.")]
+    [Tooltip("Additional screen-space offset after projecting the interactable to the HUD.")]
     [SerializeField] private Vector2 _screenOffset = new Vector2(0f, 20f);
 
     [Header("Font Sizes")]
@@ -46,8 +46,8 @@ public class InteractPromptHUD : MonoBehaviour
     [SerializeField] private InputIconMap _iconProvider;
 
     private IInteractable _currentTarget;
-    private Transform     _currentTargetTransform;
-    private Camera        _mainCamera;
+    private Transform _currentTargetTransform;
+    private Camera _mainCamera;
     private Canvas        _parentCanvas;
     private float _lastCanvasScale = -1f;
 
@@ -62,6 +62,7 @@ public class InteractPromptHUD : MonoBehaviour
         if (panel != null)
         {
             panel.anchorMin = panel.anchorMax = new Vector2(0.5f, 0.5f);
+            panel.pivot = new Vector2(0.5f, 0.5f);
             panel.anchoredPosition = Vector2.zero;
             panel.sizeDelta = new Vector2(190f, 72f);
             panel.localScale = GetPromptScale();
@@ -102,6 +103,7 @@ public class InteractPromptHUD : MonoBehaviour
         EventBus.OnInputBindingChanged       += RefreshKeyLabel;
         EventBus.OnInputDeviceChanged        += OnDeviceChanged;
         EventBus.OnAccessibilityChanged      += RefreshFontSize;
+        Canvas.willRenderCanvases             += TrackPromptForCanvasRender;
 
         RefreshKeyLabel();
         RefreshFontSize();
@@ -114,6 +116,7 @@ public class InteractPromptHUD : MonoBehaviour
         EventBus.OnInputBindingChanged       -= RefreshKeyLabel;
         EventBus.OnInputDeviceChanged        -= OnDeviceChanged;
         EventBus.OnAccessibilityChanged      -= RefreshFontSize;
+        Canvas.willRenderCanvases             -= TrackPromptForCanvasRender;
 
         SetVisible(false);
     }
@@ -121,14 +124,6 @@ public class InteractPromptHUD : MonoBehaviour
     private void LateUpdate()
     {
         RefreshPromptScale();
-        if (_currentTarget == null || _currentTargetTransform == null) return;
-        if (_mainCamera == null)
-        {
-            _mainCamera = Camera.main;
-            return;
-        }
-
-        TrackWorldPosition();
     }
 
     // ─── Event Handlers ───────────────────────────────────────────────────────
@@ -152,50 +147,40 @@ public class InteractPromptHUD : MonoBehaviour
         SetVisible(false);
     }
 
-    // ─── World → Screen Tracking ──────────────────────────────────────────────
+    private void TrackPromptForCanvasRender()
+    {
+        if (_currentTarget == null || _currentTargetTransform == null) return;
+        if (_mainCamera == null || !_mainCamera.isActiveAndEnabled)
+            _mainCamera = Camera.main;
+        if (_mainCamera == null) return;
+
+        TrackWorldPosition();
+    }
 
     private void TrackWorldPosition()
     {
-        if (_currentTargetTransform == null) return;
-        
-        // Chuyển tọa độ World 3D (trên đầu Interactable) → tọa độ Viewport → RectTransform
-        Vector3 worldPos   = _currentTargetTransform.position + _worldOffset;
-        Vector3 screenPos  = _mainCamera.WorldToScreenPoint(worldPos);
-
-        // Nếu vật sau lưng camera thì ẩn đi
-        if (screenPos.z < 0f)
+        Vector3 screenPoint = _mainCamera.WorldToScreenPoint(_currentTargetTransform.position + _worldOffset);
+        if (screenPoint.z <= 0f)
         {
             SetVisible(false);
             return;
         }
 
-        SetVisible(true);
+        if (_parentCanvas == null || _promptPanel == null) return;
 
-        // Chuyển Screen Position sang Canvas Local Position
-        if (_parentCanvas != null && _parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
-        {
-            _promptPanel.position = new Vector3(
-                screenPos.x + _screenOffset.x,
-                screenPos.y + _screenOffset.y,
-                0f
-            );
-        }
-        else if (_parentCanvas != null)
-        {
-            // Camera Space / World Space canvas — dùng RectTransformUtility
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                _parentCanvas.GetComponent<RectTransform>(),
-                screenPos,
-                _parentCanvas.worldCamera,
-                out Vector2 localPoint
-            );
-            _promptPanel.localPosition = new Vector3(
-                localPoint.x + _screenOffset.x,
-                localPoint.y + _screenOffset.y,
-                0f
-            );
-        }
+        Camera canvasCamera = _parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+            ? null
+            : _parentCanvas.worldCamera != null ? _parentCanvas.worldCamera : _mainCamera;
+        RectTransform canvasRect = _parentCanvas.GetComponent<RectTransform>();
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screenPoint, canvasCamera, out Vector2 targetPosition))
+            return;
+
+        targetPosition += _screenOffset;
+        _promptPanel.anchoredPosition = targetPosition;
+        SetVisible(true);
     }
+
+    // ─── World → Screen Tracking ──────────────────────────────────────────────
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 

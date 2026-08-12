@@ -32,6 +32,11 @@ public sealed class BossPhaseController : MonoBehaviour
     /// <summary>Total valid Core Hits recorded by the authoritative encounter.</summary>
     public int CoreHitCount => _debugCoreHitCount;
 
+    /// <summary>True only after the third, final Core Hit has been recorded during Phase 3.</summary>
+    public bool HasReachedFinalCoreHit =>
+        _debugCurrentPhase == BossCombatPhase.PhaseThree &&
+        _debugCoreHitCount >= _phaseData.MaxCoreHealth;
+
     /// <summary>True when combat attacks are manually advanced with the V key for local testing.</summary>
     public bool IsDebugManualAttackMode => _debugManualAttackMode;
 

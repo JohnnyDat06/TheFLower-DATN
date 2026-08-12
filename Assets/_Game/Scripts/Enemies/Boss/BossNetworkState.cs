@@ -244,9 +244,9 @@ public sealed class BossNetworkState : NetworkBehaviour
         };
 
         _attackSnapshot.Value = BuildServerAttackSnapshot();
-        SynchronizeStateList(_runeStates, _runes.Length, index => (byte)_runes[index].State);
-        SynchronizeStateList(_sealStates, _seals.Length, index => (byte)_seals[index].State);
-        SynchronizeStateList(_floorTileStates, _floorTiles.Length, index => (byte)_floorTiles[index].State);
+        SynchronizeStateList(_runeStates, _runes, rune => (byte)rune.State);
+        SynchronizeStateList(_sealStates, _seals, seal => (byte)seal.State);
+        SynchronizeStateList(_floorTileStates, _floorTiles, floorTile => (byte)floorTile.State);
     }
 
     private BossAttackNetworkSnapshot BuildServerAttackSnapshot()
@@ -549,22 +549,41 @@ public sealed class BossNetworkState : NetworkBehaviour
                point.ServerInteractionDistance;
     }
 
-    private static void SynchronizeStateList(
+    /// <summary>
+    /// Copies live scene-object states to a NetworkList while ignoring destroyed references.
+    /// This keeps an old serialized array from crashing synchronization after a designer removes an object.
+    /// </summary>
+    private static void SynchronizeStateList<TComponent>(
         NetworkList<byte> networkList,
-        int stateCount,
-        Func<int, byte> readState)
+        TComponent[] components,
+        Func<TComponent, byte> readState)
+        where TComponent : UnityEngine.Object
     {
-        if (networkList.Count != stateCount)
+        int liveComponentCount = 0;
+        if (components != null)
+        {
+            foreach (TComponent component in components)
+                if (component != null) liveComponentCount++;
+        }
+
+        if (networkList.Count != liveComponentCount)
         {
             networkList.Clear();
-            for (int index = 0; index < stateCount; index++) networkList.Add(readState(index));
+            if (components == null) return;
+            foreach (TComponent component in components)
+                if (component != null) networkList.Add(readState(component));
             return;
         }
 
-        for (int index = 0; index < stateCount; index++)
+        if (components == null) return;
+        int stateIndex = 0;
+        foreach (TComponent component in components)
         {
-            byte state = readState(index);
-            if (networkList[index] != state) networkList[index] = state;
+            if (component == null) continue;
+
+            byte state = readState(component);
+            if (networkList[stateIndex] != state) networkList[stateIndex] = state;
+            stateIndex++;
         }
     }
 

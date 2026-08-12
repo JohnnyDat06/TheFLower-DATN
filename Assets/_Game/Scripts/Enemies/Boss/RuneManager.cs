@@ -51,7 +51,9 @@ public sealed class RuneManager : MonoBehaviour
 
     private void RefreshRuneReferences()
     {
-        if (_runes == null || _runes.Length == 0)
+        // A deleted Rune leaves a null slot in Unity's serialized array. Rebuild it so
+        // the network state always uses only the Runes that still exist in this arena.
+        if (_runes == null || _runes.Length == 0 || Array.Exists(_runes, rune => rune == null))
             _runes = GetComponentsInChildren<RuneController>(true);
     }
 
