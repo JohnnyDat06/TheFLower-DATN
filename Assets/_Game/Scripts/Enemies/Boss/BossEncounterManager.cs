@@ -28,6 +28,8 @@ public sealed class BossEncounterManager : NetworkBehaviour
     public EncounterState State => _state.Value;
     public SOBossEncounterConfig Config => _config;
     public bool IsActive => _state.Value == EncounterState.Active;
+    /// <summary>True from the first boss intro through wipe recovery, until the boss is defeated.</summary>
+    public bool HasEncounterStarted => _state.Value is EncounterState.Intro or EncounterState.Active or EncounterState.WipeReset;
 
     private void Awake()
     {
@@ -58,8 +60,31 @@ public sealed class BossEncounterManager : NetworkBehaviour
     public void RegisterPlayerEntry(ulong clientId)
     {
         if (!IsServer || _state.Value != EncounterState.WaitingForPlayers) return;
-        _playersInEntry.Add(clientId);
-        if (_playersInEntry.Count >= RequiredPlayerCount()) StartCoroutine(BeginEncounterRoutine());
+        if (!_playersInEntry.Add(clientId)) return;
+
+        int requiredPlayers = RequiredPlayerCount();
+        Debug.Log($"[BossEncounterManager] Player {clientId} entered EnterBoss. {_playersInEntry.Count}/{requiredPlayers} ready.", this);
+        if (_playersInEntry.Count >= requiredPlayers) StartCoroutine(BeginEncounterRoutine());
+    }
+
+    /// <summary>Routes an owner-local EnterBoss trigger to the authoritative Host.</summary>
+    public void RequestPlayerEntry(ulong clientId)
+    {
+        if (!IsSpawned || NetworkManager.Singleton == null) return;
+        if (IsServer)
+        {
+            RegisterPlayerEntry(clientId);
+            return;
+        }
+
+        if (NetworkManager.Singleton.LocalClientId != clientId) return;
+        RequestPlayerEntryRpc();
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void RequestPlayerEntryRpc(RpcParams rpcParams = default)
+    {
+        RegisterPlayerEntry(rpcParams.Receive.SenderClientId);
     }
 
     /// <summary>Registers players placed at the boss-room spawn points by PlayerSpawner.</summary>
@@ -105,9 +130,14 @@ public sealed class BossEncounterManager : NetworkBehaviour
     {
         if (_state.Value != EncounterState.WaitingForPlayers) yield break;
         _state.Value = EncounterState.Intro;
+        Debug.Log("[BossEncounterManager] Both players entered EnterBoss. Boss intro started.", this);
         SetDoorsClosed(true);
         yield return new WaitForSeconds(_config != null ? _config.IntroDuration : 2f);
-        if (!_resetInProgress) _state.Value = EncounterState.Active;
+        if (!_resetInProgress)
+        {
+            _state.Value = EncounterState.Active;
+            Debug.Log("[BossEncounterManager] Boss encounter is Active.", this);
+        }
     }
 
     private IEnumerator WipeRoutine()
@@ -143,11 +173,10 @@ public sealed class BossEncounterManager : NetworkBehaviour
                 Debug.LogError($"[BossEncounterManager] Wipe reset did not revive owner {client.ClientId}; teleport was not confirmed.");
         }
 
-        _playersInEntry.Clear();
-        _state.Value = EncounterState.WaitingForPlayers;
-        SetDoorsClosed(false);
-        RegisterSpawnedPlayersServer();
         _resetInProgress = false;
+        SetDoorsClosed(true);
+        _state.Value = EncounterState.Active;
+        Debug.Log("[BossEncounterManager] Both players revived. Boss encounter resumed without leaving boss mode.", this);
     }
 
     private void ResetTargets()

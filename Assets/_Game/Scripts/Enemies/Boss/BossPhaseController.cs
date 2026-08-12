@@ -87,6 +87,9 @@ public sealed class BossPhaseController : MonoBehaviour
 
     private void Update()
     {
+        if (BossEncounterManager.Instance == null || !BossEncounterManager.Instance.IsActive)
+            return;
+
         if (_debugCurrentPhase == BossCombatPhase.PhaseThree ||
             _bossController == null ||
             _stunController == null ||

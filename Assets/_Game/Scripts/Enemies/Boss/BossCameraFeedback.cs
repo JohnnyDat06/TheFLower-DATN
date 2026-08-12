@@ -19,6 +19,7 @@ public sealed class BossCameraFeedback : MonoBehaviour
     [SerializeField] private Vector3 _cameraPositionOffset;
 
     private BossDefeatController _defeatController;
+    private BossEncounterManager _encounterManager;
     private FloorTileManager _floorTileManager;
     private CinemachineCamera _topDownCamera;
     private CameraManager _cameraManager;
@@ -34,6 +35,7 @@ public sealed class BossCameraFeedback : MonoBehaviour
     private void Awake()
     {
         _defeatController = GetComponent<BossDefeatController>();
+        ResolveEncounterManager();
         _floorTileManager = GetComponent<FloorTileManager>();
     }
 
@@ -46,6 +48,8 @@ public sealed class BossCameraFeedback : MonoBehaviour
     {
         if (_cameraManager == null || _topDownCamera == null) return;
 
+        ResolveEncounterManager();
+
         ApplyCameraSettingsIfChanged();
 
         if (_defeatController != null && _defeatController.IsDefeated)
@@ -54,6 +58,14 @@ public sealed class BossCameraFeedback : MonoBehaviour
 
             _restoredPlayerCamera = true;
             _cameraManager.SwitchCamera(CameraPreset.ThirdPerson);
+            return;
+        }
+
+        bool shouldUseTopDown = _encounterManager != null && _encounterManager.HasEncounterStarted;
+        if (!shouldUseTopDown)
+        {
+            if (_cameraManager.CurrentPreset == CameraPreset.BossTopDown)
+                _cameraManager.SwitchCamera(CameraPreset.ThirdPerson);
             return;
         }
 
@@ -93,12 +105,26 @@ public sealed class BossCameraFeedback : MonoBehaviour
             _restoredPlayerCamera = true;
             _cameraManager.SwitchCamera(CameraPreset.ThirdPerson);
         }
-        else
+        else if (_encounterManager != null && _encounterManager.HasEncounterStarted)
         {
             _cameraManager.SwitchCamera(CameraPreset.BossTopDown);
         }
+        else
+        {
+            _cameraManager.SwitchCamera(CameraPreset.ThirdPerson);
+        }
 
         _initializeRoutine = null;
+    }
+
+    /// <summary>Finds the network encounter object, which is authored separately from BossArena_Architecture.</summary>
+    private void ResolveEncounterManager()
+    {
+        if (_encounterManager != null) return;
+
+        _encounterManager = BossEncounterManager.Instance;
+        if (_encounterManager == null)
+            _encounterManager = FindFirstObjectByType<BossEncounterManager>();
     }
 
     private void CreateTopDownCamera()

@@ -9,7 +9,12 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
     private const ulong NoClient = ulong.MaxValue;
 
     [SerializeField] private BossEncounterManager _encounter;
+    [Tooltip("Seconds removed from the dead player's respawn countdown for each valid Interact press.")]
+    [SerializeField, Min(0.05f)] private float _secondsReducedPerPress = 0.35f;
+    [Tooltip("Minimum server-side interval between accepted Interact presses to prevent RPC flooding.")]
+    [SerializeField, Min(0.02f)] private float _minimumPressInterval = 0.08f;
     private readonly Dictionary<ulong, Coroutine> _pendingRespawns = new();
+    private readonly Dictionary<ulong, float> _lastCountdownPressTimes = new();
     private Coroutine _reviveRoutine;
 
     private readonly NetworkVariable<ulong> _countdownTarget = new(NoClient);
@@ -44,7 +49,9 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsClient || !IsSpawned || _encounter == null || !_encounter.IsActive) return;
+        if (!IsClient || !IsSpawned || _encounter == null ||
+            _encounter.State == BossEncounterManager.EncounterState.Victory)
+            return;
         MonitorLocalReviveInput();
     }
 
@@ -58,9 +65,9 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
             return;
         }
 
-        // A single-player auto-respawn belongs only to active combat. Full-party wipe
-        // detection above must also work during Intro after an earlier retry.
-        if (!_encounter.IsActive) return;
+        // DeadZones also exist on the approach to EnterBoss. A single player must
+        // still recover there even though combat has not entered Active yet.
+        if (_encounter.State == BossEncounterManager.EncounterState.Victory) return;
 
         if (_pendingRespawns.ContainsKey(clientId)) return;
         _pendingRespawns[clientId] = StartCoroutine(AutoRespawnRoutine(clientId));
@@ -69,12 +76,11 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
     private IEnumerator AutoRespawnRoutine(ulong clientId)
     {
         _countdownTarget.Value = clientId;
-        float remaining = _encounter.Config != null ? _encounter.Config.AutoRespawnDelay : 10f;
-        while (remaining > 0f)
+        _countdownRemaining.Value = _encounter.Config != null ? _encounter.Config.AutoRespawnDelay : 10f;
+        while (_countdownRemaining.Value > 0f)
         {
-            _countdownRemaining.Value = remaining;
             yield return new WaitForSeconds(0.1f);
-            remaining -= 0.1f;
+            _countdownRemaining.Value = Mathf.Max(0f, _countdownRemaining.Value - 0.1f);
         }
 
         if (TryGetPlayerHealth(clientId, out NetworkObject playerObject, out PlayerHealth health) && health.IsDead)
@@ -107,6 +113,22 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
 
         _pendingRespawns.Remove(clientId);
         ClearCountdownServer(clientId);
+    }
+
+    /// <summary>Lets the dead owner shorten only their own active respawn countdown.</summary>
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
+    private void ReduceCountdownRpc(ulong playerId, RpcParams rpcParams = default)
+    {
+        if (rpcParams.Receive.SenderClientId != playerId || _countdownTarget.Value != playerId) return;
+        if (!TryGetPlayerHealth(playerId, out _, out PlayerHealth health) || !health.IsDead) return;
+
+        float now = Time.unscaledTime;
+        if (_lastCountdownPressTimes.TryGetValue(playerId, out float lastPressTime) &&
+            now - lastPressTime < _minimumPressInterval)
+            return;
+
+        _lastCountdownPressTimes[playerId] = now;
+        _countdownRemaining.Value = Mathf.Max(0f, _countdownRemaining.Value - _secondsReducedPerPress);
     }
 
     [ServerRpc(RequireOwnership = false)]
@@ -170,9 +192,16 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
         if (NetworkManager.Singleton?.LocalClient?.PlayerObject == null) return;
         NetworkObject localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
         if (!localPlayer.TryGetComponent<PlayerInputHandler>(out var input) ||
-            !localPlayer.TryGetComponent<PlayerHealth>(out var localHealth) || localHealth.IsDead) return;
+            !localPlayer.TryGetComponent<PlayerHealth>(out var localHealth)) return;
 
         ulong localId = NetworkManager.Singleton.LocalClientId;
+        if (localHealth.IsDead)
+        {
+            if (_countdownTarget.Value == localId && input.InteractPressed)
+                ReduceCountdownRpc(localId);
+            return;
+        }
+
         if (_reviver.Value == localId && !input.InteractHeld)
         {
             CancelReviveServerRpc();
@@ -229,10 +258,12 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
         if (!_pendingRespawns.TryGetValue(clientId, out Coroutine routine)) return;
         if (routine != null) StopCoroutine(routine);
         _pendingRespawns.Remove(clientId);
+        _lastCountdownPressTimes.Remove(clientId);
     }
 
     private void ClearCountdownServer(ulong clientId)
     {
+        _lastCountdownPressTimes.Remove(clientId);
         if (_countdownTarget.Value != clientId) return;
         _countdownTarget.Value = NoClient;
         _countdownRemaining.Value = 0f;
@@ -252,6 +283,7 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
         if (!IsServer) return;
         foreach (Coroutine routine in _pendingRespawns.Values) if (routine != null) StopCoroutine(routine);
         _pendingRespawns.Clear();
+        _lastCountdownPressTimes.Clear();
         CancelReviveServer();
         _countdownTarget.Value = NoClient;
         _countdownRemaining.Value = 0f;

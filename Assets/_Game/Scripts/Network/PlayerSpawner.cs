@@ -228,7 +228,8 @@ namespace Game.Network
                     }
                 }
 
-                BossEncounterManager.Instance?.RegisterSpawnedPlayersServer();
+                // The authored EnterBoss trigger starts the encounter. Spawning in the
+                // scene must not switch cameras or wake the boss before players reach it.
             }
 
             SynchronizePlayersToAliveState(clientIds);

@@ -126,6 +126,8 @@ public sealed class BossEncounterHUD : MonoBehaviour
         }
 
         _root.alpha = 1f;
+        if (TryPresentLocalDownedStatus()) return;
+
         switch (_encounter.State)
         {
             case BossEncounterManager.EncounterState.WaitingForPlayers:
@@ -185,6 +187,18 @@ public sealed class BossEncounterHUD : MonoBehaviour
             return;
         }
         _status.text = "Coordinate, dodge attacks, and activate the arena mechanism";
+    }
+
+    private bool TryPresentLocalDownedStatus()
+    {
+        if (_respawn == null || NetworkManager.Singleton == null ||
+            _respawn.CountdownTarget != NetworkManager.Singleton.LocalClientId)
+            return false;
+
+        _objective.text = "You have fallen";
+        _status.text = $"Spam E to respawn faster. Respawning in {_respawn.CountdownRemaining:0.0} seconds.";
+        _progress.fillAmount = 0f;
+        return true;
     }
 
     private void CacheCombatControllers()

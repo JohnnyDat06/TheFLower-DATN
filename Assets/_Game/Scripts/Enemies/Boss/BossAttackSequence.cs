@@ -27,6 +27,9 @@ public sealed class BossAttackSequence : MonoBehaviour
 
     private void Update()
     {
+        if (BossEncounterManager.Instance == null || !BossEncounterManager.Instance.IsActive)
+            return;
+
         if (_phaseController == null || _phaseController.CurrentPhase != BossCombatPhase.PhaseThree ||
             (_stunController != null && _stunController.IsStunned))
             return;

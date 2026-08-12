@@ -3,6 +3,8 @@ using UnityEngine;
 /// <summary>Plays local Cat Sphinx feedback through the project's pooled AudioManager on Host and Client.</summary>
 public sealed class BossSFXController : MonoBehaviour
 {
+    [Tooltip("Looping battle music that starts when the EnterBoss encounter becomes Active and stops after Boss Defeat.")]
+    [SerializeField] private SOAudioClip _battleBossMusic;
     [Tooltip("Am bao truoc khi vung do tan cong cua Boss xuat hien.")]
     [SerializeField] private SOAudioClip _telegraphSfx;
     [Tooltip("Am va cham nang khi Boss dap xuong san.")]
@@ -31,6 +33,7 @@ public sealed class BossSFXController : MonoBehaviour
     private BossCoreController _coreController;
     private BossPhaseController _phaseController;
     private BossDefeatController _defeatController;
+    private BossEncounterManager _encounterManager;
     private FloorPatternController _floorPatternController;
     private RuneController[] _runes;
     private SealController[] _seals;
@@ -40,6 +43,7 @@ public sealed class BossSFXController : MonoBehaviour
     private bool _wasDefeated;
     private BossCoreState _previousCoreState;
     private int _previousCoreHitCount;
+    private AudioSource _battleMusicSource;
 
     private void Awake()
     {
@@ -48,6 +52,7 @@ public sealed class BossSFXController : MonoBehaviour
         _coreController = GetComponent<BossCoreController>();
         _phaseController = GetComponent<BossPhaseController>();
         _defeatController = GetComponent<BossDefeatController>();
+        ResolveEncounterManager();
         _floorPatternController = GetComponent<FloorPatternController>();
         _runes = GetComponent<RuneManager>()?.Runes;
         _seals = GetComponent<SealManager>()?.Seals;
@@ -65,10 +70,13 @@ public sealed class BossSFXController : MonoBehaviour
     {
         ShockwaveController.ShockwaveVisualSpawned -= HandleShockwaveSpawned;
         UnsubscribeStateEvents();
+        StopBattleMusic();
     }
 
     private void Update()
     {
+        UpdateBattleMusic();
+
         bool isTelegraphActive = _floorPatternController != null && _floorPatternController.HasActiveTelegraph;
         if (isTelegraphActive && !_wasTelegraphActive) Play(_telegraphSfx);
         _wasTelegraphActive = isTelegraphActive;
@@ -89,6 +97,44 @@ public sealed class BossSFXController : MonoBehaviour
         bool isDefeated = _defeatController != null && _defeatController.IsDefeated;
         if (isDefeated && !_wasDefeated) Play(_defeatSfx);
         _wasDefeated = isDefeated;
+    }
+
+    private void UpdateBattleMusic()
+    {
+        ResolveEncounterManager();
+
+        bool isDefeated = _defeatController != null && _defeatController.IsDefeated;
+        if (isDefeated)
+        {
+            StopBattleMusic();
+            return;
+        }
+
+        if (_battleMusicSource != null || _encounterManager == null || !_encounterManager.IsActive ||
+            _battleBossMusic == null)
+            return;
+
+        _battleMusicSource = AudioManager.Instance.PlayMusicLoop(_battleBossMusic);
+        if (_battleMusicSource != null)
+            Debug.Log("[BossSFXController] BattleBossMusic started for the active boss encounter.", this);
+    }
+
+    /// <summary>Finds the network encounter object, which is authored separately from BossArena_Architecture.</summary>
+    private void ResolveEncounterManager()
+    {
+        if (_encounterManager != null) return;
+
+        _encounterManager = BossEncounterManager.Instance;
+        if (_encounterManager == null)
+            _encounterManager = FindFirstObjectByType<BossEncounterManager>();
+    }
+
+    private void StopBattleMusic()
+    {
+        if (_battleMusicSource == null) return;
+
+        if (AudioManager.Instance != null) AudioManager.Instance.StopMusic(_battleMusicSource);
+        _battleMusicSource = null;
     }
 
     private void CaptureInitialState()

@@ -120,6 +120,28 @@ public class AudioManager : MonoBehaviour
         return source;
     }
 
+    /// <summary>Plays one two-dimensional looping music track using the global music-volume channel.</summary>
+    public AudioSource PlayMusicLoop(SOAudioClip config)
+    {
+        if (config == null || config.Clip == null) return null;
+
+        AudioSource source = GetAvailableSource();
+        source.spatialBlend = 0f;
+        source.clip = config.Clip;
+        source.volume = GetMusicVolume(config.Volume);
+        source.pitch = Random.Range(config.PitchMin, config.PitchMax);
+        source.loop = true;
+        _musicSources.Add(source);
+        source.Play();
+        return source;
+    }
+
+    /// <summary>Stops a managed music source and returns it to the shared audio pool.</summary>
+    public void StopMusic(AudioSource source)
+    {
+        StopSFX(source);
+    }
+
     public AudioSource PlaySFXLoop(SOAudioClip config)
     {
         if (config == null || config.Clip == null) return null;
