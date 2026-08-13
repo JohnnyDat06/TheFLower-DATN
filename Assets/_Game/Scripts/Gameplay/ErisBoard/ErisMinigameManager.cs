@@ -58,6 +58,10 @@ public class ErisMinigameManager : NetworkBehaviour
     [Tooltip("Báº­t Ä‘á»ƒ camera tá»± zoom gáº§n hÆ¡n khi bÃ n cá» Ä‘Æ°á»£c thu nhá». Táº¯t náº¿u camera bá»‹ quÃ¡ gáº§n hoáº·c dÃ­nh tráº§n.")]
     [SerializeField] private bool _scaleCameraWithBoard = false;
 
+    [Header("Hiển thị quân cờ")]
+    [Tooltip("Tỷ lệ bề rộng tối đa của model so với bề rộng ô. 0.9 = model được phóng gần đầy ô nhưng vẫn chừa viền an toàn.")]
+    [SerializeField, Range(0.5f, 0.98f)] private float _pieceTileFillRatio = 0.9f;
+
     [Header("Hiá»‡u á»©ng háº¡ Ã´ theo máº·t Ä‘áº¥t")]
     [SerializeField, Min(0f)] private float _tileDropHeight = 0.45f;
     [SerializeField, Min(0.01f)] private float _tileDropDuration = 0.7f;
@@ -190,6 +194,8 @@ public class ErisMinigameManager : NetworkBehaviour
     
     // XÃ³a NetworkObjectReference vÃ¬ ta sáº½ dÃ¹ng Object cá»¥c bá»™ Ä‘á»ƒ Ä‘áº£m báº£o 100% hiá»ƒn thá»‹
     private GameObject _spawnedPieceInstance;
+    private Transform _pieceVisualRoot;
+    private Renderer[] _pieceRenderers = System.Array.Empty<Renderer>();
     private Dictionary<ulong, Vector3> _lockedPositions = new Dictionary<ulong, Vector3>();
     private Dictionary<ulong, Quaternion> _lockedRotations = new Dictionary<ulong, Quaternion>();
     
@@ -1272,7 +1278,8 @@ public class ErisMinigameManager : NetworkBehaviour
             ReadyToPlayServerRpc();
     }
 
-    private void SpawnChessPieceLocal() {
+    private void SpawnChessPieceLocal()
+    {
         if (_spawnedPieceInstance != null) return;
         
         Vector2Int gridPos = _pieceGridPos.Value.x != -1 ? _pieceGridPos.Value : new Vector2Int(0,0);
@@ -1281,9 +1288,134 @@ public class ErisMinigameManager : NetworkBehaviour
         
         // KHÃ”NG gÃ¡n 'transform' lÃ m cha á»Ÿ Ä‘Ã¢y vÃ¬ Prefab cÃ³ thá»ƒ chá»©a NetworkObject, gÃ¢y crash náº¿u gÃ¡n lÃ m con cá»§a má»™t NetworkObject khÃ¡c mÃ  khÃ´ng Spawn
         _spawnedPieceInstance = Instantiate(ChessPiecePrefab, worldStart, boardAnchor.rotation);
-        _spawnedPieceInstance.transform.localScale *= GetBoardScale();
+        ApplyPiecePose(worldStart, gridPos);
+        ConfigurePieceVisual();
         
         Debug.Log($"[ErisMinigameManager] ChessPiece spawned LOCALLY for client {NetworkManager.Singleton.LocalClientId}");
+    }
+
+    /// <summary>
+    /// Keeps the gameplay root exactly on the tile centre and offsets only the
+    /// imported visual child. This prevents model pivots changing movement.
+    /// </summary>
+    private void ConfigurePieceVisual()
+    {
+        if (_spawnedPieceInstance == null) return;
+
+        Transform pieceTransform = _spawnedPieceInstance.transform;
+        Renderer[] allRenderers = _spawnedPieceInstance.GetComponentsInChildren<Renderer>(true);
+        List<Renderer> childRenderers = new List<Renderer>();
+        foreach (Renderer renderer in allRenderers)
+        {
+            if (renderer != null && renderer.transform != pieceTransform)
+                childRenderers.Add(renderer);
+        }
+
+        // The current prefab contains the lamp mesh on the root and as a child.
+        // Render only the child; the root remains the exact logical tile centre.
+        if (childRenderers.Count > 0)
+        {
+            foreach (Renderer renderer in allRenderers)
+            {
+                if (renderer != null && renderer.transform == pieceTransform)
+                    renderer.enabled = false;
+            }
+            _pieceRenderers = childRenderers.ToArray();
+        }
+        else
+        {
+            _pieceRenderers = allRenderers;
+        }
+
+        if (_pieceRenderers.Length == 0) return;
+
+        GameObject visualRootObject = new GameObject("RuntimeVisualRoot");
+        _pieceVisualRoot = visualRootObject.transform;
+        _pieceVisualRoot.SetParent(pieceTransform, false);
+
+        HashSet<Transform> visualBranches = new HashSet<Transform>();
+        foreach (Renderer renderer in _pieceRenderers)
+        {
+            Transform branch = GetDirectChild(pieceTransform, renderer.transform);
+            if (branch != null) visualBranches.Add(branch);
+        }
+        foreach (Transform branch in visualBranches)
+            branch.SetParent(_pieceVisualRoot, true);
+
+        float currentWidth = GetVisualWidthOnPiecePlane(pieceTransform);
+        if (currentWidth > 0.0001f)
+        {
+            float targetWidth = GetBoardScale() * Mathf.Clamp(_pieceTileFillRatio, 0.5f, 0.98f);
+            _pieceVisualRoot.localScale = Vector3.one * (targetWidth / currentWidth);
+        }
+
+        AlignVisualRootToPiecePivot(pieceTransform);
+    }
+
+    private void ApplyPiecePose(Vector3 tileTarget, Vector2Int gridPos)
+    {
+        if (_spawnedPieceInstance == null) return;
+        _spawnedPieceInstance.transform.SetPositionAndRotation(tileTarget, GetPieceWorldRotation(gridPos));
+    }
+
+    private static Transform GetDirectChild(Transform root, Transform descendant)
+    {
+        if (root == null || descendant == null || descendant == root) return null;
+        Transform current = descendant;
+        while (current.parent != null && current.parent != root)
+            current = current.parent;
+        return current.parent == root ? current : null;
+    }
+
+    private float GetVisualWidthOnPiecePlane(Transform pieceTransform)
+    {
+        return TryGetVisualLocalBounds(pieceTransform, out Bounds localBounds)
+            ? Mathf.Max(localBounds.size.x, localBounds.size.z)
+            : 0f;
+    }
+
+    private void AlignVisualRootToPiecePivot(Transform pieceTransform)
+    {
+        if (_pieceVisualRoot == null || !TryGetVisualLocalBounds(pieceTransform, out Bounds localBounds)) return;
+
+        // Put the model footprint at local X/Z zero and its lowest point at Y zero.
+        // The gameplay root can now sit exactly on the tile surface.
+        _pieceVisualRoot.localPosition -= new Vector3(
+            localBounds.center.x,
+            localBounds.min.y,
+            localBounds.center.z);
+    }
+
+    private bool TryGetVisualLocalBounds(Transform pieceTransform, out Bounds localBounds)
+    {
+        localBounds = default;
+        bool hasPoint = false;
+        foreach (Renderer renderer in _pieceRenderers)
+        {
+            if (renderer == null || !renderer.enabled) continue;
+
+            Bounds rendererBounds = renderer.localBounds;
+            Vector3 center = rendererBounds.center;
+            Vector3 extents = rendererBounds.extents;
+            for (int x = -1; x <= 1; x += 2)
+            for (int y = -1; y <= 1; y += 2)
+            for (int z = -1; z <= 1; z += 2)
+            {
+                Vector3 rendererCorner = center + Vector3.Scale(extents, new Vector3(x, y, z));
+                Vector3 worldCorner = renderer.transform.TransformPoint(rendererCorner);
+                Vector3 pieceLocalCorner = pieceTransform.InverseTransformPoint(worldCorner);
+                if (!hasPoint)
+                {
+                    localBounds = new Bounds(pieceLocalCorner, Vector3.zero);
+                    hasPoint = true;
+                }
+                else
+                {
+                    localBounds.Encapsulate(pieceLocalCorner);
+                }
+            }
+        }
+        return hasPoint;
     }
 
     private void Update() {
@@ -1356,6 +1488,7 @@ public class ErisMinigameManager : NetworkBehaviour
             if (marker != null)
                 selectedCamera.transform.SetPositionAndRotation(marker.position, marker.rotation);
         }
+
     }
 
     private void ToggleDebugPath(bool show) {
@@ -1581,8 +1714,7 @@ public class ErisMinigameManager : NetworkBehaviour
 
         // SNAP ngay láº­p tá»©c náº¿u lÃ  vá»‹ trÃ­ khá»Ÿi Ä‘áº§u
         if (_currentStepIndex.Value == 0 || _isReseting) {
-            _spawnedPieceInstance.transform.position = target;
-            _spawnedPieceInstance.transform.rotation = GetPieceWorldRotation(gridPos);
+            ApplyPiecePose(target, gridPos);
         }
 
         if (!_isReseting && _currentStepIndex.Value > 0 && _moveFeedback != null) { try { _moveFeedback.PlayFeedbacks(_spawnedPieceInstance.transform.position); } catch {} }
@@ -1594,7 +1726,8 @@ public class ErisMinigameManager : NetworkBehaviour
             _spawnedPieceInstance.transform.rotation = Quaternion.Lerp(_spawnedPieceInstance.transform.rotation, GetPieceWorldRotation(gridPos), Time.deltaTime * 10f);
             yield return null;
         }
-        if (_spawnedPieceInstance != null) _spawnedPieceInstance.transform.position = target;
+        if (_spawnedPieceInstance != null)
+            ApplyPiecePose(target, gridPos);
         if (!_isReseting && _currentStepIndex.Value > 0) AudioManager.Instance.PlaySFX(CorrectMoveSFX, _spawnedPieceInstance.transform.position);
         HighlightPossibleMoves(gridPos);
         yield return new WaitForSeconds(0.05f); if (!_isReseting) _canInput = true;
@@ -1861,12 +1994,47 @@ public class ErisMinigameManager : NetworkBehaviour
     {
         ErisTile tile = GetTileAt(gridPos);
         if (tile != null)
-            return tile.transform.position + tile.transform.up * (0.5f * GetBoardScale());
+            return GetTileTopCenter(tile);
 
         Transform boardAnchor = GetBoardAnchor();
         Vector3 boardPosition = boardAnchor.TransformPoint(GetTileLocalOffset(gridPos.x, gridPos.y));
         SampleTileSurface(boardPosition, boardAnchor, out Vector3 landingPosition, out Quaternion landingRotation, out _);
-        return landingPosition + landingRotation * Vector3.up * (0.5f * GetBoardScale());
+        return landingPosition + landingRotation * Vector3.up * GetTileHalfThickness();
+    }
+
+    private Vector3 GetTileTopCenter(ErisTile tile)
+    {
+        Renderer tileRenderer = tile != null ? tile.GetComponent<Renderer>() : null;
+        if (tileRenderer != null)
+        {
+            Bounds localBounds = tileRenderer.localBounds;
+            Vector3 localTopCenter = new Vector3(
+                localBounds.center.x,
+                localBounds.max.y,
+                localBounds.center.z);
+            return tileRenderer.transform.TransformPoint(localTopCenter);
+        }
+
+        return tile != null
+            ? tile.transform.position + tile.transform.up * GetTileHalfThickness()
+            : Vector3.zero;
+    }
+
+    private float GetTileHalfThickness()
+    {
+        if (TilePrefab != null)
+        {
+            Renderer tileRenderer = TilePrefab.GetComponent<Renderer>();
+            if (tileRenderer != null)
+            {
+                float prefabHalfThickness = Mathf.Abs(
+                    tileRenderer.localBounds.extents.y * tileRenderer.transform.localScale.y);
+                return prefabHalfThickness * GetBoardScale();
+            }
+        }
+
+        // ErisTile uses a unit cube with prefab Y scale 0.1.
+        return 0.05f * GetBoardScale();
     }
 
     private Quaternion GetPieceWorldRotation(Vector2Int gridPos)
@@ -2271,6 +2439,8 @@ public class ErisMinigameManager : NetworkBehaviour
 
         if (_spawnedPieceInstance != null) Destroy(_spawnedPieceInstance);
         _spawnedPieceInstance = null;
+        _pieceVisualRoot = null;
+        _pieceRenderers = System.Array.Empty<Renderer>();
 
         ErisTile[] existingTiles = GetComponentsInChildren<ErisTile>();
         foreach (var tile in existingTiles)
