@@ -691,17 +691,19 @@ namespace Game.UI.LobbyAuto
             if (manager == null || !manager.IsHost) return false;
 
             int lobbyPlayerCount = _currentLobby?.Players?.Count ?? 0;
-            int connectedPlayerCount = manager.ConnectedClientsIds.Count;
-
             if (lobbyPlayerCount < 1 || lobbyPlayerCount > 2) return false;
-            if (connectedPlayerCount != lobbyPlayerCount) return false;
 
             bool ugsAllReady = _currentLobby?.Players != null && _currentLobby.Players.Count > 0 && _currentLobby.Players.All(IsReady);
+            if (ugsAllReady) return true;
 
+            // Keep the NGO fallback for legacy/test sessions where UGS ready
+            // metadata is unavailable.
+            int connectedPlayerCount = manager.ConnectedClientsIds.Count;
             var playerStates = UnityEngine.Object.FindObjectsByType<LobbyPlayerState>(FindObjectsSortMode.None);
-            bool netcodeAllReady = playerStates.Length > 0 && playerStates.Length == connectedPlayerCount && playerStates.All(p => p.IsReady.Value);
-
-            return ugsAllReady || netcodeAllReady;
+            return connectedPlayerCount == lobbyPlayerCount
+                && playerStates.Length > 0
+                && playerStates.Length == connectedPlayerCount
+                && playerStates.All(player => player.IsReady.Value);
         }
 
         private void UpdatePlayerCard(int index, LobbyPlayerModel player)
