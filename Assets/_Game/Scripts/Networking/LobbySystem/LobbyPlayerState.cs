@@ -10,10 +10,13 @@ namespace Networking.LobbySystem
     [DefaultExecutionOrder(1000)]
     public class LobbyPlayerState : NetworkBehaviour
     {
+        public const int AvailableCharacterCount = 10;
+        public const int DefaultCharacterIndex = 0;
+
         public NetworkVariable<FixedString32Bytes> PlayerName = new NetworkVariable<FixedString32Bytes>("", 
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-        public NetworkVariable<int> CharacterIndex = new NetworkVariable<int>(0, 
+        public NetworkVariable<int> CharacterIndex = new NetworkVariable<int>(DefaultCharacterIndex,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
         public NetworkVariable<bool> IsReady = new NetworkVariable<bool>(false,
@@ -22,7 +25,6 @@ namespace Networking.LobbySystem
         public NetworkVariable<int> LobbySlotIndex = new NetworkVariable<int>(-1, 
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
 
-        private static int _localSelectedCharacterIndex = 0;
         private bool _isInLobby = true;
 
         private bool IsTestMode() 
@@ -57,12 +59,11 @@ namespace Networking.LobbySystem
                 }
             }
 
-            CharacterIndex.OnValueChanged += (oldVal, newVal) => ApplyVisual(newVal);
+            CharacterIndex.OnValueChanged += HandleCharacterChanged;
+            ApplyVisual(CharacterIndex.Value);
 
             if (IsOwner)
             {
-                SetCharacterServerRpc(_localSelectedCharacterIndex);
-                
                 // Set tên: Nếu có Lobby thì lấy từ Lobby, nếu không thì đặt tên Tester
                 if (!IsTestMode() && !string.IsNullOrEmpty(LobbyManager.Instance.GetPlayerName())) {
                     SetPlayerNameServerRpc(LobbyManager.Instance.GetPlayerName());
@@ -78,6 +79,8 @@ namespace Networking.LobbySystem
             {
                 NetworkManager.Singleton.SceneManager.OnLoadComplete -= HandleLoadComplete;
             }
+
+            CharacterIndex.OnValueChanged -= HandleCharacterChanged;
         }
 
         private void HandleLoadComplete(ulong clientId, string sceneName, UnityEngine.SceneManagement.LoadSceneMode loadSceneMode)
@@ -214,10 +217,31 @@ namespace Networking.LobbySystem
         {
             var clientIds = NetworkManager.Singleton.ConnectedClientsIds.ToList();
             int slot = clientIds.IndexOf(OwnerClientId);
-            if (slot != -1) LobbySlotIndex.Value = slot;
+            if (slot != -1)
+            {
+                LobbySlotIndex.Value = slot;
+                CharacterIndex.Value = FindAvailableCharacterIndex(slot);
+            }
             
             // Xếp chỗ đứng 1 LẦN DUY NHẤT trên Server/Client, không chạy trong Update
             FixPositionOnce();
+        }
+
+        private int FindAvailableCharacterIndex(int preferredIndex)
+        {
+            HashSet<int> occupied = FindObjectsByType<LobbyPlayerState>(FindObjectsSortMode.None)
+                .Where(player => player != this)
+                .Select(player => player.CharacterIndex.Value)
+                .ToHashSet();
+
+            int preferred = Mathf.Clamp(preferredIndex, 0, AvailableCharacterCount - 1);
+            for (int offset = 0; offset < AvailableCharacterCount; offset++)
+            {
+                int candidate = (preferred + offset) % AvailableCharacterCount;
+                if (!occupied.Contains(candidate)) return candidate;
+            }
+
+            return DefaultCharacterIndex;
         }
 
         private void FixPositionOnce()
@@ -241,12 +265,22 @@ namespace Networking.LobbySystem
 
         // Đã XÓA HOÀN TOÀN hàm Update() và FixPosition() lặp đi lặp lại để trị dứt điểm lỗi giật lag vị trí.
 
+        private void HandleCharacterChanged(int oldIndex, int newIndex)
+        {
+            ApplyVisual(newIndex);
+        }
+
         private void ApplyVisual(int index)
         {
+            LobbyCharacterAppearance appearance = GetComponent<LobbyCharacterAppearance>();
+            if (appearance == null)
+                appearance = gameObject.AddComponent<LobbyCharacterAppearance>();
+            if (appearance.ApplyCharacter(index)) return;
+
             Transform male = FindDeepChild(transform, "MeshMale");
             Transform female = FindDeepChild(transform, "MeshFemale");
-            if (male != null) male.gameObject.SetActive(index == 0);
-            if (female != null) female.gameObject.SetActive(index == 1);
+            if (male != null) male.gameObject.SetActive(index == DefaultCharacterIndex);
+            if (female != null) female.gameObject.SetActive(index != DefaultCharacterIndex);
         }
 
         private Transform FindDeepChild(Transform parent, string name)
@@ -261,6 +295,16 @@ namespace Networking.LobbySystem
 
         [ServerRpc] public void ToggleReadyServerRpc() => IsReady.Value = !IsReady.Value;
         [ServerRpc] public void SetPlayerNameServerRpc(string name) => PlayerName.Value = name;
-        [ServerRpc] public void SetCharacterServerRpc(int index) => CharacterIndex.Value = index;
+        [ServerRpc]
+        public void SetCharacterServerRpc(int index)
+        {
+            if (index < 0 || index >= AvailableCharacterCount) return;
+
+            LobbyPlayerState[] players = FindObjectsByType<LobbyPlayerState>(FindObjectsSortMode.None);
+            bool alreadyTaken = players.Any(player => player != this && player.CharacterIndex.Value == index);
+            if (alreadyTaken) return;
+
+            CharacterIndex.Value = index;
+        }
     }
 }

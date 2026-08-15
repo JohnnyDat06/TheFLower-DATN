@@ -1,4 +1,5 @@
 using UnityEngine;
+using Networking.LobbySystem;
 
 /// <summary>
 /// PlayerAnimator — Class duy nhất được phép chạm vào Unity Animator.
@@ -19,6 +20,7 @@ public class PlayerAnimator : MonoBehaviour
     private PlayerStateType _previousState;
     private float _fallingTimer;
     private bool _wasJumping; 
+    private LobbyCharacterAppearance _appearance;
 
     // Animator Parameter Name Constants — dùng hash để tránh typo, tăng hiệu năng
     private static readonly int SPEED                = Animator.StringToHash("Speed");
@@ -53,6 +55,7 @@ public class PlayerAnimator : MonoBehaviour
 
         _controller = GetComponent<PlayerController>();
         _rb = GetComponent<Rigidbody>();
+        _appearance = GetComponent<LobbyCharacterAppearance>();
 
         _previousState = PlayerStateType.Idle;
     }
@@ -139,31 +142,31 @@ public class PlayerAnimator : MonoBehaviour
         {
             switch (currentState)
             {
-                case PlayerStateType.DoubleJump:   _animator.SetTrigger(DJUMP_TRIGGER);        break;
-                case PlayerStateType.WallJump:     _animator.SetTrigger(WJUMP_TRIGGER);        break;
-                case PlayerStateType.GroundSlide:  _animator.SetTrigger(SLIDE_TRIGGER);        break;
+                case PlayerStateType.DoubleJump:   SetTrigger(DJUMP_TRIGGER);        break;
+                case PlayerStateType.WallJump:     SetTrigger(WJUMP_TRIGGER);        break;
+                case PlayerStateType.GroundSlide:  SetTrigger(SLIDE_TRIGGER);        break;
                 case PlayerStateType.Respawning:   
-                    _animator.SetTrigger(RESPAWN_TRIGGER);
+                    SetTrigger(RESPAWN_TRIGGER);
                     _animator.SetBool(PLAYER_DEATH, false); // Đảm bảo thoát trạng thái chết
                     break;
-                case PlayerStateType.DashInAir:    _animator.SetTrigger(DASH_TRIGGER);         break;
-                case PlayerStateType.DashOnGround: _animator.SetTrigger(GROUND_DASH_TRIGGER);  break;
+                case PlayerStateType.DashInAir:    SetTrigger(DASH_TRIGGER);         break;
+                case PlayerStateType.DashOnGround: SetTrigger(GROUND_DASH_TRIGGER);  break;
 
                 case PlayerStateType.Attack1:
-                    _animator.SetTrigger(ATTACK1_TRIGGER);
+                    SetTrigger(ATTACK1_TRIGGER);
                     _animator.SetInteger(ATTACK_COUNT, 1);
                     break;
                 case PlayerStateType.Attack2:
-                    _animator.SetTrigger(ATTACK2_TRIGGER);
+                    SetTrigger(ATTACK2_TRIGGER);
                     _animator.SetInteger(ATTACK_COUNT, 2);
                     break;
                 case PlayerStateType.Attack3:
-                    _animator.SetTrigger(ATTACK3_TRIGGER);
+                    SetTrigger(ATTACK3_TRIGGER);
                     _animator.SetInteger(ATTACK_COUNT, 3);
                     break;
 
                 case PlayerStateType.Knockback:
-                    _animator.SetTrigger(PLAYER_HIT);
+                    SetTrigger(PLAYER_HIT);
                     break;
 
                 case PlayerStateType.Idle:
@@ -191,12 +194,19 @@ public class PlayerAnimator : MonoBehaviour
         PlayerStateType.CrouchIdle or PlayerStateType.CrouchWalk or
         PlayerStateType.GroundSlide or PlayerStateType.DashOnGround;
 
+    private void SetTrigger(int parameterHash)
+    {
+        _animator.SetTrigger(parameterHash);
+        if (_appearance == null) _appearance = GetComponent<LobbyCharacterAppearance>();
+        _appearance?.MirrorTrigger(parameterHash);
+    }
+
     /// <summary>Kích hoạt animation trúng đòn (Player_Hit).</summary>
     public void TriggerHit()
     {
         if (_animator != null)
         {
-            _animator.SetTrigger(PLAYER_HIT);
+            SetTrigger(PLAYER_HIT);
         }
     }
 }
