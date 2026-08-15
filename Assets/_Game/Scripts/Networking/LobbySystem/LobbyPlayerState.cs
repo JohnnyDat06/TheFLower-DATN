@@ -91,7 +91,19 @@ namespace Networking.LobbySystem
             _isInLobby = sceneName.Contains("Lobby");
             
             // NẾU LÀ TEST MODE: BỎ QUA VIỆC KHÓA NHÂN VẬT KHI LOAD SCENE
-            if (IsTestMode()) return;
+            // Test Mode has no authenticated lobby client to report readiness to
+            // PlayerSpawner. Teleport the local player through the legacy fallback
+            // instead of returning while it is still at the lobby position.
+            if (IsTestMode())
+            {
+                if (!_isInLobby && IsOwner)
+                {
+                    StartCoroutine(InitialSpawnCoroutine(0.1f));
+                    StartCoroutine(FinalEnforcementCoroutine());
+                }
+
+                return;
+            }
 
             // KHÓA VẬT LÝ NGAY LẬP TỨC ĐỂ CHỜ TELEPORT
             if (TryGetComponent<Rigidbody>(out var rb)) {
