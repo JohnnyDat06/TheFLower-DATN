@@ -5,6 +5,7 @@ using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Game.UI.LobbyAuto;
 
 /// <summary>
 /// Builds the two-player jungle health HUD at runtime and presents replicated PlayerHealth data.
@@ -21,6 +22,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         public RectTransform Fill;
         public TMP_Text Name;
         public TMP_Text Value;
+        public Image Portrait;
         public PlayerHealth Health;
         public LobbyPlayerState State;
         public float Target = 1f;
@@ -33,7 +35,11 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
     private PlayerBar _host;
     private PlayerBar _client;
     private RectTransform _canvasRect;
+    private LobbyRuntimeConfig _lobbyConfig;
+    private Sprite[] _portraitSprites;
     private float _searchTimer;
+
+    private static Sprite s_circleSprite;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InstallForGameplayScenes()
@@ -94,6 +100,9 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
 
     private void BuildInterface()
     {
+        _lobbyConfig = Resources.Load<LobbyRuntimeConfig>("UI/LobbyRuntimeConfig");
+        _portraitSprites = new Sprite[LobbyPlayerState.AvailableCharacterCount];
+
         GameObject canvasObject = new("PlayerHealthHUD_Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         canvasObject.transform.SetParent(transform, false);
         Canvas canvas = canvasObject.GetComponent<Canvas>();
@@ -127,6 +136,8 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         frame.sprite = frameSprite;
         frame.preserveAspect = true;
         frame.raycastTarget = false;
+
+        Image portrait = CreatePortrait(root, host);
 
         RectTransform slotArea = CreateRect(root, "HealthFillArea");
         slotArea.anchorMin = Vector2.zero;
@@ -162,8 +173,33 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
             Fill = fill,
             Name = name,
             Value = value,
+            Portrait = portrait,
             FillFromRight = !host
         };
+    }
+
+    private static Image CreatePortrait(RectTransform parent, bool host)
+    {
+        RectTransform portraitRoot = CreateRect(parent, "CharacterPortrait");
+        Vector2 anchor = host ? new Vector2(0f, 0.5f) : new Vector2(1f, 0.5f);
+        portraitRoot.anchorMin = anchor;
+        portraitRoot.anchorMax = anchor;
+        portraitRoot.pivot = new Vector2(host ? 0f : 1f, 0.5f);
+        portraitRoot.anchoredPosition = host ? new Vector2(5f, 0f) : new Vector2(-5f, 0f);
+        portraitRoot.sizeDelta = new Vector2(100f, 100f);
+
+        Image maskGraphic = portraitRoot.gameObject.AddComponent<Image>();
+        maskGraphic.sprite = GetCircleSprite();
+        maskGraphic.color = Color.white;
+        maskGraphic.raycastTarget = false;
+
+        Mask mask = portraitRoot.gameObject.AddComponent<Mask>();
+        mask.showMaskGraphic = false;
+
+        Image portrait = CreateImage(portraitRoot, "PortraitImage", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, Color.white);
+        portrait.preserveAspect = true;
+        portrait.raycastTarget = false;
+        return portrait;
     }
 
     private void RefreshPlayerBindings()
@@ -194,10 +230,13 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
             bar.State = state;
             if (bar == _host) state.PlayerName.OnValueChanged += HandleHostNameChanged;
             else state.PlayerName.OnValueChanged += HandleClientNameChanged;
+            if (bar == _host) state.CharacterIndex.OnValueChanged += HandleHostCharacterChanged;
+            else state.CharacterIndex.OnValueChanged += HandleClientCharacterChanged;
             string playerName = state.PlayerName.Value.ToString();
             if (string.IsNullOrWhiteSpace(playerName) && health.IsOwner)
                 playerName = PlayerPrefs.GetString(Constants.PlayerPrefsKeys.PLAYER_NAME, string.Empty);
             SetPlayerName(bar, playerName);
+            SetPortrait(bar, state.CharacterIndex.Value);
         }
         else
         {
@@ -205,6 +244,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
                 ? PlayerPrefs.GetString(Constants.PlayerPrefsKeys.PLAYER_NAME, string.Empty)
                 : string.Empty;
             SetPlayerName(bar, playerName);
+            SetPortrait(bar, LobbyPlayerState.DefaultCharacterIndex);
         }
 
         UpdateValueText(bar);
@@ -220,6 +260,8 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         {
             if (bar == _host) bar.State.PlayerName.OnValueChanged -= HandleHostNameChanged;
             else bar.State.PlayerName.OnValueChanged -= HandleClientNameChanged;
+            if (bar == _host) bar.State.CharacterIndex.OnValueChanged -= HandleHostCharacterChanged;
+            else bar.State.CharacterIndex.OnValueChanged -= HandleClientCharacterChanged;
         }
 
         bar.Health = null;
@@ -249,6 +291,8 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
     private void HandleClientHealthChanged(float current, float max) => SetHealth(_client, current, max);
     private void HandleHostNameChanged(FixedString32Bytes oldValue, FixedString32Bytes newValue) => SetPlayerName(_host, newValue.ToString());
     private void HandleClientNameChanged(FixedString32Bytes oldValue, FixedString32Bytes newValue) => SetPlayerName(_client, newValue.ToString());
+    private void HandleHostCharacterChanged(int oldValue, int newValue) => SetPortrait(_host, newValue);
+    private void HandleClientCharacterChanged(int oldValue, int newValue) => SetPortrait(_client, newValue);
 
     private static void SetHealth(PlayerBar bar, float current, float max)
     {
@@ -267,6 +311,43 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         if (bar == null) return;
         string playerName = string.IsNullOrWhiteSpace(value) ? "PLAYER" : value.Trim();
         if (bar.Name != null) bar.Name.text = playerName;
+    }
+
+    private void SetPortrait(PlayerBar bar, int characterIndex)
+    {
+        if (bar?.Portrait == null) return;
+
+        Sprite portrait = GetPortraitSprite(characterIndex);
+        bar.Portrait.sprite = portrait;
+        bar.Portrait.enabled = portrait != null;
+    }
+
+    private Sprite GetPortraitSprite(int characterIndex)
+    {
+        if (_lobbyConfig?.CharacterIcons == null || _portraitSprites == null) return null;
+
+        int safeIndex = Mathf.Clamp(characterIndex, 0, LobbyPlayerState.AvailableCharacterCount - 1);
+        if (_portraitSprites[safeIndex] != null) return _portraitSprites[safeIndex];
+
+        if (safeIndex >= _lobbyConfig.CharacterIcons.Length) return null;
+        Sprite source = _lobbyConfig.CharacterIcons[safeIndex];
+        if (source == null || source.texture == null) return null;
+
+        Texture2D texture = source.texture;
+        float cropSize = Mathf.Min(texture.width, texture.height) * 0.86f;
+        float cropX = (texture.width - cropSize) * 0.5f;
+        float cropY = Mathf.Clamp(texture.height * 0.14f, 0f, texture.height - cropSize);
+        Sprite cropped = Sprite.Create(
+            texture,
+            new Rect(cropX, cropY, cropSize, cropSize),
+            new Vector2(0.5f, 0.5f),
+            source.pixelsPerUnit,
+            0,
+            SpriteMeshType.FullRect);
+        cropped.name = $"RuntimeHealthPortrait_{safeIndex:00}";
+        cropped.hideFlags = HideFlags.HideAndDontSave;
+        _portraitSprites[safeIndex] = cropped;
+        return cropped;
     }
 
     private static TMP_Text CreateHudTextBadge(RectTransform parent, string objectName, bool host, bool isName, string text)
@@ -355,6 +436,40 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         s_roundedSprite.name = "RuntimeRoundedUISprite";
         s_roundedSprite.hideFlags = HideFlags.HideAndDontSave;
         return s_roundedSprite;
+    }
+
+    private static Sprite GetCircleSprite()
+    {
+        if (s_circleSprite != null) return s_circleSprite;
+
+        const int size = 64;
+        Texture2D texture = new(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "RuntimeCircleMask",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave
+        };
+
+        Color[] pixels = new Color[size * size];
+        Vector2 center = new((size - 1f) * 0.5f, (size - 1f) * 0.5f);
+        float radius = (size - 1f) * 0.5f;
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), center);
+                float alpha = 1f - Mathf.SmoothStep(radius - 1.25f, radius + 0.25f, distance);
+                pixels[y * size + x] = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        texture.SetPixels(pixels);
+        texture.Apply(false, true);
+        s_circleSprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f);
+        s_circleSprite.name = "RuntimeCircleMask";
+        s_circleSprite.hideFlags = HideFlags.HideAndDontSave;
+        return s_circleSprite;
     }
 
     private void DisableLegacyHealthBars()
