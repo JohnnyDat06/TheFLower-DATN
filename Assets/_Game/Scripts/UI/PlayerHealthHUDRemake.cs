@@ -19,13 +19,17 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
     {
         public GameObject Root;
         public RectTransform Fill;
+        public Image Frame;
         public TMP_Text Name;
         public TMP_Text Value;
         public PlayerHealth Health;
         public LobbyPlayerState State;
+        public LobbyCharacterAppearance Appearance;
         public float Target = 1f;
         public float Displayed = 1f;
         public bool FillFromRight;
+        public bool IsHost;
+        public int DisplayedCharacterIndex = -1;
     }
 
     private static Sprite s_roundedSprite;
@@ -106,11 +110,11 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         scaler.matchWidthOrHeight = 0.5f;
 
         _canvasRect = canvasObject.GetComponent<RectTransform>();
-        _host = CreateBar(_canvasRect, true, Resources.Load<Sprite>("UI/PlayerHUD/PlayerHealthFrame_Host"));
-        _client = CreateBar(_canvasRect, false, Resources.Load<Sprite>("UI/PlayerHUD/PlayerHealthFrame_Client"));
+        _host = CreateBar(_canvasRect, true);
+        _client = CreateBar(_canvasRect, false);
     }
 
-    private static PlayerBar CreateBar(RectTransform parent, bool host, Sprite frameSprite)
+    private static PlayerBar CreateBar(RectTransform parent, bool host)
     {
         Vector2 anchor = host ? new Vector2(0f, 1f) : new Vector2(1f, 1f);
         GameObject rootObject = new(host ? "HostHealthBarRemake" : "ClientHealthBarRemake", typeof(RectTransform), typeof(CanvasGroup));
@@ -124,7 +128,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         rootObject.SetActive(false);
 
         Image frame = CreateImage(root, "Frame", Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero, Color.white);
-        frame.sprite = frameSprite;
+        frame.sprite = GetHealthFrameSprite(host, LobbyPlayerState.DefaultCharacterIndex);
         frame.preserveAspect = true;
         frame.raycastTarget = false;
 
@@ -160,9 +164,11 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         {
             Root = rootObject,
             Fill = fill,
+            Frame = frame,
             Name = name,
             Value = value,
-            FillFromRight = !host
+            FillFromRight = !host,
+            IsHost = host
         };
     }
 
@@ -177,9 +183,24 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         {
             if (!health.IsSpawned) continue;
             PlayerBar target = health.OwnerClientId == serverId ? _host : _client;
-            if (target.Health == health) continue;
+            LobbyPlayerState state = FindLobbyPlayerState(health);
+            LobbyCharacterAppearance appearance = FindLobbyCharacterAppearance(health);
+
+            // PlayerHealth can be visible one frame before LobbyPlayerState
+            // is attached/synchronised. Rebind when the state reference changes
+            // so a temporary default avatar cannot remain on the HP frame.
+            if (target.Health == health && target.State == state && target.Appearance == appearance)
+            {
+                RefreshCharacterFrame(target);
+                continue;
+            }
             Bind(target, health);
         }
+
+        // CharacterIndex may arrive before the HUD subscribes to its change event.
+        // Re-read the authoritative value so a stale frame can never remain visible.
+        RefreshCharacterFrame(_host);
+        RefreshCharacterFrame(_client);
     }
 
     private void Bind(PlayerBar bar, PlayerHealth health)
@@ -189,11 +210,15 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         bar.Health.OnHealthChanged += bar == _host ? HandleHostHealthChanged : HandleClientHealthChanged;
         bar.Target = Mathf.Clamp01(health.CurrentHealth / Mathf.Max(1f, health.MaxHealth));
         bar.Displayed = bar.Target;
-        if (health.TryGetComponent(out LobbyPlayerState state))
+        LobbyPlayerState state = FindLobbyPlayerState(health);
+        bar.Appearance = FindLobbyCharacterAppearance(health);
+        if (state != null)
         {
             bar.State = state;
             if (bar == _host) state.PlayerName.OnValueChanged += HandleHostNameChanged;
             else state.PlayerName.OnValueChanged += HandleClientNameChanged;
+            if (bar == _host) state.CharacterIndex.OnValueChanged += HandleHostCharacterChanged;
+            else state.CharacterIndex.OnValueChanged += HandleClientCharacterChanged;
             string playerName = state.PlayerName.Value.ToString();
             if (string.IsNullOrWhiteSpace(playerName) && health.IsOwner)
                 playerName = PlayerPrefs.GetString(Constants.PlayerPrefsKeys.PLAYER_NAME, string.Empty);
@@ -207,8 +232,29 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
             SetPlayerName(bar, playerName);
         }
 
+        RefreshCharacterFrame(bar);
         UpdateValueText(bar);
         bar.Root.SetActive(true);
+    }
+
+    private static LobbyPlayerState FindLobbyPlayerState(PlayerHealth health)
+    {
+        if (health == null) return null;
+        if (health.TryGetComponent(out LobbyPlayerState state)) return state;
+
+        // Keep the HUD compatible with player variants that place network state on a parent
+        // or child object instead of the same root as PlayerHealth.
+        state = health.GetComponentInParent<LobbyPlayerState>();
+        return state != null ? state : health.GetComponentInChildren<LobbyPlayerState>(true);
+    }
+
+    private static LobbyCharacterAppearance FindLobbyCharacterAppearance(PlayerHealth health)
+    {
+        if (health == null) return null;
+        if (health.TryGetComponent(out LobbyCharacterAppearance appearance)) return appearance;
+
+        appearance = health.GetComponentInParent<LobbyCharacterAppearance>();
+        return appearance != null ? appearance : health.GetComponentInChildren<LobbyCharacterAppearance>(true);
     }
 
     private void Unbind(PlayerBar bar)
@@ -220,10 +266,14 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         {
             if (bar == _host) bar.State.PlayerName.OnValueChanged -= HandleHostNameChanged;
             else bar.State.PlayerName.OnValueChanged -= HandleClientNameChanged;
+            if (bar == _host) bar.State.CharacterIndex.OnValueChanged -= HandleHostCharacterChanged;
+            else bar.State.CharacterIndex.OnValueChanged -= HandleClientCharacterChanged;
         }
 
         bar.Health = null;
         bar.State = null;
+        bar.Appearance = null;
+        bar.DisplayedCharacterIndex = -1;
         if (bar.Root != null) bar.Root.SetActive(false);
     }
 
@@ -249,6 +299,8 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
     private void HandleClientHealthChanged(float current, float max) => SetHealth(_client, current, max);
     private void HandleHostNameChanged(FixedString32Bytes oldValue, FixedString32Bytes newValue) => SetPlayerName(_host, newValue.ToString());
     private void HandleClientNameChanged(FixedString32Bytes oldValue, FixedString32Bytes newValue) => SetPlayerName(_client, newValue.ToString());
+    private void HandleHostCharacterChanged(int oldValue, int newValue) => RefreshCharacterFrame(_host);
+    private void HandleClientCharacterChanged(int oldValue, int newValue) => RefreshCharacterFrame(_client);
 
     private static void SetHealth(PlayerBar bar, float current, float max)
     {
@@ -267,6 +319,53 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         if (bar == null) return;
         string playerName = string.IsNullOrWhiteSpace(value) ? "PLAYER" : value.Trim();
         if (bar.Name != null) bar.Name.text = playerName;
+    }
+
+    private void RefreshCharacterFrame(PlayerBar bar)
+    {
+        if (bar == null) return;
+
+        if (bar.Health != null)
+            bar.Appearance = FindLobbyCharacterAppearance(bar.Health);
+
+        if (bar.State == null && bar.Appearance == null) return;
+
+        int characterIndex = bar.Appearance != null &&
+            bar.Appearance.AppliedCharacterIndex >= 0
+                ? bar.Appearance.AppliedCharacterIndex
+                : bar.State != null
+                    ? bar.State.CharacterIndex.Value
+                    : LobbyPlayerState.DefaultCharacterIndex;
+        characterIndex = Mathf.Clamp(characterIndex, 0, LobbyPlayerState.AvailableCharacterCount - 1);
+        if (bar.DisplayedCharacterIndex == characterIndex && bar.Frame?.sprite != null) return;
+
+        SetCharacterFrame(bar, characterIndex);
+    }
+
+    private static void SetCharacterFrame(PlayerBar bar, int characterIndex)
+    {
+        if (bar?.Frame == null) return;
+
+        int safeIndex = Mathf.Clamp(
+            characterIndex,
+            0,
+            LobbyPlayerState.AvailableCharacterCount - 1);
+        Sprite frame = GetHealthFrameSprite(bar.IsHost, safeIndex);
+        if (frame != null) bar.Frame.sprite = frame;
+        bar.DisplayedCharacterIndex = safeIndex;
+    }
+
+    private static Sprite GetHealthFrameSprite(bool host, int characterIndex)
+    {
+        int safeIndex = Mathf.Clamp(
+            characterIndex,
+            0,
+            LobbyPlayerState.AvailableCharacterCount - 1);
+        string side = host ? "Host" : "Client";
+        Sprite frame = Resources.Load<Sprite>($"UI/PlayerHUD/PlayerHealthFrame_{side}_{safeIndex:00}");
+        return frame != null
+            ? frame
+            : Resources.Load<Sprite>($"UI/PlayerHUD/PlayerHealthFrame_{side}");
     }
 
     private static TMP_Text CreateHudTextBadge(RectTransform parent, string objectName, bool host, bool isName, string text)

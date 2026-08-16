@@ -1,12 +1,9 @@
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.Events;
 
+// Lever uses the serialized UnityEvents inherited from InteractableBase.
 public class LeverInteractable : InteractableBase
 {
-    [Header("Lever Settings")]
-    public new UnityEvent OnDeactivated;
-
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
@@ -41,7 +38,6 @@ public class LeverInteractable : InteractableBase
 
         if (!newValue && previousValue)
         {
-            OnDeactivated?.Invoke();
             Debug.Log($"[LeverInteractable] {_interactableId} da tat dong bo tren Client/Host.");
         }
     }

@@ -20,6 +20,13 @@ namespace Networking.LobbySystem
         private GameObject _spawnedModel;
         private int _appliedIndex = -1;
 
+        /// <summary>
+        /// The character index whose model is currently rendered on this
+        /// player object. HUD code uses this after the network value arrives so
+        /// the portrait follows the actual visible model during spawn changes.
+        /// </summary>
+        public int AppliedCharacterIndex => _appliedIndex;
+
         private void Awake()
         {
             _playerAnimator = GetComponent<Animator>();

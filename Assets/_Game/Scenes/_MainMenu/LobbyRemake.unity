@@ -178,7 +178,7 @@ PrefabInstance:
     - target: {fileID: 7194502857345934626, guid: bb869fa280f1f6c4aba1eb7211ad06c6, type: 3}
       propertyPath: NetworkConfig.PlayerPrefab
       value: 
-      objectReference: {fileID: 3481858189339974571, guid: 113ebdead3eb2d24194988783070d11b, type: 3}
+      objectReference: {fileID: 6331376093302597881, guid: 99e79403467bf1d40a5938ac30009c9f, type: 3}
     - target: {fileID: 7199552909856526078, guid: bb869fa280f1f6c4aba1eb7211ad06c6, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
