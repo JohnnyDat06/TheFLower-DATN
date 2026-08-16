@@ -13,6 +13,9 @@ namespace Game.UI.LobbyAuto
         public AudioClip LobbyMusic;
         public Sprite HostPortrait;
         public Sprite ClientPortrait;
+        public Sprite[] CharacterIcons;
+        public GameObject[] CharacterModels;
+        public Material[] CharacterMaterials;
         public Sprite CreateRoomButton;
         public Sprite JoinRoomButton;
         public Sprite LobbyLogo;

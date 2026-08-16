@@ -93,6 +93,16 @@ namespace Game.UI.LobbyAuto
         private TMP_Text[] _cardRoles = new TMP_Text[2];
         private TMP_Text[] _cardStates = new TMP_Text[2];
         private Image[] _cardAvatars = new Image[2];
+        private readonly List<Button>[] _characterButtons =
+        {
+            new List<Button>(LobbyPlayerState.AvailableCharacterCount),
+            new List<Button>(LobbyPlayerState.AvailableCharacterCount)
+        };
+        private readonly Image[][] _characterButtonImages =
+        {
+            new Image[LobbyPlayerState.AvailableCharacterCount],
+            new Image[LobbyPlayerState.AvailableCharacterCount]
+        };
 
         private bool _busy;
         private bool _lifecycleEventsSubscribed;
@@ -663,11 +673,32 @@ namespace Game.UI.LobbyAuto
                 .OrderBy(player => player.Id == _currentLobby.HostId ? 0 : 1).ToList()
                 ?? new List<LobbyPlayerModel>();
 
-            string signature = string.Join("|", players.Select(player => $"{player.Id}:{GetPlayerName(player)}:{IsReady(player)}"));
+            List<LobbyPlayerState> networkPlayers = UnityEngine.Object.FindObjectsByType<LobbyPlayerState>(FindObjectsSortMode.None)
+                .OrderBy(player => player.OwnerClientId)
+                .ToList();
+            string signature = string.Join("|", players.Select((player, index) =>
+            {
+                LobbyPlayerState state = index < networkPlayers.Count ? networkPlayers[index] : null;
+                int characterIndex = state != null ? state.CharacterIndex.Value : -1;
+                return $"{player.Id}:{GetPlayerName(player)}:{IsReady(player)}:{characterIndex}";
+            }));
             if (signature != _lastRosterSignature)
             {
                 _lastRosterSignature = signature;
-                for (int i = 0; i < 2; i++) UpdatePlayerCard(i, i < players.Count ? players[i] : null);
+                for (int i = 0; i < 2; i++)
+                {
+                    LobbyPlayerState state = i < networkPlayers.Count ? networkPlayers[i] : null;
+                    UpdatePlayerCard(i, i < players.Count ? players[i] : null, state, networkPlayers);
+                }
+            }
+
+            if (networkPlayers.Count > 0)
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    LobbyPlayerState state = i < networkPlayers.Count ? networkPlayers[i] : null;
+                    UpdateCharacterButtons(i, state, networkPlayers);
+                }
             }
 
             LobbyPlayerModel local = players.FirstOrDefault(player => player.Id == _lobbyManager.GetPlayerId());
@@ -683,6 +714,31 @@ namespace Game.UI.LobbyAuto
                 ? (players.Count == 1 ? "START SOLO" : "START GAME")
                 : "READY UP TO START";
             ApplyButtonArt(_startButton, canStart ? _config?.RoomStartButton : _config?.RoomWaitingButton);
+        }
+
+        private void SelectCharacter(int index)
+        {
+            if (_busy || index < 0 || index >= LobbyPlayerState.AvailableCharacterCount) return;
+
+            LobbyPlayerState localPlayer = NetworkManager.Singleton?.LocalClient?.PlayerObject?.GetComponent<LobbyPlayerState>();
+            if (localPlayer == null || !localPlayer.IsOwner)
+            {
+                SetStatus("Your player is still connecting. Try again in a moment.", Red);
+                return;
+            }
+
+            LobbyPlayerState[] players = UnityEngine.Object.FindObjectsByType<LobbyPlayerState>(FindObjectsSortMode.None);
+            if (players.Any(player => player != localPlayer && player.CharacterIndex.Value == index))
+            {
+                SetStatus($"Chibi Monkey {index:00} is already selected", Red);
+                RefreshRoomState();
+                return;
+            }
+
+            localPlayer.SetCharacterServerRpc(index);
+            UpdateLocalAvatarPreview(localPlayer, index);
+            SetStatus($"Selected Chibi Monkey {index:00}", Teal);
+            _lastRosterSignature = null;
         }
 
         private bool CanStartJourney()
@@ -706,19 +762,69 @@ namespace Game.UI.LobbyAuto
                 && playerStates.All(player => player.IsReady.Value);
         }
 
-        private void UpdatePlayerCard(int index, LobbyPlayerModel player)
+        private void UpdatePlayerCard(int index, LobbyPlayerModel player, LobbyPlayerState state, IReadOnlyList<LobbyPlayerState> networkPlayers)
         {
             bool occupied = player != null;
             bool ready = occupied && IsReady(player);
             bool isHostPlayer = occupied && player.Id == _currentLobby.HostId;
+            int characterIndex = state != null
+                ? Mathf.Clamp(state.CharacterIndex.Value, 0, LobbyPlayerState.AvailableCharacterCount - 1)
+                : LobbyPlayerState.DefaultCharacterIndex;
             _cardBorders[index].color = ready ? Green : Red;
             _cardNames[index].text = occupied ? GetPlayerName(player) : "OPEN SLOT";
             _cardRoles[index].text = isHostPlayer ? "HOST" : occupied ? "CLIENT" : "WAITING";
-            _cardStates[index].text = ready ? "READY" : occupied ? "NOT READY" : "INVITE A FRIEND";
+            string characterName = $"MONKEY {characterIndex:00}";
+            _cardStates[index].text = ready
+                ? $"READY  ·  {characterName}"
+                : occupied ? $"NOT READY  ·  {characterName}" : "INVITE A FRIEND";
             _cardStates[index].color = ready ? Green : Red;
-            _cardAvatars[index].sprite = isHostPlayer ? _config?.HostPortrait : _config?.ClientPortrait;
+            _cardAvatars[index].sprite = GetCharacterIcon(characterIndex, isHostPlayer);
             _cardAvatars[index].color = Color.white;
             _cardAvatars[index].enabled = occupied;
+            UpdateCharacterButtons(index, state, networkPlayers);
+        }
+
+        private void UpdateCharacterButtons(int cardIndex, LobbyPlayerState state, IReadOnlyList<LobbyPlayerState> networkPlayers)
+        {
+            for (int character = 0; character < _characterButtons[cardIndex].Count; character++)
+            {
+                bool takenByOther = networkPlayers.Any(other => other != state && other.CharacterIndex.Value == character);
+                bool selectable = state != null && state.IsOwner && !takenByOther;
+                _characterButtons[cardIndex][character].interactable = !_busy && selectable;
+                Image image = _characterButtonImages[cardIndex][character];
+                if (image != null)
+                {
+                    image.color = state != null && character == state.CharacterIndex.Value
+                        ? Color.white
+                        : takenByOther ? new Color(0.34f, 0.38f, 0.40f, 0.70f) : new Color(0.72f, 0.82f, 0.80f, 0.82f);
+                }
+            }
+        }
+
+        private Sprite GetCharacterIcon(int characterIndex, bool isHostPlayer)
+        {
+            if (_config?.CharacterIcons != null && characterIndex >= 0 && characterIndex < _config.CharacterIcons.Length)
+            {
+                Sprite icon = _config.CharacterIcons[characterIndex];
+                if (icon != null) return icon;
+            }
+
+            return isHostPlayer ? _config?.HostPortrait : _config?.ClientPortrait;
+        }
+
+        private void UpdateLocalAvatarPreview(LobbyPlayerState localPlayer, int characterIndex)
+        {
+            List<LobbyPlayerState> networkPlayers = UnityEngine.Object.FindObjectsByType<LobbyPlayerState>(FindObjectsSortMode.None)
+                .OrderBy(player => player.OwnerClientId)
+                .ToList();
+            int cardIndex = networkPlayers.IndexOf(localPlayer);
+            if (cardIndex < 0 || cardIndex >= _cardAvatars.Length || _cardAvatars[cardIndex] == null) return;
+
+            bool isHostPlayer = NetworkManager.Singleton != null
+                && localPlayer.OwnerClientId == NetworkManager.ServerClientId;
+            _cardAvatars[cardIndex].sprite = GetCharacterIcon(characterIndex, isHostPlayer);
+            _cardAvatars[cardIndex].color = Color.white;
+            _cardAvatars[cardIndex].enabled = true;
         }
 
         private void RebuildRoomBrowser(IReadOnlyList<LobbyModel> rooms)
@@ -1049,6 +1155,7 @@ namespace Game.UI.LobbyAuto
             SetExplicitNavigation(_readyButton, null, null, null, _startButton);
             SetExplicitNavigation(_startButton, null, null, _readyButton, leave);
             SetExplicitNavigation(leave, null, null, _startButton, null);
+            ConfigureCharacterSelectorNavigation();
             _panelDefaultSelections[panel.gameObject] = _readyButton;
             return panel.gameObject;
         }
@@ -1431,7 +1538,7 @@ namespace Game.UI.LobbyAuto
             inner.offsetMin = new Vector2(5f, 5f);
             inner.offsetMax = new Vector2(-5f, -5f);
             inner.GetComponent<Image>().color = Panel;
-            RectTransform avatar = Rect("CharacterPortrait", inner, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -40f), new Vector2(250f, 250f), new Vector2(0.5f, 1f));
+            RectTransform avatar = Rect("CharacterPortrait", inner, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -32f), new Vector2(210f, 210f), new Vector2(0.5f, 1f));
             avatar.gameObject.AddComponent<Image>().color = new Color(0.025f, 0.06f, 0.09f, 1f);
             RectTransform portrait = Stretch(new GameObject("PortraitImage", typeof(RectTransform), typeof(Image)), avatar);
             portrait.offsetMin = new Vector2(8f, 8f);
@@ -1441,12 +1548,70 @@ namespace Game.UI.LobbyAuto
             _cardAvatars[index].preserveAspect = true;
             _cardAvatars[index].color = Color.white;
             _cardAvatars[index].enabled = false;
+            CreateCharacterSelector(inner, index);
             _cardNames[index] = CreateText(inner, "OPEN SLOT", 28f, Paper, FontStyles.Bold, TextAlignmentOptions.Center);
-            Place(_cardNames[index].rectTransform, new Vector2(0f, -312f), new Vector2(560f, 48f), new Vector2(0.5f, 1f));
+            Place(_cardNames[index].rectTransform, new Vector2(0f, -328f), new Vector2(560f, 48f), new Vector2(0.5f, 1f));
             _cardRoles[index] = CreateText(inner, index == 0 ? "HOST" : "CLIENT", 14f, Muted, FontStyles.Bold, TextAlignmentOptions.Center);
-            Place(_cardRoles[index].rectTransform, new Vector2(0f, -360f), new Vector2(400f, 28f), new Vector2(0.5f, 1f));
+            Place(_cardRoles[index].rectTransform, new Vector2(0f, -372f), new Vector2(400f, 28f), new Vector2(0.5f, 1f));
             _cardStates[index] = CreateText(inner, "NOT READY", 18f, Red, FontStyles.Bold, TextAlignmentOptions.Center);
-            Place(_cardStates[index].rectTransform, new Vector2(0f, -408f), new Vector2(420f, 38f), new Vector2(0.5f, 1f));
+            Place(_cardStates[index].rectTransform, new Vector2(0f, -414f), new Vector2(540f, 38f), new Vector2(0.5f, 1f));
+        }
+
+        private void CreateCharacterSelector(Transform parent, int cardIndex)
+        {
+            const float buttonSize = 48f;
+            const float spacing = 7f;
+            float rowWidth = LobbyPlayerState.AvailableCharacterCount * buttonSize
+                + (LobbyPlayerState.AvailableCharacterCount - 1) * spacing;
+            float startX = -rowWidth * 0.5f + buttonSize * 0.5f;
+
+            for (int characterIndex = 0; characterIndex < LobbyPlayerState.AvailableCharacterCount; characterIndex++)
+            {
+                int selectedIndex = characterIndex;
+                Button button = CreateButton(
+                    parent,
+                    characterIndex.ToString("00"),
+                    PanelSoft,
+                    new Vector2(startX + characterIndex * (buttonSize + spacing), -264f),
+                    buttonSize,
+                    buttonSize,
+                    11f);
+                Image image = button.GetComponent<Image>();
+                Sprite icon = _config?.CharacterIcons != null && characterIndex < _config.CharacterIcons.Length
+                    ? _config.CharacterIcons[characterIndex]
+                    : null;
+                if (icon != null)
+                {
+                    image.sprite = icon;
+                    image.preserveAspect = true;
+                    image.color = Color.white;
+                    TMP_Text label = button.GetComponentInChildren<TMP_Text>();
+                    if (label != null) label.gameObject.SetActive(false);
+                }
+
+                button.onClick.AddListener(() => SelectCharacter(selectedIndex));
+                _characterButtons[cardIndex].Add(button);
+                _characterButtonImages[cardIndex][characterIndex] = image;
+                SetExplicitNavigation(button, null, null,
+                    characterIndex > 0 ? _characterButtons[cardIndex][characterIndex - 1] : null,
+                    null);
+            }
+        }
+
+        private void ConfigureCharacterSelectorNavigation()
+        {
+            for (int cardIndex = 0; cardIndex < _characterButtons.Length; cardIndex++)
+            {
+                for (int characterIndex = 0; characterIndex < _characterButtons[cardIndex].Count; characterIndex++)
+                {
+                    SetExplicitNavigation(
+                        _characterButtons[cardIndex][characterIndex],
+                        null,
+                        _readyButton,
+                        characterIndex > 0 ? _characterButtons[cardIndex][characterIndex - 1] : null,
+                        characterIndex + 1 < _characterButtons[cardIndex].Count ? _characterButtons[cardIndex][characterIndex + 1] : null);
+                }
+            }
         }
 
         private void CreateHeading(Transform parent, string titleValue, string subtitleValue)
