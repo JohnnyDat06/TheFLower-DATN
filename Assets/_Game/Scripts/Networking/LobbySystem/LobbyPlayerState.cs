@@ -70,6 +70,18 @@ namespace Networking.LobbySystem
                 } else {
                     SetPlayerNameServerRpc("Tester_" + OwnerClientId);
                 }
+
+                // PlayerObjects normally survive an NGO scene load, but some
+                // NetworkManager/prefab setups recreate them in gameplay. In
+                // that case CharacterIndex starts from the prefab default and
+                // the HUD can show the wrong monkey. Restore the local choice
+                // through the server-authoritative RPC after spawning.
+                if (!_isInLobby
+                    && LobbyManager.Instance != null
+                    && LobbyManager.Instance.TryGetRememberedCharacterSelection(out int rememberedIndex))
+                {
+                    RestoreCharacterServerRpc(rememberedIndex);
+                }
             }
         }
 
@@ -316,6 +328,20 @@ namespace Networking.LobbySystem
             bool alreadyTaken = players.Any(player => player != this && player.CharacterIndex.Value == index);
             if (alreadyTaken) return;
 
+            CharacterIndex.Value = index;
+        }
+
+        /// <summary>
+        /// Restores a previously validated lobby choice after a gameplay
+        /// PlayerObject is recreated. This is intentionally separate from the
+        /// lobby picker validation: newly recreated objects can all briefly
+        /// contain the prefab default (index 0), which would incorrectly reject
+        /// the player whose real saved choice is index 0.
+        /// </summary>
+        [ServerRpc]
+        private void RestoreCharacterServerRpc(int index)
+        {
+            if (index < 0 || index >= AvailableCharacterCount) return;
             CharacterIndex.Value = index;
         }
     }

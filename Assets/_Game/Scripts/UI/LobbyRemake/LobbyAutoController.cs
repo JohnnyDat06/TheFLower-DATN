@@ -619,7 +619,8 @@ namespace Game.UI.LobbyAuto
             SetStatus(playerCount == 1
                 ? "Starting solo test journey..."
                 : "Both players ready. Starting journey...", Gold);
-            _lobbyManager.StartGame(_gameSceneName);
+            if (playerCount == 1) _lobbyManager.StartSoloGame(_gameSceneName);
+            else _lobbyManager.StartGame(_gameSceneName);
         }
 
         private async void LeaveRoom()
@@ -707,7 +708,9 @@ namespace Game.UI.LobbyAuto
             ApplyButtonArt(_readyButton, _config?.RoomReadyButton);
 
             bool isHost = NetworkManager.Singleton != null && NetworkManager.Singleton.IsHost;
-            _startButton.gameObject.SetActive(isHost);
+            bool isSoloLobbyHost = players.Count == 1 && _currentLobby != null &&
+                _currentLobby.HostId == _lobbyManager.GetPlayerId();
+            _startButton.gameObject.SetActive(isHost || isSoloLobbyHost);
             bool canStart = CanStartJourney();
             _startButton.interactable = !_busy && canStart;
             _startButtonText.text = canStart
@@ -735,6 +738,7 @@ namespace Game.UI.LobbyAuto
                 return;
             }
 
+            _lobbyManager.RememberCharacterSelection(index);
             localPlayer.SetCharacterServerRpc(index);
             UpdateLocalAvatarPreview(localPlayer, index);
             SetStatus($"Selected Chibi Monkey {index:00}", Teal);
@@ -744,10 +748,12 @@ namespace Game.UI.LobbyAuto
         private bool CanStartJourney()
         {
             NetworkManager manager = NetworkManager.Singleton;
-            if (manager == null || !manager.IsHost) return false;
-
             int lobbyPlayerCount = _currentLobby?.Players?.Count ?? 0;
             if (lobbyPlayerCount < 1 || lobbyPlayerCount > 2) return false;
+
+            bool soloLobbyHost = lobbyPlayerCount == 1 && _currentLobby != null &&
+                _currentLobby.HostId == _lobbyManager.GetPlayerId();
+            if (manager == null || (!manager.IsHost && !soloLobbyHost)) return false;
 
             bool ugsAllReady = _currentLobby?.Players != null && _currentLobby.Players.Count > 0 && _currentLobby.Players.All(IsReady);
             if (ugsAllReady) return true;

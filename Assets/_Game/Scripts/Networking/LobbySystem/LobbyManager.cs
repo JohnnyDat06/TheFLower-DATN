@@ -28,6 +28,7 @@ namespace Networking.LobbySystem
         private const string PlayerReadyKey = "PlayerReady";
         private const float PollInterval = 1.5f;
         private const float HeartbeatInterval = 15f;
+        private const ushort SoloPort = 7777;
 
         public static LobbyManager Instance { get; private set; }
         public Lobby CurrentLobby => _currentLobby;
@@ -45,6 +46,8 @@ namespace Networking.LobbySystem
         private bool _isAuthenticating;
         private bool _isJoiningRelay;
         private bool _isLeaving;
+        private bool _isStartingSolo;
+        private int _selectedCharacterIndex = -1;
         private Task _leaveTask;
         private bool _isPolling;
 
@@ -375,6 +378,106 @@ namespace Networking.LobbySystem
             StartCoroutine(StartGameWithFade(sceneName));
         }
 
+        /// <summary>
+        /// Starts a one-player session on loopback after stopping Relay. This keeps solo play
+        /// independent from an expired or invalid Relay allocation.
+        /// </summary>
+        public void StartSoloGame(string sceneName)
+        {
+            if (_isStartingSolo || !SceneLoader.CanLoadScene(sceneName)) return;
+            _isStartingSolo = true;
+            StartCoroutine(StartSoloGameRoutine(sceneName));
+        }
+
+        /// <summary>Remembers the local lobby choice across a solo host restart.</summary>
+        public void RememberCharacterSelection(int index)
+        {
+            if (index < 0 || index >= LobbyPlayerState.AvailableCharacterCount) return;
+            _selectedCharacterIndex = index;
+        }
+
+        /// <summary>
+        /// Returns the local player's last confirmed character choice.
+        /// This is kept in the persistent LobbyManager so a recreated gameplay
+        /// PlayerObject can restore the same choice on the server.
+        /// </summary>
+        public bool TryGetRememberedCharacterSelection(out int index)
+        {
+            index = _selectedCharacterIndex;
+            return index >= 0 && index < LobbyPlayerState.AvailableCharacterCount;
+        }
+
+        private IEnumerator StartSoloGameRoutine(string sceneName)
+        {
+            NetworkManager manager = NetworkManager.Singleton;
+            if (manager == null || !manager.TryGetComponent(out UnityTransport transport))
+            {
+                Debug.LogError("[LobbyManager] Cannot start solo mode because NetworkManager/UnityTransport is missing.");
+                _isStartingSolo = false;
+                yield break;
+            }
+
+            int characterIndex = GetRememberedCharacterIndex(manager);
+            if (manager.IsListening) manager.Shutdown();
+
+            float timeout = 2f;
+            while ((manager.ShutdownInProgress || manager.IsListening) && timeout > 0f)
+            {
+                timeout -= Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            if (manager.ShutdownInProgress || manager.IsListening)
+            {
+                Debug.LogError("[LobbyManager] Solo host could not restart because NetworkManager is still shutting down.");
+                _isStartingSolo = false;
+                yield break;
+            }
+
+            transport.SetConnectionData("127.0.0.1", SoloPort, "0.0.0.0");
+            if (!manager.StartHost())
+            {
+                Debug.LogError("[LobbyManager] Solo host failed to start on loopback.");
+                _isStartingSolo = false;
+                yield break;
+            }
+
+            yield return StartCoroutine(ApplySoloCharacterIndex(manager, characterIndex));
+            yield return StartCoroutine(StartGameWithFade(sceneName));
+            _isStartingSolo = false;
+        }
+
+        private IEnumerator ApplySoloCharacterIndex(NetworkManager manager, int characterIndex)
+        {
+            float timeout = 2f;
+            while (timeout > 0f)
+            {
+                NetworkObject playerObject = manager.LocalClient?.PlayerObject;
+                if (playerObject != null && playerObject.IsSpawned &&
+                    playerObject.TryGetComponent(out LobbyPlayerState state))
+                {
+                    state.CharacterIndex.Value = characterIndex;
+                    yield break;
+                }
+
+                timeout -= Time.unscaledDeltaTime;
+                yield return null;
+            }
+
+            Debug.LogWarning("[LobbyManager] Solo host started, but the local player was not ready to receive its character choice.");
+        }
+
+        private int GetRememberedCharacterIndex(NetworkManager manager)
+        {
+            if (_selectedCharacterIndex >= 0) return _selectedCharacterIndex;
+
+            NetworkObject playerObject = manager.LocalClient?.PlayerObject;
+            if (playerObject != null && playerObject.TryGetComponent(out LobbyPlayerState state))
+                return Mathf.Clamp(state.CharacterIndex.Value, 0, LobbyPlayerState.AvailableCharacterCount - 1);
+
+            return LobbyPlayerState.DefaultCharacterIndex;
+        }
+
         public string GetPlayerId() => _playerId;
         public string GetPlayerName() => _playerName;
 
@@ -523,6 +626,7 @@ namespace Networking.LobbySystem
             _isJoiningRelay = false;
             _isPolling = false;
             _isLeaving = false;
+            _selectedCharacterIndex = -1;
             if (hadLobby) OnLobbyLeft?.Invoke();
         }
 
@@ -530,6 +634,7 @@ namespace Networking.LobbySystem
         {
             bool hadLobby = _currentLobby != null;
             _currentLobby = null;
+            _selectedCharacterIndex = -1;
             if (hadLobby) OnLobbyLeft?.Invoke();
         }
 
