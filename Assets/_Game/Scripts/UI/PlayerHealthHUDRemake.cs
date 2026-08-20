@@ -3,6 +3,7 @@ using TMPro;
 using Unity.Collections;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -12,6 +13,9 @@ using UnityEngine.UI;
 /// </summary>
 public sealed class PlayerHealthHUDRemake : MonoBehaviour
 {
+    public static bool IsGameplayHudVisible { get; private set; } = true;
+    public static event System.Action<bool> GameplayHudVisibilityChanged;
+
     private const float SearchInterval = 0.35f;
     private const float SmoothSpeed = 8f;
 
@@ -38,6 +42,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
     private PlayerBar _client;
     private RectTransform _canvasRect;
     private float _searchTimer;
+    private bool _healthBarsVisible = true;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InstallForGameplayScenes()
@@ -74,10 +79,13 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         DisableLegacyHealthController();
         DisableLegacyHealthBars();
         BuildInterface();
+        SetGameplayHudVisibility(true);
     }
 
     private void Update()
     {
+        HandleHealthBarVisibilityToggle();
+
         _searchTimer -= Time.unscaledDeltaTime;
         if (_searchTimer <= 0f)
         {
@@ -88,6 +96,33 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
         AnimateBar(_host);
         AnimateBar(_client);
 
+    }
+
+    /// <summary>
+    /// Toggles only the local health-bar presentation. This intentionally bypasses
+    /// PlayerInputHandler so movement and gameplay input remain untouched.
+    /// </summary>
+    private void HandleHealthBarVisibilityToggle()
+    {
+        if (Keyboard.current == null || !Keyboard.current.f1Key.wasPressedThisFrame) return;
+
+        _healthBarsVisible = !_healthBarsVisible;
+        SetHealthBarVisibility(_host);
+        SetHealthBarVisibility(_client);
+        SetGameplayHudVisibility(_healthBarsVisible);
+    }
+
+    private static void SetGameplayHudVisibility(bool visible)
+    {
+        IsGameplayHudVisible = visible;
+        GameplayHudVisibilityChanged?.Invoke(visible);
+    }
+
+    private void SetHealthBarVisibility(PlayerBar bar)
+    {
+        if (bar?.Root == null) return;
+
+        bar.Root.SetActive(_healthBarsVisible && bar.Health != null && bar.Health.IsSpawned);
     }
 
     private void OnDestroy()
@@ -234,7 +269,7 @@ public sealed class PlayerHealthHUDRemake : MonoBehaviour
 
         RefreshCharacterFrame(bar);
         UpdateValueText(bar);
-        bar.Root.SetActive(true);
+        SetHealthBarVisibility(bar);
     }
 
     private static LobbyPlayerState FindLobbyPlayerState(PlayerHealth health)

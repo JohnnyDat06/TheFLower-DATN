@@ -45,6 +45,7 @@ public sealed class NetworkChatController : MonoBehaviour
     private bool _collapsed;
     private bool _announcedConnection;
     private bool _isTyping;
+    private bool _uiVisible = true;
     private PlayerInputHandler _inputHandler;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -60,6 +61,8 @@ public sealed class NetworkChatController : MonoBehaviour
         BuildInterface();
         SetCollapsed(true);
         SetChatVisible(false);
+        PlayerHealthHUDRemake.GameplayHudVisibilityChanged += HandleGameplayHudVisibilityChanged;
+        ApplyGameplayHudVisibility(PlayerHealthHUDRemake.IsGameplayHudVisible);
     }
 
     private void Update()
@@ -70,7 +73,7 @@ public sealed class NetworkChatController : MonoBehaviour
         if (connected)
         {
             BindNetwork(networkManager);
-            SetChatVisible(true);
+            SetChatVisible(_uiVisible);
             if (!_announcedConnection)
             {
                 _announcedConnection = true;
@@ -90,6 +93,7 @@ public sealed class NetworkChatController : MonoBehaviour
 
     private void OnDestroy()
     {
+        PlayerHealthHUDRemake.GameplayHudVisibilityChanged -= HandleGameplayHudVisibilityChanged;
         UnlockGameplayInput();
         UICursorLockService.Release(this);
         UnbindNetwork();
@@ -147,6 +151,7 @@ public sealed class NetworkChatController : MonoBehaviour
     private void HandleInputShortcuts()
     {
         ResolveInputHandler();
+        if (!_uiVisible) return;
 
         if (_isTyping)
         {
@@ -307,6 +312,18 @@ public sealed class NetworkChatController : MonoBehaviour
         if (_canvas != null && _canvas.gameObject.activeSelf != visible)
             _canvas.gameObject.SetActive(visible);
         if (!visible && !_collapsed) SetCollapsed(true);
+    }
+
+    private void ApplyGameplayHudVisibility(bool visible)
+    {
+        _uiVisible = visible;
+        bool connected = NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
+        SetChatVisible(_uiVisible && connected);
+    }
+
+    private void HandleGameplayHudVisibilityChanged(bool visible)
+    {
+        ApplyGameplayHudVisibility(visible);
     }
 
     private void LockGameplayInput()

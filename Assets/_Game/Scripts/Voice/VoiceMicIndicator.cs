@@ -17,6 +17,7 @@ public sealed class VoiceMicIndicator : MonoBehaviour
     private Image _microphone;
     private Image _muteSlash;
     private float _smoothedEnergy;
+    private bool _uiVisible = true;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Install()
@@ -29,7 +30,13 @@ public sealed class VoiceMicIndicator : MonoBehaviour
     {
         DontDestroyOnLoad(gameObject);
         BuildInterface();
-        SetVisible(false);
+        PlayerHealthHUDRemake.GameplayHudVisibilityChanged += HandleGameplayHudVisibilityChanged;
+        SetUiVisible(PlayerHealthHUDRemake.IsGameplayHudVisible);
+    }
+
+    private void OnDestroy()
+    {
+        PlayerHealthHUDRemake.GameplayHudVisibilityChanged -= HandleGameplayHudVisibilityChanged;
     }
 
     private void Update()
@@ -39,7 +46,7 @@ public sealed class VoiceMicIndicator : MonoBehaviour
         bool inSession = networkManager != null && networkManager.IsListening;
         bool voiceReady = vivox != null && vivox.IsLoggedIn && !string.IsNullOrEmpty(vivox.JoinedChannelName);
 
-        SetVisible(inSession);
+        SetVisible(_uiVisible && inSession);
 
         bool muted = VoiceInputController.IsMutedByUser || (voiceReady && vivox.IsMicrophoneMuted());
         float energy = voiceReady && !muted ? ReadLocalAudioEnergy(vivox.JoinedChannelName) : 0f;
@@ -75,6 +82,19 @@ public sealed class VoiceMicIndicator : MonoBehaviour
     {
         if (_canvas != null && _canvas.gameObject.activeSelf != visible)
             _canvas.gameObject.SetActive(visible);
+    }
+
+    private void SetUiVisible(bool visible)
+    {
+        _uiVisible = visible;
+        NetworkManager networkManager = NetworkManager.Singleton;
+        bool inSession = networkManager != null && networkManager.IsListening;
+        SetVisible(_uiVisible && inSession);
+    }
+
+    private void HandleGameplayHudVisibilityChanged(bool visible)
+    {
+        SetUiVisible(visible);
     }
 
     private void BuildInterface()

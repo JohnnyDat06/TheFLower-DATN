@@ -23,6 +23,8 @@ public sealed class QuestHUD : MonoBehaviour
     [SerializeField] private bool clampMarkerToScreen = true;
     [SerializeField] private Vector2 screenPadding = new(36f, 36f);
 
+    private bool _uiVisible = true;
+
     private void Awake()
     {
         if (root == null) root = gameObject;
@@ -35,12 +37,15 @@ public sealed class QuestHUD : MonoBehaviour
     private void OnEnable()
     {
         SceneManager.sceneLoaded += HandleSceneLoaded;
+        PlayerHealthHUDRemake.GameplayHudVisibilityChanged += HandleGameplayHudVisibilityChanged;
+        ApplyGameplayHudVisibility(PlayerHealthHUDRemake.IsGameplayHudVisible);
         BindRoute();
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
+        PlayerHealthHUDRemake.GameplayHudVisibilityChanged -= HandleGameplayHudVisibilityChanged;
         UnbindRoute();
     }
 
@@ -130,18 +135,39 @@ public sealed class QuestHUD : MonoBehaviour
 
     private void SetVisible(bool visible)
     {
+        bool shouldShow = visible && _uiVisible;
+
         // Keep the panel active so a route can appear after network scene-spawn.
         // CanvasGroup avoids the common "disabled HUD never wakes up" race.
         if (canvasGroup != null)
         {
-            canvasGroup.alpha = visible ? 1f : 0f;
-            canvasGroup.interactable = visible;
+            canvasGroup.alpha = shouldShow ? 1f : 0f;
+            canvasGroup.interactable = shouldShow;
             canvasGroup.blocksRaycasts = false;
         }
         else if (root != null && root != gameObject)
         {
-            root.SetActive(visible);
+            root.SetActive(shouldShow);
         }
+    }
+
+    private void ApplyGameplayHudVisibility(bool visible)
+    {
+        _uiVisible = visible;
+
+        if (!visible)
+        {
+            SetVisible(false);
+            return;
+        }
+
+        bool hasActiveStep = route != null && !route.IsRouteCompleted && route.CurrentStep != null;
+        SetVisible(hasActiveStep);
+    }
+
+    private void HandleGameplayHudVisibilityChanged(bool visible)
+    {
+        ApplyGameplayHudVisibility(visible);
     }
 
     private void BuildDefaultUIIfNeeded()
