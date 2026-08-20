@@ -25,6 +25,7 @@ public sealed class BossEncounterHUD : MonoBehaviour
     private DualCoreInteractionController _dualCoreController;
     private DualRuneChallengeController _dualRuneChallenge;
     private BossDefeatController _defeatController;
+    private bool _uiVisible = true;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void InstallAfterSceneLoad()
@@ -47,6 +48,17 @@ public sealed class BossEncounterHUD : MonoBehaviour
     private void Awake()
     {
         BuildInterface();
+    }
+
+    private void OnEnable()
+    {
+        PlayerHealthHUDRemake.GameplayHudVisibilityChanged += HandleGameplayHudVisibilityChanged;
+        ApplyGameplayHudVisibility(PlayerHealthHUDRemake.IsGameplayHudVisible);
+    }
+
+    private void OnDisable()
+    {
+        PlayerHealthHUDRemake.GameplayHudVisibilityChanged -= HandleGameplayHudVisibilityChanged;
     }
 
     private void Update()
@@ -111,6 +123,12 @@ public sealed class BossEncounterHUD : MonoBehaviour
 
     private void PresentState()
     {
+        if (!_uiVisible)
+        {
+            if (_root != null) _root.alpha = 0f;
+            return;
+        }
+
         if (_objective == null || _status == null || _encounter == null)
         {
             if (_root != null) _root.alpha = 0f;
@@ -152,6 +170,21 @@ public sealed class BossEncounterHUD : MonoBehaviour
                 _status.text = "The Warden Core has been destroyed";
                 break;
         }
+    }
+
+    private void HandleGameplayHudVisibilityChanged(bool visible)
+    {
+        ApplyGameplayHudVisibility(visible);
+    }
+
+    private void ApplyGameplayHudVisibility(bool visible)
+    {
+        _uiVisible = visible;
+        if (_root == null) return;
+
+        _root.alpha = visible ? 1f : 0f;
+        _root.interactable = visible;
+        _root.blocksRaycasts = visible;
     }
 
     private void PresentActiveStatus()

@@ -6,6 +6,8 @@ using UnityEngine;
 [RequireComponent(typeof(SphereCollider))]
 public sealed class SealController : MonoBehaviour, IInteractable
 {
+    private const string StateMaterialResourcePath = "Materials/BossMarkerState_URP";
+
     [Tooltip("Rune phải ở trạng thái Charged trước khi Seal có thể tương tác.")]
     [SerializeField] private RuneController _requiredRune;
     [Tooltip("Bán kính player có thể tìm và tương tác Seal.")]
@@ -15,6 +17,7 @@ public sealed class SealController : MonoBehaviour, IInteractable
 
     private SphereCollider _interactionTrigger;
     private Renderer _stateVisual;
+    private Material _stateMaterialInstance;
     private SealManager _manager;
     private float _activeUntil;
 
@@ -45,6 +48,12 @@ public sealed class SealController : MonoBehaviour, IInteractable
         CreateStateVisual();
         RefreshReadiness();
         ApplyVisualState();
+    }
+
+    private void OnDestroy()
+    {
+        if (_stateMaterialInstance != null)
+            Destroy(_stateMaterialInstance);
     }
 
     private void Update()
@@ -139,6 +148,7 @@ public sealed class SealController : MonoBehaviour, IInteractable
         if (existingVisual != null)
         {
             _stateVisual = existingVisual.GetComponent<Renderer>();
+            AssignBuildSafeMaterial();
             return;
         }
 
@@ -150,6 +160,39 @@ public sealed class SealController : MonoBehaviour, IInteractable
         Collider visualCollider = visual.GetComponent<Collider>();
         if (visualCollider != null) Destroy(visualCollider);
         _stateVisual = visual.GetComponent<Renderer>();
+        AssignBuildSafeMaterial();
+    }
+
+    private void AssignBuildSafeMaterial()
+    {
+        if (_stateVisual == null) return;
+
+        Material template = Resources.Load<Material>(StateMaterialResourcePath);
+        if (template != null)
+        {
+            _stateMaterialInstance = new Material(template)
+            {
+                name = $"{name}_SealStateMaterial"
+            };
+            _stateVisual.sharedMaterial = _stateMaterialInstance;
+            return;
+        }
+
+        Shader shader = Shader.Find("Universal Render Pipeline/Lit")
+            ?? Shader.Find("Universal Render Pipeline/Simple Lit")
+            ?? Shader.Find("Universal Render Pipeline/Unlit");
+        if (shader != null)
+        {
+            _stateMaterialInstance = new Material(shader)
+            {
+                name = $"{name}_SealStateMaterialFallback"
+            };
+            _stateVisual.sharedMaterial = _stateMaterialInstance;
+            Debug.LogWarning($"[SealController] Missing Resources material '{StateMaterialResourcePath}', using shader fallback.", this);
+            return;
+        }
+
+        Debug.LogError($"[SealController] URP visual material is missing for {name}.", this);
     }
 
     private void ApplyVisualState()
@@ -162,7 +205,13 @@ public sealed class SealController : MonoBehaviour, IInteractable
             SealState.Active => Color.green,
             _ => new Color(0.15f, 0.2f, 0.25f, 1f)
         };
-        _stateVisual.material.color = color;
+        Material material = _stateVisual.sharedMaterial;
+        if (material == null) return;
+
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+        if (material.HasProperty("_EmissionColor"))
+            material.SetColor("_EmissionColor", State == SealState.Active ? color * 1.25f : color * 0.15f);
     }
 
     private static bool IsServerAuthority() =>
