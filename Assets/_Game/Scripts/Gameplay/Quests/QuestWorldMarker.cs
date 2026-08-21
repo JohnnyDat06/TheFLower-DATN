@@ -9,9 +9,15 @@ public sealed class QuestWorldMarker : MonoBehaviour
 {
     [Header("Appearance")]
     [SerializeField] private Color markerColor = new(1f, 0.82f, 0.15f, 0.95f);
+    [SerializeField] private Color pulseColor = new(0.15f, 0.9f, 1f, 0.95f);
     [SerializeField, Min(0.1f)] private float markerScale = 0.6f;
     [SerializeField] private Vector3 markerOffset = new(0f, 1.25f, 0f);
     [SerializeField, Range(0f, 10f)] private float outlineWidth = 5f;
+
+    [Header("Pulse")]
+    [SerializeField, Min(0.01f)] private float pulseFrequency = 1.4f;
+    [SerializeField, Range(0f, 1f)] private float pulseColorStrength = 0.55f;
+    [SerializeField, Range(0f, 0.5f)] private float pulseScaleStrength = 0.12f;
 
     private Transform _target;
     private GameObject _markerOrb;
@@ -26,8 +32,13 @@ public sealed class QuestWorldMarker : MonoBehaviour
 
     private void LateUpdate()
     {
-        if (_markerOrb != null && _target != null)
-            _markerOrb.transform.position = _target.position + markerOffset;
+        if (_markerOrb == null || _target == null)
+            return;
+
+        float pulse = GetPulseValue();
+        _markerOrb.transform.position = _target.position + markerOffset;
+        _markerOrb.transform.localScale = Vector3.one * markerScale * (1f + pulse * pulseScaleStrength);
+        _markerMaterial.SetColor("_OutlineColor", Color.Lerp(markerColor, pulseColor, pulse * pulseColorStrength));
     }
 
     private void OnDisable() => Clear();
@@ -158,4 +169,6 @@ public sealed class QuestWorldMarker : MonoBehaviour
         _markerMaterial.SetFloat("_ZTest", (float)CompareFunction.Always);
         return _markerMaterial;
     }
+
+    private float GetPulseValue() => (Mathf.Sin(Time.unscaledTime * pulseFrequency * Mathf.PI * 2f) + 1f) * 0.5f;
 }

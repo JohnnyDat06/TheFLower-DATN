@@ -388,6 +388,7 @@ MonoBehaviour:
   statusText: {fileID: 271591401613691281}
   distanceText: {fileID: 7138677594943784745}
   screenMarker: {fileID: 0}
+  screenMarkerDistanceText: {fileID: 0}
   worldMarker: {fileID: 7614944414218845783}
   targetCamera: {fileID: 0}
   clampMarkerToScreen: 1
@@ -405,9 +406,13 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   markerColor: {r: 1, g: 0.82, b: 0.15, a: 0.95}
+  pulseColor: {r: 0.15, g: 0.9, b: 1, a: 0.95}
   markerScale: 0.6
   markerOffset: {x: 0, y: 1.25, z: 0}
   outlineWidth: 5
+  pulseFrequency: 1.4
+  pulseColorStrength: 0.55
+  pulseScaleStrength: 0.12
 --- !u!1 &3712740206295200190
 GameObject:
   m_ObjectHideFlags: 0
