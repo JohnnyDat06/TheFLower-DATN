@@ -2,11 +2,11 @@ using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
-/// An interactable puzzle item that can be activated either by player contact or
-/// by the regular interaction input. The server owns collection state.
+/// An automatic-only puzzle item activated by player contact.
+/// The server owns collection state.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class TouchCollectibleInteractable : InteractableBase
+public sealed class TouchCollectibleInteractable : InteractableBase, IAutomaticOnlyInteractable
 {
     [Header("Touch Collection")]
     [Tooltip("Trigger on this GameObject used to detect player contact.")]
@@ -48,22 +48,15 @@ public sealed class TouchCollectibleInteractable : InteractableBase
         {
             Debug.LogWarning(
                 $"[TouchCollectibleInteractable] Touch collider on '{name}' must have Is Trigger enabled. " +
-                "Regular button interaction will still work.",
+                "The item cannot be collected until the trigger is configured correctly.",
                 this);
         }
     }
 
     public override void Interact(ulong playerId)
     {
-        if (!CanInteract) return;
-
-        if (IsServer)
-        {
-            TryCollectForPlayer(playerId);
-            return;
-        }
-
-        RequestCollectionServerRpc(playerId);
+        // Automatic-only: PlayerInteractor filters this object and direct manual
+        // interaction calls must not activate it either.
     }
 
     private void OnTriggerEnter(Collider other)
@@ -71,13 +64,6 @@ public sealed class TouchCollectibleInteractable : InteractableBase
         if (!IsServer || !IsSpawned || !CanInteract) return;
         if (!TryResolvePlayer(other, out ulong playerId)) return;
 
-        TryCollectForPlayer(playerId);
-    }
-
-    [ServerRpc(RequireOwnership = false)]
-    private void RequestCollectionServerRpc(ulong playerId, ServerRpcParams rpcParams = default)
-    {
-        if (rpcParams.Receive.SenderClientId != playerId) return;
         TryCollectForPlayer(playerId);
     }
 

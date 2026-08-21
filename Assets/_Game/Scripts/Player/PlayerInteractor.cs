@@ -55,7 +55,10 @@ public class PlayerInteractor : NetworkBehaviour
 
         DetectLookTarget();
 
-        if (_input.InteractPressed && _currentTarget != null && _currentTarget.CanInteract)
+        if (_input.InteractPressed &&
+            _currentTarget != null &&
+            _currentTarget.CanInteract &&
+            _currentTarget is not IAutomaticOnlyInteractable)
         {
             _currentTarget.Interact(OwnerClientId);
         }
@@ -71,6 +74,7 @@ public class PlayerInteractor : NetworkBehaviour
         {
             IInteractable candidate = hit.GetComponentInParent<IInteractable>();
             if (candidate == null || !candidate.CanInteract) continue;
+            if (candidate is IAutomaticOnlyInteractable) continue;
             if (candidate is CoopInteractable coop && !coop.IsPlayerInInteractionZone(OwnerClientId)) continue;
 
             Transform prompt = candidate is CoopInteractable coopTarget

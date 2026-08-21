@@ -18,3 +18,11 @@ public interface IInteractable
     /// </summary>
     Transform GetPromptTransform();
 }
+
+/// <summary>
+/// Danh dau vat the chi duoc kich hoat tu dong (vi du: cham vao trigger),
+/// khong tham gia he thong prompt, hover va phim tuong tac cua player.
+/// </summary>
+public interface IAutomaticOnlyInteractable
+{
+}
