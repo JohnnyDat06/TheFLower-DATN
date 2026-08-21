@@ -18,6 +18,7 @@ public sealed class QuestHUD : MonoBehaviour
     [SerializeField] private TMP_Text statusText;
     [SerializeField] private TMP_Text distanceText;
     [SerializeField] private RectTransform screenMarker;
+    [SerializeField] private TMP_Text screenMarkerDistanceText;
     [SerializeField] private QuestWorldMarker worldMarker;
     [SerializeField] private Camera targetCamera;
     [SerializeField] private bool clampMarkerToScreen = true;
@@ -71,7 +72,7 @@ public sealed class QuestHUD : MonoBehaviour
         float distance = 0f;
         if (TryGetLocalPlayer(out var player)) distance = Vector3.Distance(player.position, step.destination.position);
         if (distanceText != null) distanceText.text = $"{distance:0}m";
-        UpdateMarker(step.destination.position);
+        UpdateMarker(step.destination.position, distance);
     }
 
     private void HandleSceneLoaded(Scene _, LoadSceneMode __) => BindRoute();
@@ -117,7 +118,7 @@ public sealed class QuestHUD : MonoBehaviour
         SetVisible(true);
     }
 
-    private void UpdateMarker(Vector3 worldPosition)
+    private void UpdateMarker(Vector3 worldPosition, float distance)
     {
         if (screenMarker == null) return;
         if (targetCamera == null) targetCamera = Camera.main;
@@ -131,6 +132,8 @@ public sealed class QuestHUD : MonoBehaviour
         }
         screenMarker.position = screen;
         screenMarker.gameObject.SetActive(inFront);
+        if (screenMarkerDistanceText != null)
+            screenMarkerDistanceText.SetText("{0:0}m", distance);
     }
 
     private void SetVisible(bool visible)
@@ -189,10 +192,14 @@ public sealed class QuestHUD : MonoBehaviour
             screenMarker = marker.AddComponent<RectTransform>();
             screenMarker.sizeDelta = new Vector2(44, 44);
             Image image = marker.AddComponent<Image>();
+            image.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
             image.color = new Color(1f, 0.82f, 0.15f, 0.95f);
             image.raycastTarget = false;
             marker.SetActive(false);
         }
+
+        if (screenMarkerDistanceText == null)
+            screenMarkerDistanceText = CreateMarkerDistanceText(screenMarker);
 
         if (GetComponent<Image>() != null)
             GetComponent<Image>().color = new Color(0.03f, 0.06f, 0.1f, 0.92f);
@@ -215,6 +222,26 @@ public sealed class QuestHUD : MonoBehaviour
         text.color = Color.white;
         text.alignment = alignment;
         text.enableWordWrapping = true;
+        return text;
+    }
+
+    private static TMP_Text CreateMarkerDistanceText(RectTransform marker)
+    {
+        GameObject child = new("QuestMarkerDistance");
+        child.transform.SetParent(marker, false);
+        RectTransform rect = child.AddComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 0.5f);
+        rect.anchorMax = new Vector2(1f, 0.5f);
+        rect.pivot = new Vector2(0f, 0.5f);
+        rect.anchoredPosition = new Vector2(10f, 0f);
+        rect.sizeDelta = new Vector2(90f, 34f);
+        TMP_Text text = child.AddComponent<TextMeshProUGUI>();
+        text.SetText("0m");
+        text.fontSize = 20f;
+        text.color = Color.white;
+        text.alignment = TextAlignmentOptions.Left;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
+        text.raycastTarget = false;
         return text;
     }
 

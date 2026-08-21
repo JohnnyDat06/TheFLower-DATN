@@ -8,6 +8,9 @@ using UnityEngine;
 /// </summary>
 public class CameraFocusSequence : MonoBehaviour
 {
+    private const int InactivePriority = 0;
+    private const int MinimumFocusPriority = 21;
+
     [Header("Components")]
     [Tooltip("Camera sẽ được tập trung vào.")]
     [SerializeField] private CinemachineCamera _focusCamera;
@@ -22,15 +25,27 @@ public class CameraFocusSequence : MonoBehaviour
     [Tooltip("Ưu tiên của camera khi được kích hoạt (nên cao hơn các camera khác).")]
     [SerializeField] private int _activePriority = 100;
 
-    private int _originalPriority;
+    private Coroutine _focusCoroutine;
+    private bool _cutSceneSignalActive;
 
     private void Awake()
     {
         if (_focusCamera == null)
             _focusCamera = GetComponent<CinemachineCamera>();
             
-        if (_focusCamera != null)
-            _originalPriority = _focusCamera.Priority.Value;
+        SetFocusCameraActive(false);
+    }
+
+    private void OnDisable()
+    {
+        if (_focusCoroutine != null)
+        {
+            StopCoroutine(_focusCoroutine);
+            _focusCoroutine = null;
+        }
+
+        SetFocusCameraActive(false);
+        EndCutSceneSignal();
     }
 
     /// <summary>
@@ -44,7 +59,8 @@ public class CameraFocusSequence : MonoBehaviour
             return;
         }
 
-        StartCoroutine(FocusRoutine());
+        if (_focusCoroutine != null) return;
+        _focusCoroutine = StartCoroutine(FocusRoutine());
     }
 
     private IEnumerator FocusRoutine()
@@ -52,18 +68,41 @@ public class CameraFocusSequence : MonoBehaviour
         yield return new WaitForSeconds(_startDelay);
 
         // 1. Thông báo bắt đầu Cutscene để khóa điều khiển người chơi
+        _cutSceneSignalActive = true;
         EventBus.RaiseCutSceneStarted();
 
         // 2. Tăng ưu tiên để Cinemachine blend sang camera này
-        _focusCamera.Priority.Value = _activePriority;
+        SetFocusCameraActive(true);
 
         // 3. Chờ thời gian quan sát
         yield return new WaitForSeconds(_focusDuration);
 
-        // 4. Trả lại ưu tiên ban đầu để quay về camera người chơi
-        _focusCamera.Priority.Value = _originalPriority;
+        // 4. Luôn trả camera focus về trạng thái nghỉ để không tranh quyền
+        // với camera người chơi hoặc camera Eris sau khi sequence kết thúc.
+        SetFocusCameraActive(false);
 
         // 5. Thông báo kết thúc Cutscene để trả lại quyền điều khiển
+        EndCutSceneSignal();
+        _focusCoroutine = null;
+    }
+
+    private void SetFocusCameraActive(bool active)
+    {
+        if (_focusCamera == null) return;
+        _focusCamera.Priority.Value = active
+            ? Mathf.Max(_activePriority, MinimumFocusPriority)
+            : InactivePriority;
+    }
+
+    private void EndCutSceneSignal()
+    {
+        if (!_cutSceneSignalActive) return;
+        _cutSceneSignalActive = false;
         EventBus.RaiseCutSceneEnded();
+    }
+
+    private void OnValidate()
+    {
+        _activePriority = Mathf.Max(_activePriority, MinimumFocusPriority);
     }
 }
