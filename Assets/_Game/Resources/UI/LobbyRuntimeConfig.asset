@@ -27,10 +27,9 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 09e1bc1eb8d34d44189af5096f713e24, type: 3}
   - {fileID: 21300000, guid: 968646bb3a6937141b06b417aa579640, type: 3}
   - {fileID: 21300000, guid: a9d6cd4ee924d5c4197517e57d459ff2, type: 3}
-  - {fileID: 21300000, guid: b3c530a124e572043883aef550a487c8, type: 3}
   CharacterModels:
-  - {fileID: 8603064644883837947, guid: d2d3d08afa80216409ebf3bd241ea899, type: 3}
   - {fileID: 6558351570595821722, guid: ef862cd3624c70f48ba2e3e54f0d7f21, type: 3}
+  - {fileID: 8603064644883837947, guid: d2d3d08afa80216409ebf3bd241ea899, type: 3}
   - {fileID: 5058119200980185944, guid: 37e6c48943f389d4bb7264be0344ee77, type: 3}
   - {fileID: 5078090740818414606, guid: fb6acc34fa0f9de479315d71ca3958eb, type: 3}
   - {fileID: 5086885221110633000, guid: 414a85830a611374baa2efe74460125e, type: 3}
@@ -38,10 +37,9 @@ MonoBehaviour:
   - {fileID: 3142154196498140995, guid: ad7b69a47a8c96d408cef12e671f183e, type: 3}
   - {fileID: 7901158209142021459, guid: d3331bd773bd4274e84e99dfdfe0be73, type: 3}
   - {fileID: 1835218253259277514, guid: 6149a42a80e9e484da1a5cd4bc22040e, type: 3}
-  - {fileID: 950983842828420658, guid: 1dc20ea83c64eed4ebc0dfb952bf7c29, type: 3}
   CharacterMaterials:
-  - {fileID: 2100000, guid: 88cab4be4b1697a42b8e1d73fb9a23b8, type: 2}
   - {fileID: 2100000, guid: 6f79b6a0bcb2f084493425803e509204, type: 2}
+  - {fileID: 2100000, guid: 88cab4be4b1697a42b8e1d73fb9a23b8, type: 2}
   - {fileID: 2100000, guid: 4e875bcf3a11d6f4385073cb75fcba20, type: 2}
   - {fileID: 2100000, guid: 304d8b3cf6b3f1c47924abef7c057d61, type: 2}
   - {fileID: 2100000, guid: 6539c64e728f4384f8eecf8a2b080244, type: 2}
@@ -49,7 +47,6 @@ MonoBehaviour:
   - {fileID: 2100000, guid: e1484bbae5404754a9327008496056af, type: 2}
   - {fileID: 2100000, guid: 9848fc78c7a00674582440061bfe4afc, type: 2}
   - {fileID: 2100000, guid: 767913858088cc040bdaf868ec790f53, type: 2}
-  - {fileID: 2100000, guid: 5fe68a6553346384d8b70ff337d9b4c3, type: 2}
   CreateRoomButton: {fileID: 21300000, guid: 64d93d460b1b41dd983e0d9952c6e983, type: 3}
   JoinRoomButton: {fileID: 21300000, guid: 764d1a49330243a0952c476fe548771f, type: 3}
   LobbyLogo: {fileID: 21300000, guid: 94a3324eb6104450ba3c51d91ed6ed44, type: 3}

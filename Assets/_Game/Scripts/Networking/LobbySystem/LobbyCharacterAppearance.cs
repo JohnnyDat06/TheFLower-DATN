@@ -33,7 +33,7 @@ namespace Networking.LobbySystem
             ResolveReferences();
         }
 
-        /// <summary>Applies a zero-based character choice where 0 maps to Chibi_Monkey_00.</summary>
+        /// <summary>Applies a zero-based catalog choice; catalog index 0 is the brown Chibi Monkey.</summary>
         public bool ApplyCharacter(int index)
         {
             if (index < 0 || index >= LobbyPlayerState.AvailableCharacterCount) return false;

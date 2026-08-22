@@ -10,7 +10,10 @@ namespace Networking.LobbySystem
     [DefaultExecutionOrder(1000)]
     public class LobbyPlayerState : NetworkBehaviour
     {
-        public const int AvailableCharacterCount = 10;
+        // The lobby catalog contains the nine unique character choices listed
+        // in LobbyRuntimeConfig. The old tenth entry was a duplicate light/white
+        // monkey and was removed from the selectable catalog.
+        public const int AvailableCharacterCount = 9;
         public const int DefaultCharacterIndex = 0;
 
         public NetworkVariable<FixedString32Bytes> PlayerName = new NetworkVariable<FixedString32Bytes>("", 
