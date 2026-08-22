@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Moves the Sand Boat along its authored route at a fixed speed while keeping its heading stable.
-/// Steering, speed control, boarding, collision, and networking are added in later phases.
+/// Moves the Sand Boat along its authored route while keeping its heading stable.
+/// Steering, boarding, collision, and networking are added in later phases.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class SandBoatMovement : MonoBehaviour
@@ -12,11 +12,14 @@ public sealed class SandBoatMovement : MonoBehaviour
     [SerializeField] private SandBoatRoute _route;
     [SerializeField, Min(0.01f)] private float _baseForwardSpeed = 20f;
     [SerializeField, Range(0f, 1f)] private float _startProgress;
+    [SerializeField] private bool _startMovementOnAwake = true;
 
     private float _progress;
     private float _routeLength;
     private float _horizontalOffset;
+    private float _currentForwardSpeed;
     private bool _isComplete;
+    private bool _isRouteMovementEnabled;
 
     /// <summary>Current normalized progress along the route.</summary>
     public float Progress => _progress;
@@ -24,8 +27,14 @@ public sealed class SandBoatMovement : MonoBehaviour
     /// <summary>Current lateral displacement from the center of the route, in world units.</summary>
     public float HorizontalOffset => _horizontalOffset;
 
+    /// <summary>Current forward speed applied to the automatic route movement.</summary>
+    public float CurrentForwardSpeed => _currentForwardSpeed;
+
     /// <summary>True after the boat reaches the route endpoint.</summary>
     public bool IsComplete => _isComplete;
+
+    /// <summary>True while the boat is allowed to advance automatically along its route.</summary>
+    public bool IsRouteMovementEnabled => _isRouteMovementEnabled;
 
     private void OnValidate()
     {
@@ -36,16 +45,17 @@ public sealed class SandBoatMovement : MonoBehaviour
     private void Awake()
     {
         ResetMovement();
+        _isRouteMovementEnabled = _startMovementOnAwake;
     }
 
     private void Update()
     {
-        if (!Application.isPlaying || _isComplete || _route == null || !_route.IsValid || _routeLength <= 0f)
+        if (!Application.isPlaying || !_isRouteMovementEnabled || _isComplete || _route == null || !_route.IsValid || _routeLength <= 0f)
         {
             return;
         }
 
-        float progressDelta = _baseForwardSpeed / _routeLength * Time.deltaTime;
+        float progressDelta = _currentForwardSpeed / _routeLength * Time.deltaTime;
         _progress = _route.ClampProgress(_progress + progressDelta);
         ApplyRoutePose();
         _isComplete = _route.IsComplete(_progress);
@@ -57,8 +67,21 @@ public sealed class SandBoatMovement : MonoBehaviour
         _progress = _route != null ? _route.ClampProgress(_startProgress) : 0f;
         _routeLength = CalculateRouteLength();
         _horizontalOffset = 0f;
+        _currentForwardSpeed = _baseForwardSpeed;
         _isComplete = _route == null || !_route.IsValid || _route.IsComplete(_progress);
         ApplyRoutePose();
+    }
+
+    /// <summary>Sets the positive automatic forward speed supplied by the speed controller.</summary>
+    public void SetForwardSpeed(float forwardSpeed)
+    {
+        _currentForwardSpeed = Mathf.Max(0.01f, forwardSpeed);
+    }
+
+    /// <summary>Enables or pauses automatic movement without changing the current route progress.</summary>
+    public void SetRouteMovementEnabled(bool isEnabled)
+    {
+        _isRouteMovementEnabled = isEnabled;
     }
 
     /// <summary>Applies a lateral offset supplied by the Phase 3 offset controller.</summary>
