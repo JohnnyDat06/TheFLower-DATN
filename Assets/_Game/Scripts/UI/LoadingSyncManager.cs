@@ -48,6 +48,7 @@ public class LoadingSyncManager : NetworkBehaviour
 
         if (SeamlessLoadingOverlay.Instance != null)
         {
+            SeamlessLoadingOverlay.Instance.BeginLoadingTransition();
             // A previous transition may have left the persistent overlay's
             // interstitial title visible. Clear it on every peer before the
             // new loading fade begins; the overlay survives scene changes.
@@ -63,7 +64,7 @@ public class LoadingSyncManager : NetworkBehaviour
     }
 
     [Rpc(SendTo.Everyone)]
-    public void ShowToBeContinuedClientRpc(bool show, string text = "To Be Continued!", bool showProgressBar = true)
+    public void ShowToBeContinuedClientRpc(bool show, string text = "The End!", bool showProgressBar = true)
     {
         if (SeamlessLoadingOverlay.Instance != null)
         {

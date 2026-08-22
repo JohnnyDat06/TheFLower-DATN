@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using Game.UI.LobbyAuto;
 using TMPro;
@@ -22,6 +23,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private RectTransform _tipLeaf;
     private float _targetProgress;
     private bool _fadeInRequested;
+    private bool _lobbyInteractive;
     private static Sprite s_roundedSprite;
 
     private void Awake()
@@ -38,6 +40,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         if (_canvasGroup == null) _canvasGroup = GetComponent<CanvasGroup>();
         if (_canvasGroup == null) _canvasGroup = gameObject.AddComponent<CanvasGroup>();
         BuildRemadeInterface();
+        _lobbyInteractive = IsLobbyScene();
 
         _canvasGroup.alpha = 0f;
         _canvasGroup.blocksRaycasts = false;
@@ -54,11 +57,11 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
     {
-        if (!scene.name.Contains("Lobby")) return;
+        _lobbyInteractive = scene.name.Contains("Lobby", StringComparison.OrdinalIgnoreCase);
+        if (!_lobbyInteractive) return;
+
         Debug.Log("[SeamlessLoadingOverlay] Lobby detected. Auto-cleaning overlay.");
-        ShowToBeContinued(false);
-        ShowProgressBar(true);
-        FadeOut();
+        HideForLobby();
     }
 
     private void Update()
@@ -74,7 +77,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         UpdateProgressPresentation(_progressSlider.value);
     }
 
-    public void ShowToBeContinued(bool show, string text = "To Be Continued!")
+    public void ShowToBeContinued(bool show, string text = "The End!")
     {
         if (_toBeContinuedText == null) return;
         _toBeContinuedText.text = text;
@@ -88,11 +91,26 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     }
 
     /// <summary>
+    /// Marks the beginning of a scene transition, including a transition that
+    /// starts while the current scene is the interactive Lobby.
+    /// </summary>
+    public void BeginLoadingTransition()
+    {
+        _lobbyInteractive = false;
+    }
+
+    /// <summary>
     /// Makes the loading presentation visible without restarting an in-progress fade.
     /// Multiple network callbacks can legitimately request the same presentation.
     /// </summary>
     public void EnsureLoadingVisible(bool resetProgress = false)
     {
+        if (_lobbyInteractive)
+        {
+            HideForLobby();
+            return;
+        }
+
         ShowProgressBar(true);
         if (resetProgress)
         {
@@ -110,6 +128,13 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
     public void FadeIn(System.Action onComplete = null)
     {
+        if (_lobbyInteractive)
+        {
+            HideForLobby();
+            onComplete?.Invoke();
+            return;
+        }
+
         Debug.Log("[SeamlessLoadingOverlay] FadeIn called");
         StopAllCoroutines();
         _fadeInRequested = true;
@@ -122,8 +147,43 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         StartCoroutine(FadeRoutine(1f, onComplete));
     }
 
+    /// <summary>
+    /// Clears the persistent loading canvas before the Lobby UI is presented.
+    /// A late network fade callback must never leave an invisible full-screen
+    /// canvas intercepting Lobby pointer events.
+    /// </summary>
+    private void HideForLobby()
+    {
+        StopAllCoroutines();
+        _fadeInRequested = false;
+        _targetProgress = 1f;
+
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 0f;
+            _canvasGroup.interactable = false;
+            _canvasGroup.blocksRaycasts = false;
+        }
+
+        ShowToBeContinued(false);
+        ShowProgressBar(false);
+    }
+
+    private static bool IsLobbyScene()
+    {
+        return UnityEngine.SceneManagement.SceneManager.GetActiveScene().name
+            .Contains("Lobby", StringComparison.OrdinalIgnoreCase);
+    }
+
     public void FadeOut(System.Action onComplete = null)
     {
+        if (_lobbyInteractive)
+        {
+            HideForLobby();
+            onComplete?.Invoke();
+            return;
+        }
+
         Debug.Log("[SeamlessLoadingOverlay] FadeOut called");
         StopAllCoroutines();
         _fadeInRequested = false;
@@ -231,7 +291,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         leafImage.type = Image.Type.Sliced;
         leafImage.color = new Color(0.40f, 0.82f, 0.18f, 1f);
 
-        _toBeContinuedText = CreateText(transform, "To Be Continued!", 72f, Color.white, FontStyles.Bold, TextAlignmentOptions.Center, headingFont);
+        _toBeContinuedText = CreateText(transform, "The End!", 72f, Color.white, FontStyles.Bold, TextAlignmentOptions.Center, headingFont);
         _toBeContinuedText.rectTransform.anchorMin = new Vector2(0.16f, 0.30f);
         _toBeContinuedText.rectTransform.anchorMax = new Vector2(0.84f, 0.70f);
         _toBeContinuedText.rectTransform.offsetMin = Vector2.zero;

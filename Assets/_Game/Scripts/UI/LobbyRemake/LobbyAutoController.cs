@@ -982,6 +982,8 @@ namespace Game.UI.LobbyAuto
             RectTransform shell = Rect("LobbyShell", root, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1480f, 920f), new Vector2(0.5f, 0.5f));
             shell.gameObject.AddComponent<Image>().color = Navy;
             _shellGroup = shell.gameObject.AddComponent<CanvasGroup>();
+            _shellGroup.interactable = true;
+            _shellGroup.blocksRaycasts = true;
             RectTransform accent = Rect("Accent", shell, new Vector2(0f, 1f), new Vector2(1f, 1f), Vector2.zero, new Vector2(0f, 6f), new Vector2(0.5f, 1f));
             accent.gameObject.AddComponent<Image>().color = Gold;
 
@@ -1991,16 +1993,29 @@ namespace Game.UI.LobbyAuto
 
         private static void EnsureEventSystem()
         {
-            EventSystem current = EventSystem.current;
-            if (current != null)
+            EventSystem current = EventSystem.current ?? UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+            if (current == null)
             {
-                current.enabled = true;
-                InputSystemUIInputModule module = current.GetComponent<InputSystemUIInputModule>();
-                if (module != null) module.enabled = true;
-                return;
+                current = new GameObject("EventSystem", typeof(EventSystem)).GetComponent<EventSystem>();
             }
 
-            new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+            current.enabled = true;
+
+            InputSystemUIInputModule module = current.GetComponent<InputSystemUIInputModule>();
+            if (module == null) module = current.gameObject.AddComponent<InputSystemUIInputModule>();
+
+            // A persistent EventSystem can survive a multiplayer scene restart with stale or
+            // disabled action references. Reinstall the package defaults when any pointer
+            // action is missing so UGUI buttons remain clickable on every client window.
+            bool pointerActionsUnavailable = module.actionsAsset == null ||
+                                              module.point?.action == null ||
+                                              module.leftClick?.action == null ||
+                                              !module.point.action.enabled ||
+                                              !module.leftClick.action.enabled;
+            if (pointerActionsUnavailable)
+                module.AssignDefaultActions();
+
+            module.enabled = true;
         }
     }
 }

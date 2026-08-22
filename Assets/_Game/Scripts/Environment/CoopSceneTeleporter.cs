@@ -122,6 +122,7 @@ public class CoopSceneTeleporter : NetworkBehaviour
         {
             // Keep the presentation visible even if the network sync helper is not
             // present in a standalone/test scene.
+            SeamlessLoadingOverlay.Instance.BeginLoadingTransition();
             SeamlessLoadingOverlay.Instance.EnsureLoadingVisible();
         }
 

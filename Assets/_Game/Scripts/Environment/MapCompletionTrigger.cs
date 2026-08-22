@@ -3,7 +3,7 @@ using UnityEngine;
 using System.Collections;
 
 /// <summary>
-/// MapCompletionTrigger — Kích hoạt hiệu ứng "To Be Continued" và quay về Lobby khi có bất kỳ player nào chạm vào.
+/// MapCompletionTrigger — Kích hoạt hiệu ứng "The End!" và quay về Lobby khi có bất kỳ player nào chạm vào.
 /// </summary>
 public class MapCompletionTrigger : NetworkBehaviour
 {
@@ -53,10 +53,10 @@ public class MapCompletionTrigger : NetworkBehaviour
     {
         Debug.Log("<color=cyan>[MapCompletionTrigger] Starting Completion Sequence...</color>");
 
-        // 1. Hiển thị chữ "To Be Continued" và ẨN thanh progress bar trên tất cả các máy
+        // 1. Hiển thị chữ "The End!" và ẨN thanh progress bar trên tất cả các máy
         if (LoadingSyncManager.Instance != null)
         {
-            LoadingSyncManager.Instance.ShowToBeContinuedClientRpc(true, "To Be Continued!", false);
+            LoadingSyncManager.Instance.ShowToBeContinuedClientRpc(true, "The End!", false);
             LoadingSyncManager.Instance.FadeInClientRpc();
         }
 
@@ -76,7 +76,7 @@ public class MapCompletionTrigger : NetworkBehaviour
                 NetworkManager.SceneManager.LoadScene(_lobbySceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
 
-        // 4. (Tùy chọn) Ẩn chữ "To Be Continued" sau khi load xong (thường thì scene mới sẽ reset UI này)
+        // 4. (Tùy chọn) Ẩn chữ "The End!" sau khi load xong (thường thì scene mới sẽ reset UI này)
         // Nhưng để chắc chắn, LoadingSyncManager có thể tắt nó khi EndLoadingFadeClientRpc được gọi ở scene mới.
     }
 }

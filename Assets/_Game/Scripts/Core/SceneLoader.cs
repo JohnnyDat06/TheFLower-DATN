@@ -90,6 +90,7 @@ public class SceneLoader : MonoBehaviour
         Debug.Log($"<color=yellow>[HOST] Loading scene: {sceneName}</color>");
         if (SeamlessLoadingOverlay.Instance != null)
         {
+            SeamlessLoadingOverlay.Instance.BeginLoadingTransition();
             SeamlessLoadingOverlay.Instance.ShowToBeContinued(false);
             SeamlessLoadingOverlay.Instance.EnsureLoadingVisible(resetProgress: true);
         }
