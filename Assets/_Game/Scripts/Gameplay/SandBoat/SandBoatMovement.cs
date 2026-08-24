@@ -1,7 +1,7 @@
 using UnityEngine;
 
 /// <summary>
-/// Moves the Sand Boat along its authored route while keeping its heading stable.
+/// Moves the Sand Boat along its authored route and aligns its yaw with the route heading.
 /// Steering, boarding, collision, and networking are added in later phases.
 /// </summary>
 [DisallowMultipleComponent]
@@ -9,10 +9,18 @@ public sealed class SandBoatMovement : MonoBehaviour
 {
     private const int RouteLengthSampleCount = 256;
 
-    [SerializeField] private SandBoatRoute _route;
-    [SerializeField, Min(0.01f)] private float _baseForwardSpeed = 20f;
-    [SerializeField, Range(0f, 1f)] private float _startProgress;
-    [SerializeField] private bool _startMovementOnAwake = true;
+    [SerializeField, Tooltip("Authored spline route used to place and orient the boat.")]
+    private SandBoatRoute _route;
+    [SerializeField, Min(0.01f), Tooltip("Fallback speed used only before SandBoatSpeedController supplies the active chase speed.")]
+    private float _baseForwardSpeed = 20f;
+    [SerializeField, Range(0f, 1f), Tooltip("Normalized route position used when the boat resets.")]
+    private float _startProgress;
+    [SerializeField, Tooltip("Enables automatic route movement as soon as this component awakens.")]
+    private bool _startMovementOnAwake = true;
+    [SerializeField, Tooltip("Rotates the boat's yaw to follow the spline direction while preserving a level hull.")]
+    private bool _alignYawWithRoute = true;
+    [SerializeField, Tooltip("Use this when the boat mesh is authored with its nose facing local -Z instead of +Z.")]
+    private bool _reverseModelForwardAxis = true;
 
     private float _progress;
     private float _routeLength;
@@ -139,5 +147,21 @@ public sealed class SandBoatMovement : MonoBehaviour
         SandBoatRouteSample sample = _route.Evaluate(_progress);
         Vector3 position = sample.Position + sample.Right * _horizontalOffset;
         transform.position = position;
+
+        if (!_alignYawWithRoute)
+        {
+            return;
+        }
+
+        Vector3 planarForward = Vector3.ProjectOnPlane(sample.Forward, Vector3.up);
+        if (planarForward.sqrMagnitude > 0.0001f)
+        {
+            if (_reverseModelForwardAxis)
+            {
+                planarForward = -planarForward;
+            }
+
+            transform.rotation = Quaternion.LookRotation(planarForward.normalized, Vector3.up);
+        }
     }
 }
