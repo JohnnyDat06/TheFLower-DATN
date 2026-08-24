@@ -42,9 +42,11 @@ public sealed class NetworkChatController : MonoBehaviour
     private ScrollRect _scrollRect;
     private TMP_InputField _inputField;
     private TMP_Text _collapseArrow;
+    private GamepadVirtualKeyboard _virtualKeyboard;
     private bool _collapsed;
     private bool _announcedConnection;
     private bool _isTyping;
+    private bool _isGamepadTyping;
     private bool _uiVisible = true;
     private PlayerInputHandler _inputHandler;
 
@@ -126,7 +128,8 @@ public sealed class NetworkChatController : MonoBehaviour
         string message = Sanitize(_inputField.text, MaxMessageLength);
         if (string.IsNullOrEmpty(message))
         {
-            _inputField.ActivateInputField();
+            if (_isGamepadTyping) _virtualKeyboard?.FocusFirstKey();
+            else _inputField.ActivateInputField();
             return;
         }
 
@@ -145,7 +148,8 @@ public sealed class NetworkChatController : MonoBehaviour
             NetworkDelivery.ReliableSequenced);
 
         _inputField.SetTextWithoutNotify(string.Empty);
-        _inputField.ActivateInputField();
+        if (_isGamepadTyping) _virtualKeyboard?.RefreshPreview();
+        else _inputField.ActivateInputField();
     }
 
     private void HandleInputShortcuts()
@@ -155,7 +159,7 @@ public sealed class NetworkChatController : MonoBehaviour
 
         if (_isTyping)
         {
-            if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+            if (!_isGamepadTyping && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
             {
                 _inputField.SetTextWithoutNotify(string.Empty);
                 SetCollapsed(true);
@@ -170,7 +174,7 @@ public sealed class NetworkChatController : MonoBehaviour
               (Keyboard.current.tKey.wasPressedThisFrame || Keyboard.current.slashKey.wasPressedThisFrame);
         if (chatPressed)
         {
-            if (_collapsed) StartTyping();
+            if (_collapsed) StartTyping(IsGamepadActive());
             else SetCollapsed(true);
         }
     }
@@ -195,28 +199,62 @@ public sealed class NetworkChatController : MonoBehaviour
         return selected != null && selected != _inputField.gameObject && selected.GetComponentInParent<TMP_InputField>() != null;
     }
 
-    private void StartTyping()
+    private void StartTyping(bool useGamepad = false)
     {
         if (_inputField == null) return;
         if (_isTyping) return;
         if (_collapsed) SetCollapsed(false);
 
         _isTyping = true;
+        _isGamepadTyping = useGamepad;
         LockGameplayInput();
         UICursorLockService.Request(this);
+
+        if (_isGamepadTyping)
+        {
+            _virtualKeyboard?.Show(_inputField, "NETWORK CHAT", HandleVirtualKeyboardSubmit, HandleVirtualKeyboardCancel);
+            return;
+        }
+
         EventSystem.current?.SetSelectedGameObject(_inputField.gameObject);
         _inputField.ActivateInputField();
     }
 
     private void StopTyping()
     {
+        _virtualKeyboard?.HideWithoutCallback();
         if (_inputField != null) _inputField.DeactivateInputField();
         if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject == _inputField?.gameObject)
             EventSystem.current.SetSelectedGameObject(null);
 
         _isTyping = false;
+        _isGamepadTyping = false;
         UnlockGameplayInput();
         UICursorLockService.Release(this);
+    }
+
+    private void HandleVirtualKeyboardSubmit()
+    {
+        SendCurrentMessage();
+        if (_isTyping && _isGamepadTyping)
+            _virtualKeyboard?.Show(_inputField, "NETWORK CHAT", HandleVirtualKeyboardSubmit, HandleVirtualKeyboardCancel);
+    }
+
+    private void HandleVirtualKeyboardCancel()
+    {
+        _inputField?.SetTextWithoutNotify(string.Empty);
+        SetCollapsed(true);
+    }
+
+    private void HandleInputFieldSelected()
+    {
+        StartTyping(IsGamepadActive());
+    }
+
+    private bool IsGamepadActive()
+    {
+        return InputDeviceDetector.Instance != null
+            && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
     }
 
     private void HandleSendRequest(ulong senderClientId, FastBufferReader reader)
@@ -437,7 +475,7 @@ public sealed class NetworkChatController : MonoBehaviour
         textArea.anchorMax = Vector2.one;
         textArea.offsetMin = new Vector2(12f, 5f);
         textArea.offsetMax = new Vector2(-12f, -5f);
-        TMP_Text placeholder = CreateText(textArea, "Press T or / to chat...", 15f, new Color(0.20f, 0.28f, 0.29f, 0.65f), TextAlignmentOptions.MidlineLeft);
+        TMP_Text placeholder = CreateText(textArea, "T / D-PAD DOWN để mở chat...", 15f, new Color(0.20f, 0.28f, 0.29f, 0.65f), TextAlignmentOptions.MidlineLeft);
         placeholder.fontStyle = FontStyles.Italic;
         SetStretch(placeholder.rectTransform, Vector2.zero, Vector2.zero);
         TMP_Text inputText = CreateText(textArea, string.Empty, 15f, new Color(0.02f, 0.07f, 0.08f, 1f), TextAlignmentOptions.MidlineLeft);
@@ -448,7 +486,7 @@ public sealed class NetworkChatController : MonoBehaviour
         _inputField.characterLimit = MaxMessageLength;
         _inputField.lineType = TMP_InputField.LineType.SingleLine;
         _inputField.onSubmit.AddListener(_ => SendCurrentMessage());
-        _inputField.onSelect.AddListener(_ => StartTyping());
+        _inputField.onSelect.AddListener(_ => HandleInputFieldSelected());
 
         Button send = CreateButton(bodyRect, "SendButton", AccentColor);
         RectTransform sendRect = send.GetComponent<RectTransform>();
@@ -460,6 +498,9 @@ public sealed class NetworkChatController : MonoBehaviour
         sendLabel.fontStyle = FontStyles.Bold;
         SetStretch(sendLabel.rectTransform, Vector2.zero, Vector2.zero);
         send.onClick.AddListener(SendCurrentMessage);
+
+        _virtualKeyboard = _canvas.gameObject.AddComponent<GamepadVirtualKeyboard>();
+        _virtualKeyboard.Initialize(_canvas.transform);
     }
 
     private static RectTransform CreateRect(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax, Vector2 position, Vector2 size, Vector2 pivot)

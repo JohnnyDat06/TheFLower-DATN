@@ -30,6 +30,13 @@ public enum ErisRole : byte
     Controller
 }
 
+public enum ErisPendingAction : byte
+{
+    None,
+    SwapRoles,
+    ReplayPath
+}
+
 public class ErisMinigameManager : NetworkBehaviour
 {
     [Header("References")]
@@ -186,10 +193,18 @@ public class ErisMinigameManager : NetworkBehaviour
         new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private readonly NetworkVariable<ulong> _startClientId =
         new(ulong.MaxValue, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<ErisPendingAction> _pendingAction =
+        new(ErisPendingAction.None, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<int> _pendingActionConsentCount =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+    private readonly NetworkVariable<int> _pendingActionCountdown =
+        new(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
     private ulong _roleSelectionTick = ulong.MaxValue;
     private ulong _roleSelectionFirstClient = ulong.MaxValue;
     private ErisRole _roleSelectionFirstRole = ErisRole.None;
     private Coroutine _countdownRoutine;
+    private Coroutine _pendingActionRoutine;
+    private readonly HashSet<ulong> _pendingActionConsent = new HashSet<ulong>();
     private ErisBoardUI _boardUI;
     
     // XÃ³a NetworkObjectReference vÃ¬ ta sáº½ dÃ¹ng Object cá»¥c bá»™ Ä‘á»ƒ Ä‘áº£m báº£o 100% hiá»ƒn thá»‹
@@ -221,6 +236,8 @@ public class ErisMinigameManager : NetworkBehaviour
     // Must cover the cyan wave, dissolve, and a short settle before the
     // ground/camera are restored together.
     private const float SuccessPresentationDuration = 3.2f;
+    private const int ActionConsentRequiredPlayers = 2;
+    private const int ActionConsentDelaySeconds = 3;
 
     private bool _liveCoordinatesInitialized;
     private Vector3 _lastBoardPosition;
@@ -232,19 +249,33 @@ public class ErisMinigameManager : NetworkBehaviour
     private Vector3 _lastRightCameraPosition;
     private Vector3 _lastRightCameraEulerAngles;
 
-    // Arrow keys are reserved for camera switching. Board movement stays on WASD
-    // so camera input cannot also move the chess piece.
-    private readonly KeyCode[] _upKeys = { KeyCode.W };
-    private readonly KeyCode[] _downKeys = { KeyCode.S };
-    private readonly KeyCode[] _leftKeys = { KeyCode.A };
-    private readonly KeyCode[] _rightKeys = { KeyCode.D };
-
     private AudioSource _loopingSource;
+    private readonly HashSet<AudioSource> _erisLoopingSources = new HashSet<AudioSource>();
     // The initial board view is the top camera; arrow keys switch views.
     private int _cameraDirection = 1;
+    private Vector2Int _lastBoardMoveDirection;
 
     public ErisSessionPhase SessionPhase => _sessionPhase.Value;
     public int CountdownValue => _countdownValue.Value;
+    public ErisPendingAction PendingAction => _pendingAction.Value;
+    public int PendingActionConsentCount => _pendingActionConsentCount.Value;
+    public int PendingActionRequiredCount => IsSoloSession ? 1 : ActionConsentRequiredPlayers;
+    public int PendingActionCountdown => _pendingActionCountdown.Value;
+    public string PendingActionStatusMessage
+    {
+        get
+        {
+            if (_pendingAction.Value == ErisPendingAction.None) return string.Empty;
+
+            string actionName = _pendingAction.Value == ErisPendingAction.SwapRoles
+                ? "\u0110\u1ed5i ch\u1ed7"
+                : "Xem l\u1ea1i \u0111\u01b0\u1eddng \u0111i";
+            string status = $"{actionName} {_pendingActionConsentCount.Value}/{PendingActionRequiredCount}";
+            if (_pendingActionCountdown.Value > 0)
+                status += $" - {_pendingActionCountdown.Value}s";
+            return status;
+        }
+    }
     /// <summary>Returns true when this board is running without an observer.</summary>
     public bool IsSoloSession => _observerId.Value == ulong.MaxValue;
     /// <summary>Returns true while a controller may start without waiting for an observer.</summary>
@@ -417,7 +448,7 @@ public class ErisMinigameManager : NetworkBehaviour
         _isGameActive.OnValueChanged -= OnGameActiveChanged;
         _illusionState.OnValueChanged -= OnIllusionStateChanged;
         
-        if (_loopingSource != null) { try { AudioManager.Instance.StopSFX(_loopingSource); } catch {} _loopingSource = null; }
+        StopLoopingAudio();
         if (_illusionRoutine != null) StopCoroutine(_illusionRoutine);
         if (_countdownRoutine != null) StopCoroutine(_countdownRoutine);
         if (_completionRoutine != null) StopCoroutine(_completionRoutine);
@@ -456,6 +487,7 @@ public class ErisMinigameManager : NetworkBehaviour
     {
         if (!IsServer || _deathExitInProgress) return;
         _deathExitInProgress = true;
+        ResetPendingActionServer();
 
         // Leave the Eris arena immediately and revive at the latest checkpoint
         // so a second attempt never starts while an owner is still falling or
@@ -583,12 +615,14 @@ public class ErisMinigameManager : NetworkBehaviour
 
     public void RequestSwapRoles()
     {
-        if (_sessionPhase.Value == ErisSessionPhase.Playing && !IsSoloSession) SwapRolesAndResetServerRpc();
+        if (_sessionPhase.Value == ErisSessionPhase.Playing && !IsSoloSession)
+            RequestActionConsentServerRpc(ErisPendingAction.SwapRoles);
     }
 
     public void RequestReplayPath()
     {
-        if (_sessionPhase.Value == ErisSessionPhase.Playing) ReplayPathServerRpc();
+        if (_sessionPhase.Value == ErisSessionPhase.Playing)
+            RequestActionConsentServerRpc(ErisPendingAction.ReplayPath);
     }
 
     private bool CanStartSessionFor(ulong clientId)
@@ -623,7 +657,7 @@ public class ErisMinigameManager : NetworkBehaviour
                 || _syncedPath.Length == 0)) return;
         if (!newVal) {
             StopPathLoop();
-            if (_loopingSource != null) { AudioManager.Instance.StopSFX(_loopingSource); _loopingSource = null; }
+            StopLoopingAudio();
             AudioManager.Instance.PlaySFX(ReadyToPlaySFX);
             if (_idleWaveCoroutine != null) StopCoroutine(_idleWaveCoroutine);
             _idleWaveCoroutine = StartCoroutine(IdleWaveRoutine());
@@ -721,6 +755,7 @@ public class ErisMinigameManager : NetworkBehaviour
     {
         if (!IsServer || _sessionPhase.Value != ErisSessionPhase.Idle) return;
 
+        ResetPendingActionServer();
         _sessionPhase.Value = ErisSessionPhase.RoleSelection;
         _roleControllerId.Value = ulong.MaxValue;
         _roleObserverId.Value = ulong.MaxValue;
@@ -852,6 +887,7 @@ public class ErisMinigameManager : NetworkBehaviour
             return;
         }
 
+        ResetPendingActionServer();
         ApplyIllusionPresentationClientRpc(false);
         _illusionState.Value = ErisIllusionState.BoardActive;
         _sessionPhase.Value = ErisSessionPhase.Playing;
@@ -997,15 +1033,20 @@ public class ErisMinigameManager : NetworkBehaviour
         if (NetworkManager.Singleton.LocalClientId == controllerId) {
             if (isSolo) {
                 if (BlackFogVFX != null) { BlackFogVFX.Stop(); BlackFogVFX.Clear(); }
-                if (_loopingSource != null) { try { AudioManager.Instance.StopSFX(_loopingSource); } catch {} _loopingSource = null; }
+                StopLoopingAudio();
                 StartCoroutine(SoloPathRevealRoutine());
             }
             else {
-                if (BlackFogVFX != null) BlackFogVFX.Play(); if (_loopingSource != null) AudioManager.Instance.StopSFX(_loopingSource);
-                _loopingSource = AudioManager.Instance.PlaySFXLoop(ControllerWaitingSFX);
+                if (BlackFogVFX != null) BlackFogVFX.Play();
+                StartControllerWaitingAudio();
             }
-        } 
-        else if (NetworkManager.Singleton.LocalClientId == observerId) { StartPathLoop(); AudioManager.Instance.PlaySFX(ObserverPathRevealSFX); }
+        }
+        else if (NetworkManager.Singleton.LocalClientId == observerId)
+        {
+            StopLoopingAudio();
+            StartPathLoop();
+            AudioManager.Instance.PlaySFX(ObserverPathRevealSFX);
+        }
         EventBus.RaiseGamePaused(); 
     }
 
@@ -1445,16 +1486,42 @@ public class ErisMinigameManager : NetworkBehaviour
             }
         }
         
-        if (NetworkManager.Singleton != null) {
-            if (NetworkManager.Singleton.LocalClientId == _observerId.Value && _isMemorizing.Value && Input.GetKeyDown(KeyCode.E)) ReadyToPlayServerRpc();
-            if (NetworkManager.Singleton.LocalClientId == _controllerId.Value && !_isMemorizing.Value && !_isReseting && _canInput) HandleKeyboardInput(); 
-            // Camera switching is available during the reveal/memorization loop too.
-            // E remains reserved for the observer's ready action.
-            if (_boardCameraLeaseActive)
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClient != null)
+        {
+            PlayerInputHandler inputHandler = GetLocalPlayerInputHandler();
+            if (inputHandler != null)
             {
-                if (Input.GetKeyDown(KeyCode.LeftArrow)) SwitchBoardCamera(-1);
-                if (Input.GetKeyDown(KeyCode.RightArrow)) SwitchBoardCamera(1);
-                if (Input.GetKeyDown(KeyCode.UpArrow)) SetBoardCameraDirection(1);
+                ulong localClientId = NetworkManager.Singleton.LocalClientId;
+
+                if (localClientId == _observerId.Value
+                    && _isMemorizing.Value
+                    && inputHandler.ErisReadyPressed)
+                {
+                    ReadyToPlayServerRpc();
+                }
+
+                if (localClientId == _controllerId.Value
+                    && !_isMemorizing.Value
+                    && !_isReseting
+                    && _pendingActionCountdown.Value == 0
+                    && _canInput)
+                {
+                    HandleBoardMove(inputHandler.ErisMoveInput);
+                }
+                else if (inputHandler.ErisMoveInput.sqrMagnitude < 0.01f)
+                {
+                    _lastBoardMoveDirection = Vector2Int.zero;
+                }
+
+                if (_boardCameraLeaseActive)
+                {
+                    if (inputHandler.ErisCameraPreviousPressed) SwitchBoardCamera(-1);
+                    if (inputHandler.ErisCameraNextPressed) SwitchBoardCamera(1);
+                    if (inputHandler.ErisCameraTopPressed) SetBoardCameraDirection(1);
+                }
+
+                if (inputHandler.ErisSwapRolesPressed) RequestSwapRoles();
+                if (inputHandler.ErisReplayPathPressed) RequestReplayPath();
             }
         }
         
@@ -1496,17 +1563,32 @@ public class ErisMinigameManager : NetworkBehaviour
         else { foreach (var t in _spawnedTiles) t.RestoreColor(); }
     }
 
-    private void HandleKeyboardInput() {
-        Vector2Int moveDir = Vector2Int.zero;
-        if (AnyKeyPressed(_upKeys)) moveDir = Vector2Int.up; else if (AnyKeyPressed(_downKeys)) moveDir = Vector2Int.down;
-        else if (AnyKeyPressed(_leftKeys)) moveDir = Vector2Int.left; else if (AnyKeyPressed(_rightKeys)) moveDir = Vector2Int.right;
-        if (moveDir != Vector2Int.zero) {
-            Vector2Int targetPos = _pieceGridPos.Value + moveDir;
-            if (targetPos.x >= 0 && targetPos.x < 10 && targetPos.y >= 0 && targetPos.y < 10) { _canInput = false; SubmitMoveServerRpc(targetPos); }
+    private void HandleBoardMove(Vector2 input)
+    {
+        Vector2Int moveDir = ToBoardMoveDirection(input);
+        if (moveDir == Vector2Int.zero)
+        {
+            _lastBoardMoveDirection = Vector2Int.zero;
+            return;
         }
+
+        if (moveDir == _lastBoardMoveDirection) return;
+        _lastBoardMoveDirection = moveDir;
+
+        Vector2Int targetPos = _pieceGridPos.Value + moveDir;
+        if (targetPos.x < 0 || targetPos.x >= 10 || targetPos.y < 0 || targetPos.y >= 10) return;
+
+        _canInput = false;
+        SubmitMoveServerRpc(targetPos);
     }
 
-    private bool AnyKeyPressed(KeyCode[] keys) { foreach (var k in keys) if (Input.GetKeyDown(k)) return true; return false; }
+    private static Vector2Int ToBoardMoveDirection(Vector2 input)
+    {
+        if (input.sqrMagnitude < 0.25f) return Vector2Int.zero;
+        if (Mathf.Abs(input.y) >= Mathf.Abs(input.x))
+            return input.y > 0f ? Vector2Int.up : Vector2Int.down;
+        return input.x > 0f ? Vector2Int.right : Vector2Int.left;
+    }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void ReadyToPlayServerRpc(RpcParams rpcParams = default)
@@ -1630,6 +1712,7 @@ public class ErisMinigameManager : NetworkBehaviour
         if (!IsServer
             || _sessionPhase.Value != ErisSessionPhase.Playing
             || _isMemorizing.Value
+            || _pendingActionCountdown.Value > 0
             || _completionStarted)
         {
             return;
@@ -1758,6 +1841,8 @@ public class ErisMinigameManager : NetworkBehaviour
     private IEnumerator FinalizeMinigameServer()
     {
         if (!IsServer) yield break;
+
+        ResetPendingActionServer();
 
         // The owner-authoritative Player uses NGOPlayerSync for safe teleports.
         // Never assign transform.position from a ClientRpc: doing so races the
@@ -2044,9 +2129,116 @@ public class ErisMinigameManager : NetworkBehaviour
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void SwapRolesAndResetServerRpc(RpcParams rpcParams = default)
+    private void RequestActionConsentServerRpc(ErisPendingAction action, RpcParams rpcParams = default)
     {
-        if (!IsServer || _sessionPhase.Value != ErisSessionPhase.Playing || !IsAuthorizedSessionPlayer(rpcParams.Receive.SenderClientId)) return;
+        if (!IsServer
+            || _sessionPhase.Value != ErisSessionPhase.Playing
+            || action == ErisPendingAction.None
+            || !IsAuthorizedSessionPlayer(rpcParams.Receive.SenderClientId))
+        {
+            return;
+        }
+
+        bool isSolo = IsSoloSession;
+        if (action == ErisPendingAction.SwapRoles && isSolo) return;
+        if (action == ErisPendingAction.ReplayPath
+            && (_isMemorizing.Value || _syncedPath == null || _syncedPath.Length == 0))
+        {
+            return;
+        }
+
+        if (_pendingAction.Value == ErisPendingAction.None)
+        {
+            _pendingAction.Value = action;
+            _pendingActionConsent.Clear();
+            _pendingActionCountdown.Value = 0;
+        }
+        else if (_pendingAction.Value != action || _pendingActionCountdown.Value > 0)
+        {
+            // Once one action is pending, the other action cannot race it.
+            return;
+        }
+
+        if (!_pendingActionConsent.Add(rpcParams.Receive.SenderClientId)) return;
+        _pendingActionConsentCount.Value = _pendingActionConsent.Count;
+
+        if (isSolo)
+        {
+            ErisPendingAction soloAction = _pendingAction.Value;
+            ClearPendingActionStateServer();
+            ExecutePendingActionServer(soloAction);
+            return;
+        }
+
+        if (_pendingActionConsent.Count >= ActionConsentRequiredPlayers && _pendingActionRoutine == null)
+            _pendingActionRoutine = StartCoroutine(ExecutePendingActionRoutine());
+    }
+
+    private IEnumerator ExecutePendingActionRoutine()
+    {
+        for (int seconds = ActionConsentDelaySeconds; seconds > 0; seconds--)
+        {
+            if (!IsServer
+                || _sessionPhase.Value != ErisSessionPhase.Playing
+                || _pendingAction.Value == ErisPendingAction.None
+                || _pendingActionConsent.Count < ActionConsentRequiredPlayers)
+            {
+                ClearPendingActionStateServer();
+                _pendingActionRoutine = null;
+                yield break;
+            }
+
+            _pendingActionCountdown.Value = seconds;
+            yield return new WaitForSecondsRealtime(1f);
+        }
+
+        ErisPendingAction action = _pendingAction.Value;
+        ClearPendingActionStateServer();
+        _pendingActionRoutine = null;
+        ExecutePendingActionServer(action);
+    }
+
+    private void ExecutePendingActionServer(ErisPendingAction action)
+    {
+        if (!IsServer || _sessionPhase.Value != ErisSessionPhase.Playing) return;
+
+        if (action == ErisPendingAction.SwapRoles)
+            ExecuteSwapRolesServer();
+        else if (action == ErisPendingAction.ReplayPath)
+            ExecuteReplayPathServer();
+    }
+
+    private void ClearPendingActionStateServer()
+    {
+        if (!IsServer) return;
+
+        _pendingActionConsent.Clear();
+        _pendingAction.Value = ErisPendingAction.None;
+        _pendingActionConsentCount.Value = 0;
+        _pendingActionCountdown.Value = 0;
+    }
+
+    private void ResetPendingActionServer()
+    {
+        if (!IsServer) return;
+
+        if (_pendingActionRoutine != null)
+        {
+            StopCoroutine(_pendingActionRoutine);
+            _pendingActionRoutine = null;
+        }
+
+        ClearPendingActionStateServer();
+    }
+
+    private void ExecuteSwapRolesServer()
+    {
+        if (!IsServer
+            || _sessionPhase.Value != ErisSessionPhase.Playing
+            || IsSoloSession)
+        {
+            return;
+        }
 
         ulong previousController = _roleControllerId.Value;
         _roleControllerId.Value = _roleObserverId.Value;
@@ -2060,10 +2252,17 @@ public class ErisMinigameManager : NetworkBehaviour
         SetupBoardClientRpc(_controllerId.Value, _observerId.Value, _syncedPath);
     }
 
-    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
-    private void ReplayPathServerRpc(RpcParams rpcParams = default)
+    private void ExecuteReplayPathServer()
     {
-        if (!IsServer || _sessionPhase.Value != ErisSessionPhase.Playing || !IsAuthorizedSessionPlayer(rpcParams.Receive.SenderClientId)) return;
+        if (!IsServer
+            || _sessionPhase.Value != ErisSessionPhase.Playing
+            || _isMemorizing.Value
+            || _syncedPath == null
+            || _syncedPath.Length == 0)
+        {
+            return;
+        }
+
         _isMemorizing.Value = true;
         _currentStepIndex.Value = 0;
         StartCoroutine(ReplayPathRoutineServer());
@@ -2071,22 +2270,34 @@ public class ErisMinigameManager : NetworkBehaviour
 
     private IEnumerator ReplayPathRoutineServer()
     {
+        if (_syncedPath == null || _syncedPath.Length == 0) yield break;
         _pieceGridPos.Value = new Vector2Int(-1, -1);
-        ReplayPathPresentationClientRpc();
+        ReplayPathPresentationClientRpc(_controllerId.Value, _observerId.Value);
         yield return null;
         _pieceGridPos.Value = _syncedPath[0];
     }
 
     [ClientRpc]
-    private void ReplayPathPresentationClientRpc()
+    private void ReplayPathPresentationClientRpc(ulong controllerId, ulong observerId)
     {
+        if (NetworkManager.Singleton == null) return;
+
+        StopLoopingAudio();
+        if (_pathLoopCoroutine != null)
+        {
+            StopCoroutine(_pathLoopCoroutine);
+            _pathLoopCoroutine = null;
+        }
+
         foreach (ErisTile tile in _spawnedTiles)
             tile?.ResetTile();
-        if (NetworkManager.Singleton.LocalClientId == _observerId.Value)
+
+        ulong localClientId = NetworkManager.Singleton.LocalClientId;
+        if (localClientId == observerId)
             StartPathLoop();
-        else if (NetworkManager.Singleton.LocalClientId == _controllerId.Value)
+        else if (localClientId == controllerId)
         {
-            if (_observerId.Value == ulong.MaxValue)
+            if (observerId == ulong.MaxValue)
             {
                 if (BlackFogVFX != null) { BlackFogVFX.Stop(); BlackFogVFX.Clear(); }
                 StartCoroutine(SoloPathRevealRoutine());
@@ -2094,7 +2305,7 @@ public class ErisMinigameManager : NetworkBehaviour
             else
             {
                 if (BlackFogVFX != null) BlackFogVFX.Play();
-                if (ControllerWaitingSFX != null) _loopingSource = AudioManager.Instance.PlaySFXLoop(ControllerWaitingSFX);
+                StartControllerWaitingAudio();
             }
         }
     }
@@ -2421,11 +2632,32 @@ public class ErisMinigameManager : NetworkBehaviour
         _illusionRoutine = null;
         _countdownRoutine = null;
 
+        StopLoopingAudio();
+    }
+
+    private void StartControllerWaitingAudio()
+    {
+        StopLoopingAudio();
+        if (ControllerWaitingSFX == null || AudioManager.Instance == null) return;
+
+        _loopingSource = AudioManager.Instance.PlaySFXLoop(ControllerWaitingSFX);
         if (_loopingSource != null)
+            _erisLoopingSources.Add(_loopingSource);
+    }
+
+    private void StopLoopingAudio()
+    {
+        if (_loopingSource != null)
+            _erisLoopingSources.Add(_loopingSource);
+
+        foreach (AudioSource source in _erisLoopingSources)
         {
-            try { AudioManager.Instance.StopSFX(_loopingSource); } catch { }
-            _loopingSource = null;
+            if (source == null) continue;
+            try { AudioManager.Instance.StopSFX(source); } catch { }
         }
+
+        _erisLoopingSources.Clear();
+        _loopingSource = null;
     }
 
     private void CleanupBoardImmediate()

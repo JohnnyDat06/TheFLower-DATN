@@ -38,6 +38,13 @@ public class PlayerInputHandler : NetworkBehaviour
     private InputAction _stickerPreviousSetAction;
     private InputAction _stickerNextSetAction;
     private InputAction _stickerCancelAction;
+    private InputAction _erisMoveAction;
+    private InputAction _erisReadyAction;
+    private InputAction _erisCameraPreviousAction;
+    private InputAction _erisCameraNextAction;
+    private InputAction _erisCameraTopAction;
+    private InputAction _erisSwapRolesAction;
+    private InputAction _erisReplayPathAction;
 
     private bool  _inputLocked;
     private float _jumpBufferTimer;
@@ -100,6 +107,27 @@ public class PlayerInputHandler : NetworkBehaviour
 
     /// <summary>True for one frame when the sticker wheel is canceled.</summary>
     public bool StickerCancelPressed { get; private set; }
+
+    /// <summary>Keyboard/gamepad direction used by the Eris board controller.</summary>
+    public Vector2 ErisMoveInput { get; private set; }
+
+    /// <summary>True for one frame when the local Eris player requests ready.</summary>
+    public bool ErisReadyPressed { get; private set; }
+
+    /// <summary>True for one frame when the previous Eris camera is requested.</summary>
+    public bool ErisCameraPreviousPressed { get; private set; }
+
+    /// <summary>True for one frame when the next Eris camera is requested.</summary>
+    public bool ErisCameraNextPressed { get; private set; }
+
+    /// <summary>True for one frame when the Eris top camera is requested.</summary>
+    public bool ErisCameraTopPressed { get; private set; }
+
+    /// <summary>True for one frame when the Eris roles should be swapped.</summary>
+    public bool ErisSwapRolesPressed { get; private set; }
+
+    /// <summary>True for one frame when the Eris path should be replayed.</summary>
+    public bool ErisReplayPathPressed { get; private set; }
 
     public bool IsInputLocked => _inputLocked;
 
@@ -169,6 +197,15 @@ public class PlayerInputHandler : NetworkBehaviour
         _stickerPreviousSetAction = playerMap.FindAction("StickerPreviousSet");
         _stickerNextSetAction = playerMap.FindAction("StickerNextSet");
         _stickerCancelAction = playerMap.FindAction("StickerCancel");
+
+        InputActionMap erisMap = _inputActions.FindActionMap("Eris");
+        _erisMoveAction = erisMap?.FindAction("Move");
+        _erisReadyAction = erisMap?.FindAction("Ready");
+        _erisCameraPreviousAction = erisMap?.FindAction("CameraPrevious");
+        _erisCameraNextAction = erisMap?.FindAction("CameraNext");
+        _erisCameraTopAction = erisMap?.FindAction("CameraTop");
+        _erisSwapRolesAction = erisMap?.FindAction("SwapRoles");
+        _erisReplayPathAction = erisMap?.FindAction("ReplayPath");
     }
 
     public override void OnNetworkSpawn()
@@ -228,6 +265,12 @@ public class PlayerInputHandler : NetworkBehaviour
         StickerPreviousSetPressed = false;
         StickerNextSetPressed = false;
         StickerCancelPressed = false;
+        ErisReadyPressed = false;
+        ErisCameraPreviousPressed = false;
+        ErisCameraNextPressed = false;
+        ErisCameraTopPressed = false;
+        ErisSwapRolesPressed = false;
+        ErisReplayPathPressed = false;
     }
 
     // ─── Input Reading ───────────────────────────────────────────────────────
@@ -303,6 +346,14 @@ public class PlayerInputHandler : NetworkBehaviour
         StickerPreviousSetPressed = _stickerPreviousSetAction?.WasPressedThisFrame() ?? false;
         StickerNextSetPressed = _stickerNextSetAction?.WasPressedThisFrame() ?? false;
         StickerCancelPressed = _stickerCancelAction?.WasPressedThisFrame() ?? false;
+
+        ErisMoveInput = _erisMoveAction?.ReadValue<Vector2>() ?? Vector2.zero;
+        ErisReadyPressed = _erisReadyAction?.WasPressedThisFrame() ?? false;
+        ErisCameraPreviousPressed = _erisCameraPreviousAction?.WasPressedThisFrame() ?? false;
+        ErisCameraNextPressed = _erisCameraNextAction?.WasPressedThisFrame() ?? false;
+        ErisCameraTopPressed = _erisCameraTopAction?.WasPressedThisFrame() ?? false;
+        ErisSwapRolesPressed = _erisSwapRolesAction?.WasPressedThisFrame() ?? false;
+        ErisReplayPathPressed = _erisReplayPathAction?.WasPressedThisFrame() ?? false;
     }
 
     private void ClearGameplayInput()
@@ -333,6 +384,13 @@ public class PlayerInputHandler : NetworkBehaviour
         StickerPreviousSetPressed = false;
         StickerNextSetPressed = false;
         StickerCancelPressed = false;
+        ErisMoveInput = Vector2.zero;
+        ErisReadyPressed = false;
+        ErisCameraPreviousPressed = false;
+        ErisCameraNextPressed = false;
+        ErisCameraTopPressed = false;
+        ErisSwapRolesPressed = false;
+        ErisReplayPathPressed = false;
     }
 
     // ─── Public Methods ──────────────────────────────────────────────────────

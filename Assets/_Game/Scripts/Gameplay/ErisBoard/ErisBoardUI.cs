@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 /// <summary>
@@ -31,6 +32,7 @@ public sealed class ErisBoardUI : MonoBehaviour
     private readonly List<Selectable> _disabledSelectables = new();
     private bool _isBuilt;
     private bool _roleCursorActive;
+    private ErisSessionPhase _lastFocusedPhase = ErisSessionPhase.Idle;
 
     public void Initialize(ErisMinigameManager manager)
     {
@@ -110,7 +112,7 @@ public sealed class ErisBoardUI : MonoBehaviour
         _status.rectTransform.sizeDelta = new Vector2(820f, 38f);
 
         _controllerButton = CreateRoleButton(panel, "ControllerCard", new Vector2(-245f, 0f), "NGƯỜI ĐIỀU KHIỂN", "Di chuyển quân cờ theo đường đi", out _controllerLock);
-        _observerButton = CreateRoleButton(panel, "ObserverCard", new Vector2(245f, 0f), "NGƯỜI QUAN SÁT", "Ghi nhớ đường đi và bấm E khi sẵn sàng", out _observerLock);
+        _observerButton = CreateRoleButton(panel, "ObserverCard", new Vector2(245f, 0f), "NGƯỜI QUAN SÁT", "Ghi nhớ đường đi và bấm E / A khi sẵn sàng", out _observerLock);
         _controllerButton.onClick.AddListener(() => _manager.RequestRole(ErisRole.Controller));
         _observerButton.onClick.AddListener(() => _manager.RequestRole(ErisRole.Observer));
 
@@ -142,21 +144,40 @@ public sealed class ErisBoardUI : MonoBehaviour
         _hint.rectTransform.offsetMin = new Vector2(20f, 8f);
         _hint.rectTransform.offsetMax = new Vector2(-20f, -8f);
 
-        _swapButton = CreateButton(root.transform, "Swap", new Vector2(-155f, -96f), new Vector2(230f, 52f), "HOÁN ĐỔI VỊ TRÍ", new Color(0.24f, 0.40f, 0.65f, 1f));
+        _swapButton = CreateButton(root.transform, "Swap", new Vector2(-155f, -96f), new Vector2(230f, 52f), "HOÁN ĐỔI VỊ TRÍ\n[R / X]", new Color(0.24f, 0.40f, 0.65f, 1f));
         SetTopButtonPosition(_swapButton, new Vector2(-155f, -102f));
         _swapButton.onClick.AddListener(_manager.RequestSwapRoles);
-        _replayButton = CreateButton(root.transform, "Replay", new Vector2(155f, -96f), new Vector2(230f, 52f), "XEM LẠI ĐƯỜNG ĐI", new Color(0.55f, 0.32f, 0.68f, 1f));
+        _replayButton = CreateButton(root.transform, "Replay", new Vector2(155f, -96f), new Vector2(230f, 52f), "XEM LẠI ĐƯỜNG ĐI\n[P / B]", new Color(0.55f, 0.32f, 0.68f, 1f));
         SetTopButtonPosition(_replayButton, new Vector2(155f, -102f));
         _replayButton.onClick.AddListener(_manager.RequestReplayPath);
+
+        ConfigureNavigation();
 
         root.gameObject.SetActive(false);
     }
 
     private static void EnsureEventSystem()
     {
-        if (EventSystem.current != null) return;
-        GameObject eventSystem = new("ErisBoardEventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
-        DontDestroyOnLoad(eventSystem);
+        EventSystem eventSystem = EventSystem.current ?? Object.FindFirstObjectByType<EventSystem>();
+        if (eventSystem == null)
+        {
+            eventSystem = new GameObject("ErisBoardEventSystem", typeof(EventSystem)).GetComponent<EventSystem>();
+            DontDestroyOnLoad(eventSystem.gameObject);
+        }
+
+        eventSystem.enabled = true;
+        StandaloneInputModule legacyModule = eventSystem.GetComponent<StandaloneInputModule>();
+        InputSystemUIInputModule inputModule = eventSystem.GetComponent<InputSystemUIInputModule>();
+        if (inputModule == null)
+        {
+            inputModule = eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
+        }
+
+        if (legacyModule != null) legacyModule.enabled = false;
+
+        if (inputModule.actionsAsset == null)
+            inputModule.AssignDefaultActions();
+        inputModule.enabled = true;
     }
 
     private void Refresh()
@@ -171,6 +192,8 @@ public sealed class ErisBoardUI : MonoBehaviour
         {
             ApplyRoleSelectionCursor(false);
             RestoreOtherSelectables();
+            ClearErisSelection();
+            _lastFocusedPhase = ErisSessionPhase.Idle;
             return;
         }
 
@@ -194,13 +217,25 @@ public sealed class ErisBoardUI : MonoBehaviour
         _observerButton.interactable = roleSelection && _manager.CanSelectRole(ErisRole.Observer);
         _startButton.interactable = roleSelection && _manager.CanStartSession;
         if (_startLabel != null) _startLabel.text = _manager.IsSoloSelection ? "BẮT ĐẦU SOLO" : "BẮT ĐẦU";
-        _swapButton.interactable = playing && !_manager.IsSoloSession;
+        bool actionPending = _manager.PendingAction != ErisPendingAction.None;
+        bool actionCountdown = _manager.PendingActionCountdown > 0;
+        _swapButton.interactable = playing
+            && !_manager.IsSoloSession
+            && (!actionPending || _manager.PendingAction == ErisPendingAction.SwapRoles)
+            && !actionCountdown;
+        _replayButton.interactable = playing
+            && (!actionPending || _manager.PendingAction == ErisPendingAction.ReplayPath)
+            && !actionCountdown;
 
+        string pendingActionStatus = _manager.PendingActionStatusMessage;
         _status.text = roleSelection
             ? _manager.RoleStatusMessage
-            : countdown ? "Hai người đã sẵn sàng" : "BÀN CỜ ĐANG DIỄN RA";
+            : countdown ? "Hai người đã sẵn sàng"
+            : !string.IsNullOrEmpty(pendingActionStatus) ? pendingActionStatus
+            : "BÀN CỜ ĐANG DIỄN RA";
         _hint.text = BuildHint(phase);
         DisableOtherSelectables();
+        EnsureErisSelection(phase);
     }
 
     private void ApplyRoleSelectionCursor(bool roleSelection)
@@ -254,8 +289,75 @@ public sealed class ErisBoardUI : MonoBehaviour
             return "Mỗi người chọn một vai trò khác nhau · Người còn lại bấm BẮT ĐẦU";
         }
         if (phase == ErisSessionPhase.Countdown) return string.Empty;
-        if (_manager.LocalRole == ErisRole.Observer) return "SẴN SÀNG: BẤM E  ·  ←/→: ĐỔI CAMERA  ·  ↑: CAMERA TRÊN";
-        return "WASD: DI CHUYỂN  ·  ←/→: ĐỔI CAMERA  ·  ↑: CAMERA TRÊN";
+        if (_manager.LocalRole == ErisRole.Observer)
+            return "SẴN SÀNG: E / A  ·  ←/→ hoặc D-PAD: ĐỔI CAMERA  ·  ↑ hoặc D-PAD ↑: CAMERA TRÊN  ·  R / X: ĐỔI VỊ TRÍ  ·  P / B: XEM LẠI";
+        return "WASD / LEFT STICK: DI CHUYỂN  ·  ←/→ hoặc D-PAD: ĐỔI CAMERA  ·  ↑ hoặc D-PAD ↑: CAMERA TRÊN  ·  R / X: ĐỔI VỊ TRÍ  ·  P / B: XEM LẠI";
+    }
+
+    private void ConfigureNavigation()
+    {
+        SetExplicitNavigation(_controllerButton, _startButton, _observerButton, _observerButton, _observerButton);
+        SetExplicitNavigation(_observerButton, _startButton, _controllerButton, _controllerButton, _controllerButton);
+        SetExplicitNavigation(_startButton, _controllerButton, _controllerButton, _startButton, _startButton);
+        SetExplicitNavigation(_swapButton, _swapButton, _swapButton, _replayButton, _replayButton);
+        SetExplicitNavigation(_replayButton, _replayButton, _replayButton, _swapButton, _swapButton);
+    }
+
+    private void EnsureErisSelection(ErisSessionPhase phase)
+    {
+        if (EventSystem.current == null) return;
+
+        GameObject selected = EventSystem.current.currentSelectedGameObject;
+        bool isPhaseSelection = phase == _lastFocusedPhase;
+        bool selectedIsActiveErisButton = selected != null
+            && selected.activeInHierarchy
+            && selected.TryGetComponent(out Selectable selectedSelectable)
+            && selectedSelectable.interactable
+            && (selected == _controllerButton.gameObject
+                || selected == _observerButton.gameObject
+                || selected == _startButton.gameObject
+                || selected == _swapButton.gameObject
+                || selected == _replayButton.gameObject);
+
+        if (isPhaseSelection && selectedIsActiveErisButton) return;
+        _lastFocusedPhase = phase;
+
+        Selectable target = phase == ErisSessionPhase.RoleSelection
+            ? FirstInteractable(_controllerButton, _observerButton, _startButton)
+            : FirstInteractable(_swapButton, _replayButton);
+        if (target != null) EventSystem.current.SetSelectedGameObject(target.gameObject);
+    }
+
+    private static Selectable FirstInteractable(params Selectable[] candidates)
+    {
+        foreach (Selectable candidate in candidates)
+            if (candidate != null && candidate.IsActive() && candidate.IsInteractable()) return candidate;
+        return null;
+    }
+
+    private void ClearErisSelection()
+    {
+        GameObject selected = EventSystem.current?.currentSelectedGameObject;
+        if (selected == _controllerButton?.gameObject
+            || selected == _observerButton?.gameObject
+            || selected == _startButton?.gameObject
+            || selected == _swapButton?.gameObject
+            || selected == _replayButton?.gameObject)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+        }
+    }
+
+    private static void SetExplicitNavigation(Selectable selectable, Selectable up, Selectable down, Selectable left, Selectable right)
+    {
+        if (selectable == null) return;
+        Navigation navigation = selectable.navigation;
+        navigation.mode = Navigation.Mode.Explicit;
+        navigation.selectOnUp = up;
+        navigation.selectOnDown = down;
+        navigation.selectOnLeft = left;
+        navigation.selectOnRight = right;
+        selectable.navigation = navigation;
     }
 
     private void DisableOtherSelectables()

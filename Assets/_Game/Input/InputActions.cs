@@ -559,6 +559,17 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
                 },
                 {
                     ""name"": """",
+                    ""id"": ""f0b8c9e6-6f85-4a87-9a68-2a2c5d4e8f91"",
+                    ""path"": ""<Gamepad>/dpad/down"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""Chat"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
                     ""id"": ""a8fe2ec5-1a6e-4e8b-9c41-9e7b3b7b4a64"",
                     ""path"": ""<Keyboard>/k"",
                     ""interactions"": """",
@@ -646,6 +657,275 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
                     ""isPartOfComposite"": false
                 }
             ]
+        },
+        {
+            ""name"": ""Eris"",
+            ""id"": ""a3c8f67e-1d25-48c4-9d3f-7b2e5a1c9064"",
+            ""actions"": [
+                {
+                    ""name"": ""Move"",
+                    ""type"": ""Value"",
+                    ""id"": ""b7f4d92c-3e81-4a6f-9c25-1d8e7b0a5362"",
+                    ""expectedControlType"": ""Vector2"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": true
+                },
+                {
+                    ""name"": ""Ready"",
+                    ""type"": ""Button"",
+                    ""id"": ""c6a1e5f8-2b74-4d90-8c36-7e0f9a2b1453"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""CameraPrevious"",
+                    ""type"": ""Button"",
+                    ""id"": ""d5e9b3a7-4c12-486f-9a20-8b6e1f3d7542"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""CameraNext"",
+                    ""type"": ""Button"",
+                    ""id"": ""e4f8c2b6-5d13-497a-8b21-9c7e2a4f8653"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""CameraTop"",
+                    ""type"": ""Button"",
+                    ""id"": ""f3a7d1c5-6e24-4b8f-9a32-0d7c5e2b9764"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""SwapRoles"",
+                    ""type"": ""Button"",
+                    ""id"": ""a2b6e0d4-7f35-4c9a-8b43-1e6d5f3c0875"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""ReplayPath"",
+                    ""type"": ""Button"",
+                    ""id"": ""b1c5f9e3-8a46-4d0b-9c54-2f7e6a4d1986"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
+                }
+            ],
+            ""bindings"": [
+                {
+                    ""name"": ""Keyboard"",
+                    ""id"": ""c0d4e8f2-9b57-4a1c-8d65-3e6f7b5a2097"",
+                    ""path"": ""2DVector"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""Move"",
+                    ""isComposite"": true,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": ""up"",
+                    ""id"": ""d9e3f7a1-0b68-4c2d-9e76-4f8a6b5c3108"",
+                    ""path"": ""<Keyboard>/w"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""down"",
+                    ""id"": ""e8f2a6b0-1c79-4d3e-8f87-5a9b7c6d4219"",
+                    ""path"": ""<Keyboard>/s"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""left"",
+                    ""id"": ""f7a1b5c9-2d80-4e4f-9a98-6b0c8d7e5320"",
+                    ""path"": ""<Keyboard>/a"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""right"",
+                    ""id"": ""a6b0c4d8-3e91-4f50-8ba9-7c1d9e8f6431"",
+                    ""path"": ""<Keyboard>/d"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b5c9d3e7-4f02-4a61-9cb0-8d2e0f9a7542"",
+                    ""path"": ""<Gamepad>/leftStick"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""Move"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""c4d8e2f6-5a13-4b72-8dc1-9e3f1a0b8653"",
+                    ""path"": ""<Keyboard>/e"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""Ready"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""d3e7f1a5-6b24-4c83-9ed2-0f4a2b1c9764"",
+                    ""path"": ""<Gamepad>/buttonSouth"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""Ready"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""e2f6a0b4-7c35-4d94-8fe3-1a5b3c2d0875"",
+                    ""path"": ""<Keyboard>/leftArrow"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""CameraPrevious"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""f1a5b9c3-8d46-4e05-9af4-2b6c4d3e1986"",
+                    ""path"": ""<Gamepad>/dpad/left"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""CameraPrevious"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a0b4c8d2-9e57-4f16-8b05-3c7d5e4f2097"",
+                    ""path"": ""<Keyboard>/rightArrow"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""CameraNext"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b9c3d7e1-0f68-4a27-9c16-4d8e6f5a3108"",
+                    ""path"": ""<Gamepad>/dpad/right"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""CameraNext"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""c8d2e6f0-1a79-4b38-8d27-5e9f7a6b4219"",
+                    ""path"": ""<Keyboard>/upArrow"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""CameraTop"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""d7e1f5a9-2b80-4c49-9e38-6f0a8b7c5320"",
+                    ""path"": ""<Gamepad>/dpad/up"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""CameraTop"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""e6f0a4b8-3c91-4d50-8f49-7a1b9c8d6431"",
+                    ""path"": ""<Keyboard>/r"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""SwapRoles"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""f5a9b3c7-4d02-4e61-9a50-8b2c0d9e7542"",
+                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""SwapRoles"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""a4b8c2d6-5e13-4f72-8b61-9c3d1e0f8653"",
+                    ""path"": ""<Keyboard>/p"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""KeyboardMouse"",
+                    ""action"": ""ReplayPath"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""b3c7d1e5-6f24-4a83-9c72-0d4e2f1a9764"",
+                    ""path"": ""<Gamepad>/buttonEast"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": ""Gamepad"",
+                    ""action"": ""ReplayPath"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
+                }
+            ]
         }
     ],
     ""controlSchemes"": [
@@ -696,11 +976,21 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
         m_Player_StickerPreviousSet = m_Player.FindAction("StickerPreviousSet", throwIfNotFound: true);
         m_Player_StickerNextSet = m_Player.FindAction("StickerNextSet", throwIfNotFound: true);
         m_Player_StickerCancel = m_Player.FindAction("StickerCancel", throwIfNotFound: true);
+        // Eris
+        m_Eris = asset.FindActionMap("Eris", throwIfNotFound: true);
+        m_Eris_Move = m_Eris.FindAction("Move", throwIfNotFound: true);
+        m_Eris_Ready = m_Eris.FindAction("Ready", throwIfNotFound: true);
+        m_Eris_CameraPrevious = m_Eris.FindAction("CameraPrevious", throwIfNotFound: true);
+        m_Eris_CameraNext = m_Eris.FindAction("CameraNext", throwIfNotFound: true);
+        m_Eris_CameraTop = m_Eris.FindAction("CameraTop", throwIfNotFound: true);
+        m_Eris_SwapRoles = m_Eris.FindAction("SwapRoles", throwIfNotFound: true);
+        m_Eris_ReplayPath = m_Eris.FindAction("ReplayPath", throwIfNotFound: true);
     }
 
     ~@InputActions()
     {
         UnityEngine.Debug.Assert(!m_Player.enabled, "This will cause a leak and performance issues, InputActions.Player.Disable() has not been called.");
+        UnityEngine.Debug.Assert(!m_Eris.enabled, "This will cause a leak and performance issues, InputActions.Eris.Disable() has not been called.");
     }
 
     /// <summary>
@@ -1033,6 +1323,168 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
     /// Provides a new <see cref="PlayerActions" /> instance referencing this action map.
     /// </summary>
     public PlayerActions @Player => new PlayerActions(this);
+
+    // Eris
+    private readonly InputActionMap m_Eris;
+    private List<IErisActions> m_ErisActionsCallbackInterfaces = new List<IErisActions>();
+    private readonly InputAction m_Eris_Move;
+    private readonly InputAction m_Eris_Ready;
+    private readonly InputAction m_Eris_CameraPrevious;
+    private readonly InputAction m_Eris_CameraNext;
+    private readonly InputAction m_Eris_CameraTop;
+    private readonly InputAction m_Eris_SwapRoles;
+    private readonly InputAction m_Eris_ReplayPath;
+    /// <summary>
+    /// Provides access to input actions defined in input action map "Eris".
+    /// </summary>
+    public struct ErisActions
+    {
+        private @InputActions m_Wrapper;
+
+        /// <summary>
+        /// Construct a new instance of the input action map wrapper class.
+        /// </summary>
+        public ErisActions(@InputActions wrapper) { m_Wrapper = wrapper; }
+        /// <summary>
+        /// Provides access to the underlying input action "Eris/Move".
+        /// </summary>
+        public InputAction @Move => m_Wrapper.m_Eris_Move;
+        /// <summary>
+        /// Provides access to the underlying input action "Eris/Ready".
+        /// </summary>
+        public InputAction @Ready => m_Wrapper.m_Eris_Ready;
+        /// <summary>
+        /// Provides access to the underlying input action "Eris/CameraPrevious".
+        /// </summary>
+        public InputAction @CameraPrevious => m_Wrapper.m_Eris_CameraPrevious;
+        /// <summary>
+        /// Provides access to the underlying input action "Eris/CameraNext".
+        /// </summary>
+        public InputAction @CameraNext => m_Wrapper.m_Eris_CameraNext;
+        /// <summary>
+        /// Provides access to the underlying input action "Eris/CameraTop".
+        /// </summary>
+        public InputAction @CameraTop => m_Wrapper.m_Eris_CameraTop;
+        /// <summary>
+        /// Provides access to the underlying input action "Eris/SwapRoles".
+        /// </summary>
+        public InputAction @SwapRoles => m_Wrapper.m_Eris_SwapRoles;
+        /// <summary>
+        /// Provides access to the underlying input action "Eris/ReplayPath".
+        /// </summary>
+        public InputAction @ReplayPath => m_Wrapper.m_Eris_ReplayPath;
+        /// <summary>
+        /// Provides access to the underlying input action map instance.
+        /// </summary>
+        public InputActionMap Get() { return m_Wrapper.m_Eris; }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Enable()" />
+        public void Enable() { Get().Enable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.Disable()" />
+        public void Disable() { Get().Disable(); }
+        /// <inheritdoc cref="UnityEngine.InputSystem.InputActionMap.enabled" />
+        public bool enabled => Get().enabled;
+        /// <summary>
+        /// Implicitly converts an <see ref="ErisActions" /> to an <see ref="InputActionMap" /> instance.
+        /// </summary>
+        public static implicit operator InputActionMap(ErisActions set) { return set.Get(); }
+        /// <summary>
+        /// Adds <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <param name="instance">Callback instance.</param>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c> or <paramref name="instance"/> have already been added this method does nothing.
+        /// </remarks>
+        /// <seealso cref="ErisActions" />
+        public void AddCallbacks(IErisActions instance)
+        {
+            if (instance == null || m_Wrapper.m_ErisActionsCallbackInterfaces.Contains(instance)) return;
+            m_Wrapper.m_ErisActionsCallbackInterfaces.Add(instance);
+            @Move.started += instance.OnMove;
+            @Move.performed += instance.OnMove;
+            @Move.canceled += instance.OnMove;
+            @Ready.started += instance.OnReady;
+            @Ready.performed += instance.OnReady;
+            @Ready.canceled += instance.OnReady;
+            @CameraPrevious.started += instance.OnCameraPrevious;
+            @CameraPrevious.performed += instance.OnCameraPrevious;
+            @CameraPrevious.canceled += instance.OnCameraPrevious;
+            @CameraNext.started += instance.OnCameraNext;
+            @CameraNext.performed += instance.OnCameraNext;
+            @CameraNext.canceled += instance.OnCameraNext;
+            @CameraTop.started += instance.OnCameraTop;
+            @CameraTop.performed += instance.OnCameraTop;
+            @CameraTop.canceled += instance.OnCameraTop;
+            @SwapRoles.started += instance.OnSwapRoles;
+            @SwapRoles.performed += instance.OnSwapRoles;
+            @SwapRoles.canceled += instance.OnSwapRoles;
+            @ReplayPath.started += instance.OnReplayPath;
+            @ReplayPath.performed += instance.OnReplayPath;
+            @ReplayPath.canceled += instance.OnReplayPath;
+        }
+
+        /// <summary>
+        /// Removes <see cref="InputAction.started"/>, <see cref="InputAction.performed"/> and <see cref="InputAction.canceled"/> callbacks provided via <param cref="instance" /> on all input actions contained in this map.
+        /// </summary>
+        /// <remarks>
+        /// Calling this method when <paramref name="instance" /> have not previously been registered has no side-effects.
+        /// </remarks>
+        /// <seealso cref="ErisActions" />
+        private void UnregisterCallbacks(IErisActions instance)
+        {
+            @Move.started -= instance.OnMove;
+            @Move.performed -= instance.OnMove;
+            @Move.canceled -= instance.OnMove;
+            @Ready.started -= instance.OnReady;
+            @Ready.performed -= instance.OnReady;
+            @Ready.canceled -= instance.OnReady;
+            @CameraPrevious.started -= instance.OnCameraPrevious;
+            @CameraPrevious.performed -= instance.OnCameraPrevious;
+            @CameraPrevious.canceled -= instance.OnCameraPrevious;
+            @CameraNext.started -= instance.OnCameraNext;
+            @CameraNext.performed -= instance.OnCameraNext;
+            @CameraNext.canceled -= instance.OnCameraNext;
+            @CameraTop.started -= instance.OnCameraTop;
+            @CameraTop.performed -= instance.OnCameraTop;
+            @CameraTop.canceled -= instance.OnCameraTop;
+            @SwapRoles.started -= instance.OnSwapRoles;
+            @SwapRoles.performed -= instance.OnSwapRoles;
+            @SwapRoles.canceled -= instance.OnSwapRoles;
+            @ReplayPath.started -= instance.OnReplayPath;
+            @ReplayPath.performed -= instance.OnReplayPath;
+            @ReplayPath.canceled -= instance.OnReplayPath;
+        }
+
+        /// <summary>
+        /// Unregisters <param cref="instance" /> and unregisters all input action callbacks via <see cref="ErisActions.UnregisterCallbacks(IErisActions)" />.
+        /// </summary>
+        /// <seealso cref="ErisActions.UnregisterCallbacks(IErisActions)" />
+        public void RemoveCallbacks(IErisActions instance)
+        {
+            if (m_Wrapper.m_ErisActionsCallbackInterfaces.Remove(instance))
+                UnregisterCallbacks(instance);
+        }
+
+        /// <summary>
+        /// Replaces all existing callback instances and previously registered input action callbacks associated with them with callbacks provided via <param cref="instance" />.
+        /// </summary>
+        /// <remarks>
+        /// If <paramref name="instance" /> is <c>null</c>, calling this method will only unregister all existing callbacks but not register any new callbacks.
+        /// </remarks>
+        /// <seealso cref="ErisActions.AddCallbacks(IErisActions)" />
+        /// <seealso cref="ErisActions.RemoveCallbacks(IErisActions)" />
+        /// <seealso cref="ErisActions.UnregisterCallbacks(IErisActions)" />
+        public void SetCallbacks(IErisActions instance)
+        {
+            foreach (var item in m_Wrapper.m_ErisActionsCallbackInterfaces)
+                UnregisterCallbacks(item);
+            m_Wrapper.m_ErisActionsCallbackInterfaces.Clear();
+            AddCallbacks(instance);
+        }
+    }
+    /// <summary>
+    /// Provides a new <see cref="ErisActions" /> instance referencing this action map.
+    /// </summary>
+    public ErisActions @Eris => new ErisActions(this);
     private int m_KeyboardMouseSchemeIndex = -1;
     /// <summary>
     /// Provides access to the input control scheme.
@@ -1178,5 +1630,62 @@ public partial class @InputActions: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnStickerCancel(InputAction.CallbackContext context);
+    }
+    /// <summary>
+    /// Interface to implement callback methods for all input action callbacks associated with input actions defined by "Eris" which allows adding and removing callbacks.
+    /// </summary>
+    /// <seealso cref="ErisActions.AddCallbacks(IErisActions)" />
+    /// <seealso cref="ErisActions.RemoveCallbacks(IErisActions)" />
+    public interface IErisActions
+    {
+        /// <summary>
+        /// Method invoked when associated input action "Move" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnMove(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "Ready" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnReady(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "CameraPrevious" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnCameraPrevious(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "CameraNext" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnCameraNext(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "CameraTop" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnCameraTop(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "SwapRoles" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnSwapRoles(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "ReplayPath" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnReplayPath(InputAction.CallbackContext context);
     }
 }
