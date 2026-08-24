@@ -43,6 +43,12 @@ public class PlayerInteractor : NetworkBehaviour
         SetCurrentTarget(null);
     }
 
+    /// <summary>Clears the current interaction target and immediately hides its HUD prompt.</summary>
+    public void ClearCurrentTarget()
+    {
+        SetCurrentTarget(null);
+    }
+
     private void Update()
     {
         if (!IsSpawned || !IsOwner) return;

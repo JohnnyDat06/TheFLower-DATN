@@ -152,6 +152,11 @@ public sealed class SandBoatBoarding : InteractableBase
         {
             stateMachine.enabled = false;
         }
+
+        if (playerObject.TryGetComponent(out PlayerAnimator playerAnimator))
+        {
+            playerAnimator.SetExternalAnimationOverride(true);
+        }
     }
 
     private Quaternion GetSeatRotation(Transform seat)
@@ -187,6 +192,7 @@ public sealed class SandBoatBoarding : InteractableBase
     {
         _movement?.SetRouteMovementEnabled(isStarted);
         SetChaseControllersEnabled(isStarted);
+        SetInteractable(!isStarted);
     }
 
     private void SetChaseControllersEnabled(bool isEnabled)
@@ -227,6 +233,11 @@ public sealed class SandBoatBoarding : InteractableBase
             stateMachine.enabled = false;
         }
 
+        if (playerObject.TryGetComponent(out PlayerAnimator playerAnimator))
+        {
+            playerAnimator.SetExternalAnimationOverride(true);
+        }
+
         if (playerObject.TryGetComponent(out Rigidbody playerRigidbody))
         {
             playerRigidbody.linearVelocity = Vector3.zero;
@@ -236,6 +247,7 @@ public sealed class SandBoatBoarding : InteractableBase
 
         if (playerObject.TryGetComponent(out PlayerInteractor playerInteractor))
         {
+            playerInteractor.ClearCurrentTarget();
             playerInteractor.enabled = false;
         }
     }

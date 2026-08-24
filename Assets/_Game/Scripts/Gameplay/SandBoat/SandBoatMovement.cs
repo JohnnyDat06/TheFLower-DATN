@@ -36,6 +36,22 @@ public sealed class SandBoatMovement : MonoBehaviour
     /// <summary>True while the boat is allowed to advance automatically along its route.</summary>
     public bool IsRouteMovementEnabled => _isRouteMovementEnabled;
 
+    /// <summary>
+    /// Samples the authored route a world-space distance in front of the boat.
+    /// Camera systems use this instead of the boat transform so horizontal steering
+    /// does not rotate the view away from the route.
+    /// </summary>
+    public SandBoatRouteSample EvaluateRouteAhead(float distanceAhead)
+    {
+        if (_route == null || !_route.IsValid || _routeLength <= 0f)
+        {
+            return new SandBoatRouteSample(transform.position, transform.forward, transform.right, _progress);
+        }
+
+        float aheadProgress = _progress + Mathf.Max(0f, distanceAhead) / _routeLength;
+        return _route.Evaluate(aheadProgress);
+    }
+
     private void OnValidate()
     {
         _startProgress = Mathf.Clamp01(_startProgress);

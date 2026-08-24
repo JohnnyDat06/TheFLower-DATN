@@ -20,6 +20,7 @@ public class PlayerAnimator : MonoBehaviour
     private PlayerStateType _previousState;
     private float _fallingTimer;
     private bool _wasJumping; 
+    private bool _externalAnimationOverride;
     private LobbyCharacterAppearance _appearance;
 
     // Animator Parameter Name Constants — dùng hash để tránh typo, tăng hiệu năng
@@ -63,6 +64,12 @@ public class PlayerAnimator : MonoBehaviour
     private void Update()
     {
         if (_fsm == null || _animator == null) return;
+
+        if (_externalAnimationOverride)
+        {
+            ApplyExternalIdlePose();
+            return;
+        }
 
         var currentState = _fsm.CurrentStateType;
 
@@ -199,6 +206,32 @@ public class PlayerAnimator : MonoBehaviour
         _animator.SetTrigger(parameterHash);
         if (_appearance == null) _appearance = GetComponent<LobbyCharacterAppearance>();
         _appearance?.MirrorTrigger(parameterHash);
+    }
+
+    /// <summary>
+    /// Holds the character in the idle pose while an external vehicle owns movement.
+    /// Input remains available to the vehicle controller without reviving locomotion animation.
+    /// </summary>
+    public void SetExternalAnimationOverride(bool enabled)
+    {
+        _externalAnimationOverride = enabled;
+        if (enabled && _animator != null)
+        {
+            ApplyExternalIdlePose();
+        }
+    }
+
+    private void ApplyExternalIdlePose()
+    {
+        _animator.applyRootMotion = false;
+        _animator.SetFloat(SPEED, 0f);
+        _animator.SetBool(IS_GROUNDED, true);
+        _animator.SetBool(IS_CROUCHING, false);
+        _animator.SetBool(IS_GLIDING, false);
+        _animator.SetBool(JUMP_BOOL, false);
+        _animator.SetBool(FREE_FALL_BOOL, false);
+        _animator.SetFloat(VERTICAL_SPEED, 0f);
+        _animator.SetInteger(ATTACK_COUNT, 0);
     }
 
     /// <summary>Kích hoạt animation trúng đòn (Player_Hit).</summary>
