@@ -38,6 +38,15 @@ public sealed class SandBoatSpeedController : MonoBehaviour
     /// <summary>Current boat speed after P2 input and the configured bounds are applied.</summary>
     public float CurrentForwardSpeed => _currentForwardSpeed;
 
+    /// <summary>Neutral chase speed where the storm neither catches up nor recovers distance.</summary>
+    public float BaseForwardSpeed => _baseForwardSpeed;
+
+    /// <summary>Lowest configured forward speed available to P2.</summary>
+    public float MinForwardSpeed => _minForwardSpeed;
+
+    /// <summary>Highest configured forward speed available to P2.</summary>
+    public float MaxForwardSpeed => _maxForwardSpeed;
+
     /// <summary>True while a collision slowdown is recovering toward its pre-hit speed.</summary>
     public bool IsRecoveringFromCollision => _collisionRecoveryTimeRemaining > 0f;
 
@@ -76,6 +85,16 @@ public sealed class SandBoatSpeedController : MonoBehaviour
     public void AssignSpeedPlayer(PlayerInputHandler speedPlayer)
     {
         _speedPlayer = speedPlayer;
+    }
+
+    /// <summary>Restores the default speed and clears any collision-recovery state for a checkpoint retry.</summary>
+    public void ResetSpeed()
+    {
+        _currentForwardSpeed = Mathf.Clamp(_baseForwardSpeed, _minForwardSpeed, _maxForwardSpeed);
+        _collisionRecoveryTargetSpeed = _currentForwardSpeed;
+        _collisionRecoveryRate = 0f;
+        _collisionRecoveryTimeRemaining = 0f;
+        ApplySpeed();
     }
 
     /// <summary>

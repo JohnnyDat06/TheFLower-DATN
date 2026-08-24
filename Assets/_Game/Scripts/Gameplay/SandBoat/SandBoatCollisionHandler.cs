@@ -58,4 +58,10 @@ public sealed class SandBoatCollisionHandler : MonoBehaviour
             _collisionRecoveryTime);
         ObstacleHit?.Invoke(obstacle);
     }
+
+    /// <summary>Clears the obstacle-hit cooldown so the next retry begins cleanly.</summary>
+    public void ResetCollisionState()
+    {
+        _nextCollisionTime = 0f;
+    }
 }

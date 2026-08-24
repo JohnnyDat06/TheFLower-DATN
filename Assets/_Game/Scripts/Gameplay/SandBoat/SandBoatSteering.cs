@@ -69,6 +69,16 @@ public sealed class SandBoatSteering : MonoBehaviour
         _steeringPlayer = steeringPlayer;
     }
 
+    /// <summary>Clears P1 steering inertia before a checkpoint retry.</summary>
+    public void ResetSteeringState()
+    {
+        _targetOffset = 0f;
+        _steeringVelocity = 0f;
+        _smoothedInput = 0f;
+        _inputSmoothingVelocity = 0f;
+        _horizontalOffset?.SetTargetOffset(0f);
+    }
+
     private void TryResolveP1Input()
     {
         if (IsP1(_steeringPlayer))

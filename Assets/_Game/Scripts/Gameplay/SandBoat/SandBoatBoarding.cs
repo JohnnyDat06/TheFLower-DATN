@@ -183,6 +183,34 @@ public sealed class SandBoatBoarding : InteractableBase
         ServerActivate();
     }
 
+    /// <summary>
+    /// Server-only retry handoff used by Phase 13 after the boat state has been reset.
+    /// Seated players remain in their assigned roles and are teleported back to their seats.
+    /// </summary>
+    public void ResumeChaseAfterReset()
+    {
+        if (!IsServer)
+        {
+            return;
+        }
+
+        ReseatPlayer(_p1ClientId.Value, _playerSeatP1);
+        ReseatPlayer(_p2ClientId.Value, _playerSeatP2);
+        ApplyChaseStarted(true);
+        ResumeChaseAfterResetClientRpc();
+    }
+
+    private void ReseatPlayer(ulong clientId, Transform seat)
+    {
+        if (clientId == NoClientId || seat == null || !TryGetPlayerObject(clientId, out NetworkObject playerObject))
+        {
+            return;
+        }
+
+        SeatPlayer(playerObject, seat);
+        SeatPlayerClientRpc(clientId);
+    }
+
     private void OnChaseStartedChanged(bool previousValue, bool newValue)
     {
         ApplyChaseStarted(newValue);
@@ -193,6 +221,12 @@ public sealed class SandBoatBoarding : InteractableBase
         _movement?.SetRouteMovementEnabled(isStarted);
         SetChaseControllersEnabled(isStarted);
         SetInteractable(!isStarted);
+    }
+
+    [ClientRpc]
+    private void ResumeChaseAfterResetClientRpc()
+    {
+        ApplyChaseStarted(true);
     }
 
     private void SetChaseControllersEnabled(bool isEnabled)

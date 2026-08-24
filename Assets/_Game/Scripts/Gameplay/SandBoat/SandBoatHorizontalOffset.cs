@@ -64,6 +64,14 @@ public sealed class SandBoatHorizontalOffset : MonoBehaviour
         SetTargetOffset(offset);
     }
 
+    /// <summary>Clears all lateral displacement before a checkpoint retry.</summary>
+    public void ResetOffset()
+    {
+        _debugTargetOffset = 0f;
+        _currentOffset = 0f;
+        ApplyOffset();
+    }
+
     private float ClampOffset(float offset)
     {
         return Mathf.Clamp(offset, -_maxHorizontalOffset, _maxHorizontalOffset);
