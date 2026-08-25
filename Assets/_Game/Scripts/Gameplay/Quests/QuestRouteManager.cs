@@ -88,28 +88,22 @@ public class QuestRouteManager : NetworkBehaviour
 
     private void Update()
     {
-        if (!IsServer || !IsSpawned || routeCompleted.Value || CurrentStep == null || CurrentStep.RequiresInteraction)
+        if (!IsServer || !IsSpawned || routeCompleted.Value || CurrentStep == null)
             return;
 
-        playersInside.Clear();
-        foreach (var pair in NetworkManager.ConnectedClients)
-        {
-            var player = pair.Value.PlayerObject;
-            if (player != null && Vector3.Distance(player.transform.position, CurrentStep.destination.position) <= CurrentStep.completionRadius)
-                playersInside.Add(pair.Key);
-        }
-
-        bool complete = completionScope == QuestCompletionScope.AnyPlayer
-            ? playersInside.Count > 0
-            : NetworkManager.ConnectedClients.Count > 0 && playersInside.Count == NetworkManager.ConnectedClients.Count;
-        if (complete) CompleteCurrentStepServer();
+        int reachedStepIndex = FindFarthestReachedProximityStepIndex();
+        if (reachedStepIndex >= currentStep.Value)
+            CompleteThroughStepServer(reachedStepIndex);
     }
 
     private void HandleInteractableActivated(string interactableId)
     {
-        if (!IsServer || routeCompleted.Value || CurrentStep == null || !CurrentStep.RequiresInteraction) return;
-        string expected = string.IsNullOrWhiteSpace(CurrentStep.InteractionTargetId) ? CurrentStep.id : CurrentStep.InteractionTargetId;
-        if (string.Equals(expected, interactableId, StringComparison.Ordinal)) CompleteCurrentStepServer();
+        if (!IsServer || routeCompleted.Value || CurrentStep == null || string.IsNullOrWhiteSpace(interactableId))
+            return;
+
+        int activatedStepIndex = FindInteractionStepIndex(interactableId);
+        if (activatedStepIndex >= currentStep.Value)
+            CompleteThroughStepServer(activatedStepIndex);
     }
 
     [ContextMenu("Start Route")]
@@ -128,10 +122,92 @@ public class QuestRouteManager : NetworkBehaviour
         currentStep.Value = routeSteps.Count > 0 ? 0 : -1;
     }
 
+    /// <summary>
+    /// Completes the requested step and every unfinished step before it.
+    /// This must be invoked on the server by authoritative gameplay systems.
+    /// </summary>
     public void CompleteStepFromGameplay(string stepId)
     {
-        if (!IsServer || CurrentStep == null || CurrentStep.id != stepId) return;
-        CompleteCurrentStepServer();
+        if (!IsServer || CurrentStep == null || string.IsNullOrWhiteSpace(stepId))
+            return;
+
+        int requestedStepIndex = FindStepIndexById(stepId);
+        if (requestedStepIndex >= currentStep.Value)
+            CompleteThroughStepServer(requestedStepIndex);
+    }
+
+    private int FindFarthestReachedProximityStepIndex()
+    {
+        int reachedStepIndex = -1;
+        for (int index = currentStep.Value; index < routeSteps.Count; index++)
+        {
+            QuestRouteStep step = routeSteps[index];
+            if (!IsValidStep(index) || step.RequiresInteraction)
+                continue;
+
+            if (IsProximityRequirementMet(step))
+                reachedStepIndex = index;
+        }
+
+        return reachedStepIndex;
+    }
+
+    private bool IsProximityRequirementMet(QuestRouteStep step)
+    {
+        playersInside.Clear();
+        float completionRadiusSquared = step.completionRadius * step.completionRadius;
+        foreach (var pair in NetworkManager.ConnectedClients)
+        {
+            NetworkObject player = pair.Value.PlayerObject;
+            if (player != null && (player.transform.position - step.destination.position).sqrMagnitude <= completionRadiusSquared)
+                playersInside.Add(pair.Key);
+        }
+
+        return completionScope == QuestCompletionScope.AnyPlayer
+            ? playersInside.Count > 0
+            : NetworkManager.ConnectedClients.Count > 0 && playersInside.Count == NetworkManager.ConnectedClients.Count;
+    }
+
+    private int FindInteractionStepIndex(string interactableId)
+    {
+        for (int index = currentStep.Value; index < routeSteps.Count; index++)
+        {
+            QuestRouteStep step = routeSteps[index];
+            if (!IsValidStep(index) || !step.RequiresInteraction)
+                continue;
+
+            string expectedId = string.IsNullOrWhiteSpace(step.InteractionTargetId) ? step.id : step.InteractionTargetId;
+            if (string.Equals(expectedId, interactableId, StringComparison.Ordinal))
+                return index;
+        }
+
+        return -1;
+    }
+
+    private int FindStepIndexById(string stepId)
+    {
+        for (int index = currentStep.Value; index < routeSteps.Count; index++)
+        {
+            if (IsValidStep(index) && string.Equals(routeSteps[index].id, stepId, StringComparison.Ordinal))
+                return index;
+        }
+
+        return -1;
+    }
+
+    private void CompleteThroughStepServer(int targetStepIndex)
+    {
+        if (!IsServer || targetStepIndex < currentStep.Value || targetStepIndex >= routeSteps.Count)
+            return;
+
+        int stepsToComplete = targetStepIndex - currentStep.Value + 1;
+        for (int count = 0; count < stepsToComplete && !routeCompleted.Value; count++)
+        {
+            if (!IsValidStep(currentStep.Value))
+                break;
+
+            CompleteCurrentStepServer();
+        }
     }
 
     private void CompleteCurrentStepServer()

@@ -393,6 +393,7 @@ MonoBehaviour:
   targetCamera: {fileID: 0}
   clampMarkerToScreen: 1
   screenPadding: {x: 36, y: 36}
+  interactionMarkerHideDistance: 3
 --- !u!114 &7614944414218845783
 MonoBehaviour:
   m_ObjectHideFlags: 0

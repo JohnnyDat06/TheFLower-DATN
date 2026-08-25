@@ -23,6 +23,8 @@ public sealed class QuestHUD : MonoBehaviour
     [SerializeField] private Camera targetCamera;
     [SerializeField] private bool clampMarkerToScreen = true;
     [SerializeField] private Vector2 screenPadding = new(36f, 36f);
+    [Tooltip("Hide the directional orb and its distance label when close enough to interact.")]
+    [SerializeField, Min(0.1f)] private float interactionMarkerHideDistance = 3f;
 
     private bool _uiVisible = true;
 
@@ -56,12 +58,14 @@ public sealed class QuestHUD : MonoBehaviour
         {
             BindRoute();
             worldMarker?.Clear();
+            SetScreenMarkerVisible(false);
             return;
         }
 
         if (route.IsRouteCompleted || route.CurrentStep == null)
         {
             worldMarker?.Clear();
+            SetScreenMarkerVisible(false);
             SetVisible(false);
             return;
         }
@@ -70,9 +74,12 @@ public sealed class QuestHUD : MonoBehaviour
         var step = route.CurrentStep;
         worldMarker?.SetTarget(step);
         float distance = 0f;
-        if (TryGetLocalPlayer(out var player)) distance = Vector3.Distance(player.position, step.destination.position);
+        bool hasLocalPlayer = TryGetLocalPlayer(out var player);
+        if (hasLocalPlayer) distance = Vector3.Distance(player.position, step.destination.position);
+        bool showDirectionalMarker = !hasLocalPlayer || !step.RequiresInteraction || distance > interactionMarkerHideDistance;
+        worldMarker?.SetOrbVisible(showDirectionalMarker);
         if (distanceText != null) distanceText.text = $"{distance:0}m";
-        UpdateMarker(step.destination.position, distance);
+        UpdateMarker(step.destination.position, distance, showDirectionalMarker);
     }
 
     private void HandleSceneLoaded(Scene _, LoadSceneMode __) => BindRoute();
@@ -107,6 +114,7 @@ public sealed class QuestHUD : MonoBehaviour
         if (route == null || index < 0 || index >= route.Steps.Count)
         {
             worldMarker?.Clear();
+            SetScreenMarkerVisible(false);
             SetVisible(false);
             return;
         }
@@ -118,7 +126,7 @@ public sealed class QuestHUD : MonoBehaviour
         SetVisible(true);
     }
 
-    private void UpdateMarker(Vector3 worldPosition, float distance)
+    private void UpdateMarker(Vector3 worldPosition, float distance, bool markerVisible)
     {
         if (screenMarker == null) return;
         if (targetCamera == null) targetCamera = Camera.main;
@@ -131,9 +139,15 @@ public sealed class QuestHUD : MonoBehaviour
             screen.y = Mathf.Clamp(screen.y, screenPadding.y, Screen.height - screenPadding.y);
         }
         screenMarker.position = screen;
-        screenMarker.gameObject.SetActive(inFront);
+        SetScreenMarkerVisible(inFront && markerVisible);
         if (screenMarkerDistanceText != null)
             screenMarkerDistanceText.SetText("{0:0}m", distance);
+    }
+
+    private void SetScreenMarkerVisible(bool visible)
+    {
+        if (screenMarker != null && screenMarker.gameObject.activeSelf != visible)
+            screenMarker.gameObject.SetActive(visible);
     }
 
     private void SetVisible(bool visible)
@@ -221,7 +235,7 @@ public sealed class QuestHUD : MonoBehaviour
         text.fontSize = size;
         text.color = Color.white;
         text.alignment = alignment;
-        text.enableWordWrapping = true;
+        text.textWrappingMode = TextWrappingModes.Normal;
         return text;
     }
 
