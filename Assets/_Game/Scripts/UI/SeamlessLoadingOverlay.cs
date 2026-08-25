@@ -3,6 +3,7 @@ using System.Collections;
 using Game.UI.LobbyAuto;
 using TMPro;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 /// <summary>
@@ -10,6 +11,25 @@ using UnityEngine.UI;
 /// </summary>
 public class SeamlessLoadingOverlay : MonoBehaviour
 {
+    private const float EndCreditsScrollSpeed = 68f;
+    private const float EndCreditsStartPadding = 90f;
+    private const float EndCreditsEndPadding = 120f;
+    private const float EndTitleDuration = 2.5f;
+    private const float EndThankYouDuration = 2.5f;
+    private const float EndCreditsHoldDuration = 1.2f;
+    private const float EndFadeDuration = 0.24f;
+    private const string EndCreditsContent =
+        "<size=120%><b>THE FLOWER</b></size>\n\n" +
+        "A GAME BY TEAM DORO\n\n\n" +
+        "<b>HỒ TẤN ĐẠT</b>\n" +
+        "Final Boss • Sand Boat • Camera • Main Character • Features • Puzzles\n\n" +
+        "<b>HUỲNH TRẦN ANH THƯ</b>\n" +
+        "Map • Environment • Character Textures • Lighting\n\n" +
+        "<b>PHẠM HỒNG ĐĂNG</b>\n" +
+        "UI • HUD • Networking Support • Performance • Features • Puzzles\n\n" +
+        "<b>LÊ PHAN HÒA THUẬN</b>\n" +
+        "Puzzles • Quests • Interaction • Map Gameplay";
+
     public static SeamlessLoadingOverlay Instance { get; private set; }
 
     [SerializeField] private CanvasGroup _canvasGroup;
@@ -21,9 +41,17 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private TextMeshProUGUI _progressText;
     private TextMeshProUGUI _loadingStatusText;
     private RectTransform _tipLeaf;
+    private RectTransform _creditsViewport;
+    private RectTransform _creditsContent;
+    private GameObject _creditsBackdrop;
+    private CanvasGroup _endTitleGroup;
+    private CanvasGroup _creditsStageGroup;
     private float _targetProgress;
     private bool _fadeInRequested;
     private bool _lobbyInteractive;
+    private bool _isShowingEndCredits;
+    private bool _endCreditsFinished;
+    private float _endCreditsEndPosition;
     private static Sprite s_roundedSprite;
 
     private void Awake()
@@ -46,6 +74,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         _canvasGroup.blocksRaycasts = false;
         _progressSlider.value = 0f;
         _toBeContinuedText.gameObject.SetActive(false);
+        _creditsViewport.gameObject.SetActive(false);
 
         UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
     }
@@ -66,8 +95,12 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
     private void Update()
     {
+        HandleEndCreditsShortcut();
+
         if (_tipLeaf != null && _canvasGroup.alpha > 0.01f)
             _tipLeaf.Rotate(0f, 0f, -95f * Time.unscaledDeltaTime);
+
+        UpdateEndCreditsScroll();
 
         if (_progressSlider == null || _canvasGroup.alpha <= 0.01f) return;
         _progressSlider.value = Mathf.MoveTowards(
@@ -79,10 +112,51 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
     public void ShowToBeContinued(bool show, string text = "The End!")
     {
+        if (show)
+        {
+            HideEndCredits();
+            if (_endTitleGroup != null) _endTitleGroup.alpha = 1f;
+        }
         if (_toBeContinuedText == null) return;
         _toBeContinuedText.text = text;
         _toBeContinuedText.gameObject.SetActive(show);
     }
+
+    /// <summary>
+    /// Shows the final end credits and starts their vertical film-style scroll.
+    /// This is also used by the hidden test shortcut so the ending can be reviewed
+    /// without completing the full game flow.
+    /// </summary>
+    public void ShowEndCredits()
+    {
+        if (_creditsViewport == null || _creditsContent == null) return;
+
+        BeginLoadingTransition();
+        StopAllCoroutines();
+        HideForLoadingPresentation();
+        if (_creditsBackdrop != null) _creditsBackdrop.SetActive(true);
+        _creditsViewport.gameObject.SetActive(false);
+        if (_endTitleGroup != null) _endTitleGroup.alpha = 0f;
+        if (_creditsStageGroup != null) _creditsStageGroup.alpha = 0f;
+        _endCreditsFinished = false;
+        _isShowingEndCredits = false;
+        StartCoroutine(PlayEndCreditsSequence());
+    }
+
+    /// <summary>Hides the ending credits when a new loading transition begins.</summary>
+    public void HideEndCredits()
+    {
+        StopAllCoroutines();
+        _isShowingEndCredits = false;
+        _endCreditsFinished = false;
+        if (_creditsBackdrop != null) _creditsBackdrop.SetActive(false);
+        if (_creditsViewport != null) _creditsViewport.gameObject.SetActive(false);
+        if (_endTitleGroup != null) _endTitleGroup.alpha = 0f;
+        if (_creditsStageGroup != null) _creditsStageGroup.alpha = 0f;
+    }
+
+    /// <summary>True after the full end-credit scroll has reached its final position.</summary>
+    public bool IsEndCreditsComplete => _endCreditsFinished;
 
     public void ShowProgressBar(bool show)
     {
@@ -157,6 +231,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         StopAllCoroutines();
         _fadeInRequested = false;
         _targetProgress = 1f;
+        HideEndCredits();
 
         if (_canvasGroup != null)
         {
@@ -167,6 +242,121 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
         ShowToBeContinued(false);
         ShowProgressBar(false);
+    }
+
+    private void HideForLoadingPresentation()
+    {
+        _toBeContinuedText.gameObject.SetActive(false);
+        ShowProgressBar(false);
+        if (_loadingPanel != null) _loadingPanel.SetActive(false);
+    }
+
+    private IEnumerator PlayEndCreditsSequence()
+    {
+        _canvasGroup.interactable = false;
+        _canvasGroup.blocksRaycasts = true;
+        if (_canvasGroup.alpha <= 0.01f)
+            yield return StartCoroutine(FadeRoutine(1f, null));
+
+        _toBeContinuedText.text = "THE END";
+        _toBeContinuedText.gameObject.SetActive(true);
+        _endTitleGroup.alpha = 1f;
+        yield return new WaitForSecondsRealtime(EndTitleDuration);
+
+        yield return StartCoroutine(FadeToStage(() =>
+        {
+            _toBeContinuedText.gameObject.SetActive(false);
+            _creditsViewport.gameObject.SetActive(true);
+            ResetEndCreditsScroll();
+        }));
+
+        while (_isShowingEndCredits)
+            yield return null;
+
+        yield return new WaitForSecondsRealtime(EndCreditsHoldDuration);
+
+        yield return StartCoroutine(FadeToStage(() =>
+        {
+            _creditsViewport.gameObject.SetActive(false);
+            _toBeContinuedText.text = "THANK YOU FOR PLAYING";
+            _toBeContinuedText.gameObject.SetActive(true);
+        }));
+
+        yield return new WaitForSecondsRealtime(EndThankYouDuration);
+        _endCreditsFinished = true;
+    }
+
+    private IEnumerator FadeToStage(Action setupStage)
+    {
+        yield return StartCoroutine(FadeStageGroups(0f));
+
+        setupStage?.Invoke();
+        _endTitleGroup.alpha = 0f;
+        _creditsStageGroup.alpha = 0f;
+        yield return StartCoroutine(FadeStageGroups(1f));
+    }
+
+    private IEnumerator FadeStageGroups(float targetAlpha)
+    {
+        float titleStartAlpha = _endTitleGroup.alpha;
+        float creditsStartAlpha = _creditsStageGroup.alpha;
+        float elapsed = 0f;
+        while (elapsed < EndFadeDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float progress = Mathf.Clamp01(elapsed / EndFadeDuration);
+            _endTitleGroup.alpha = Mathf.Lerp(titleStartAlpha, targetAlpha, progress);
+            _creditsStageGroup.alpha = Mathf.Lerp(creditsStartAlpha, targetAlpha, progress);
+            yield return null;
+        }
+
+        _endTitleGroup.alpha = targetAlpha;
+        _creditsStageGroup.alpha = targetAlpha;
+    }
+
+    private void HandleEndCreditsShortcut()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard == null) return;
+
+        bool controlHeld = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed;
+        bool shiftHeld = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+        if (controlHeld && shiftHeld && keyboard.enterKey.wasPressedThisFrame)
+        {
+            ShowEndCredits();
+            Debug.Log("[SeamlessLoadingOverlay] End credits opened with Ctrl+Shift+Enter.");
+        }
+    }
+
+    private void ResetEndCreditsScroll()
+    {
+        _creditsContent.ForceUpdateRectTransforms();
+        _creditsContent.GetComponent<TextMeshProUGUI>().ForceMeshUpdate();
+
+        float contentHeight = Mathf.Max(
+            _creditsContent.rect.height,
+            _creditsContent.GetComponent<TextMeshProUGUI>().preferredHeight + EndCreditsStartPadding);
+
+        _creditsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, contentHeight);
+        _creditsContent.anchoredPosition = new Vector2(0f, -contentHeight - EndCreditsStartPadding);
+        _endCreditsEndPosition = EndCreditsEndPadding;
+        _isShowingEndCredits = true;
+        _endCreditsFinished = false;
+    }
+
+    private void UpdateEndCreditsScroll()
+    {
+        if (!_isShowingEndCredits || _creditsContent == null) return;
+
+        Vector2 position = _creditsContent.anchoredPosition;
+        position.y += EndCreditsScrollSpeed * Time.unscaledDeltaTime;
+        if (position.y >= _endCreditsEndPosition)
+        {
+            position.y = _endCreditsEndPosition;
+            _isShowingEndCredits = false;
+        }
+
+        _creditsContent.anchoredPosition = position;
     }
 
     private static bool IsLobbyScene()
@@ -297,6 +487,48 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         _toBeContinuedText.rectTransform.offsetMin = Vector2.zero;
         _toBeContinuedText.rectTransform.offsetMax = Vector2.zero;
         _toBeContinuedText.gameObject.SetActive(false);
+        _endTitleGroup = _toBeContinuedText.gameObject.AddComponent<CanvasGroup>();
+        _endTitleGroup.alpha = 0f;
+
+        Image creditsBackdrop = CreateImage(
+            transform,
+            "EndCreditsBackdrop",
+            Vector2.zero,
+            Vector2.one,
+            Vector2.zero,
+            Vector2.zero,
+            new Color(0.005f, 0.012f, 0.02f, 0.97f));
+        _creditsBackdrop = creditsBackdrop.gameObject;
+        _creditsBackdrop.SetActive(false);
+        creditsBackdrop.transform.SetSiblingIndex(_toBeContinuedText.transform.GetSiblingIndex());
+
+        _creditsViewport = CreateRect(transform, "EndCreditsViewport");
+        _creditsViewport.anchorMin = new Vector2(0.07f, 0.04f);
+        _creditsViewport.anchorMax = new Vector2(0.93f, 0.96f);
+        _creditsViewport.offsetMin = Vector2.zero;
+        _creditsViewport.offsetMax = Vector2.zero;
+        _creditsViewport.gameObject.AddComponent<RectMask2D>();
+        _creditsStageGroup = _creditsViewport.gameObject.AddComponent<CanvasGroup>();
+        _creditsStageGroup.alpha = 0f;
+
+        TextMeshProUGUI creditsText = CreateText(
+            _creditsViewport,
+            EndCreditsContent,
+            46f,
+            new Color(1f, 0.96f, 0.82f, 1f),
+            FontStyles.Normal,
+            TextAlignmentOptions.Center,
+            headingFont);
+        _creditsContent = creditsText.rectTransform;
+        _creditsContent.anchorMin = new Vector2(0.5f, 0f);
+        _creditsContent.anchorMax = new Vector2(0.5f, 0f);
+        _creditsContent.pivot = new Vector2(0.5f, 0f);
+        _creditsContent.anchoredPosition = Vector2.zero;
+        _creditsContent.sizeDelta = new Vector2(1650f, 1f);
+        creditsText.enableWordWrapping = true;
+        creditsText.overflowMode = TextOverflowModes.Overflow;
+        creditsText.verticalAlignment = VerticalAlignmentOptions.Top;
+        _creditsViewport.gameObject.SetActive(false);
     }
 
     private Slider CreateProgressSlider(RectTransform parent)

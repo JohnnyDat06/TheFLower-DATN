@@ -48,6 +48,7 @@ public class LoadingSyncManager : NetworkBehaviour
 
         if (SeamlessLoadingOverlay.Instance != null)
         {
+            SeamlessLoadingOverlay.Instance.HideEndCredits();
             SeamlessLoadingOverlay.Instance.BeginLoadingTransition();
             // A previous transition may have left the persistent overlay's
             // interstitial title visible. Clear it on every peer before the
@@ -73,6 +74,16 @@ public class LoadingSyncManager : NetworkBehaviour
         }
     }
 
+    /// <summary>Shows the synchronized final-game credits on every peer.</summary>
+    [Rpc(SendTo.Everyone)]
+    public void ShowEndCreditsClientRpc()
+    {
+        if (SeamlessLoadingOverlay.Instance != null)
+        {
+            SeamlessLoadingOverlay.Instance.ShowEndCredits();
+        }
+    }
+
     [Rpc(SendTo.Everyone)]
     public void FadeInClientRpc()
     {
@@ -88,6 +99,7 @@ public class LoadingSyncManager : NetworkBehaviour
         Debug.Log("<color=green><b>[SYNC] Triggering final FadeOut on all clients!</b></color>");
         if (SeamlessLoadingOverlay.Instance != null)
         {
+            SeamlessLoadingOverlay.Instance.HideEndCredits();
             SeamlessLoadingOverlay.Instance.SetProgress(1.0f);
             SeamlessLoadingOverlay.Instance.ShowToBeContinued(false); 
             SeamlessLoadingOverlay.Instance.ShowProgressBar(true); // Reset lại để dùng cho lần sau

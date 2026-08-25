@@ -10,6 +10,7 @@ public class MapCompletionTrigger : NetworkBehaviour
     [Header("Settings")]
     [SerializeField] private string _lobbySceneName = Constants.Scenes.LOBBY;
     [SerializeField] private float _delayBeforeLoad = 4.0f;
+    [SerializeField] private float _endCreditsTimeout = 120.0f;
 
     private bool _isTriggered = false;
 
@@ -53,15 +54,31 @@ public class MapCompletionTrigger : NetworkBehaviour
     {
         Debug.Log("<color=cyan>[MapCompletionTrigger] Starting Completion Sequence...</color>");
 
-        // 1. Hiển thị chữ "The End!" và ẨN thanh progress bar trên tất cả các máy
+        // 1. Hiển thị end credits và ẨN thanh progress bar trên tất cả các máy
+        bool endCreditsStarted = false;
         if (LoadingSyncManager.Instance != null)
         {
-            LoadingSyncManager.Instance.ShowToBeContinuedClientRpc(true, "The End!", false);
-            LoadingSyncManager.Instance.FadeInClientRpc();
+            LoadingSyncManager.Instance.ShowEndCreditsClientRpc();
+            endCreditsStarted = true;
         }
 
-        // 2. Đợi một khoảng thời gian để người chơi đọc được chữ
+        // 2. Chờ end credits chạy hết trước khi quay về Lobby.
         yield return new WaitForSecondsRealtime(_delayBeforeLoad);
+        if (endCreditsStarted && SeamlessLoadingOverlay.Instance != null)
+        {
+            float creditsElapsed = 0f;
+            while (!SeamlessLoadingOverlay.Instance.IsEndCreditsComplete)
+            {
+                creditsElapsed += Time.unscaledDeltaTime;
+                if (creditsElapsed >= _endCreditsTimeout)
+                {
+                    Debug.LogWarning("[MapCompletionTrigger] End credits timed out; continuing to Lobby.");
+                    break;
+                }
+
+                yield return null;
+            }
+        }
 
         // 3. Chuyển về scene Lobby
         Debug.Log($"[MapCompletionTrigger] Loading Lobby: {_lobbySceneName}");
@@ -76,7 +93,7 @@ public class MapCompletionTrigger : NetworkBehaviour
                 NetworkManager.SceneManager.LoadScene(_lobbySceneName, UnityEngine.SceneManagement.LoadSceneMode.Single);
         }
 
-        // 4. (Tùy chọn) Ẩn chữ "The End!" sau khi load xong (thường thì scene mới sẽ reset UI này)
+        // 4. (Tùy chọn) Ẩn end credits sau khi load xong (thường thì scene mới sẽ reset UI này)
         // Nhưng để chắc chắn, LoadingSyncManager có thể tắt nó khi EndLoadingFadeClientRpc được gọi ở scene mới.
     }
 }
