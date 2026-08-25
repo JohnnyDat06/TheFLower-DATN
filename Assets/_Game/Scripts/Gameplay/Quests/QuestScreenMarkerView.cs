@@ -9,7 +9,7 @@ using UnityEngine.UI;
 public sealed class QuestScreenMarkerView : MonoBehaviour
 {
     private static Sprite fallbackCircleSprite;
-    private static readonly Color GlowColor = new(0.15f, 0.9f, 1f, 0.36f);
+    private static readonly Color GlowColor = new(0.15f, 0.9f, 1f, 0.55f);
     private static readonly Color RingColor = new(1f, 0.76f, 0.12f, 1f);
     private static readonly Color InnerColor = new(0.025f, 0.07f, 0.12f, 0.98f);
     private static readonly Color CoreColor = new(1f, 0.96f, 0.72f, 1f);
@@ -21,7 +21,7 @@ public sealed class QuestScreenMarkerView : MonoBehaviour
     [SerializeField] private RectTransform distanceBadge;
     [SerializeField] private TMP_Text distanceText;
     [SerializeField, Min(0.01f)] private float pulseFrequency = 1.25f;
-    [SerializeField, Range(1f, 2f)] private float pulseMaximumScale = 1.55f;
+    [SerializeField, Range(1f, 2f)] private float pulseMaximumScale = 1.45f;
 
     /// <summary>Updates marker position and distance without allocating formatted strings.</summary>
     public void Present(Vector3 screenPosition, float distance)
@@ -60,12 +60,12 @@ public sealed class QuestScreenMarkerView : MonoBehaviour
         Sprite circleSprite = CreateFallbackCircleSprite();
         GameObject rootObject = CreateUiObject("QuestScreenMarker", parent);
         RectTransform rootRect = rootObject.GetComponent<RectTransform>();
-        rootRect.sizeDelta = new Vector2(68f, 68f);
+        rootRect.sizeDelta = new Vector2(80f, 80f);
 
-        Image glow = CreateCircle("PulseGlow", rootRect, circleSprite, GlowColor, 78f);
-        Image ring = CreateCircle("OuterRing", rootRect, circleSprite, RingColor, 58f);
-        CreateCircle("InnerPlate", ring.rectTransform, circleSprite, InnerColor, 43f);
-        CreateCircle("MarkerCore", ring.rectTransform, circleSprite, CoreColor, 20f);
+        Image glow = CreateCircle("PulseGlow", rootRect, circleSprite, GlowColor, 88f);
+        Image ring = CreateCircle("OuterRing", rootRect, circleSprite, RingColor, 66f);
+        CreateCircle("InnerPlate", ring.rectTransform, circleSprite, InnerColor, 49f);
+        CreateCircle("MarkerCore", ring.rectTransform, circleSprite, CoreColor, 18f);
 
         GameObject badgeObject = CreateUiObject("DistanceBadge", rootRect);
         RectTransform badgeRect = badgeObject.GetComponent<RectTransform>();
@@ -73,7 +73,7 @@ public sealed class QuestScreenMarkerView : MonoBehaviour
         badgeRect.anchorMax = new Vector2(1f, 0.5f);
         badgeRect.pivot = new Vector2(0f, 0.5f);
         badgeRect.anchoredPosition = new Vector2(10f, 0f);
-        badgeRect.sizeDelta = new Vector2(96f, 38f);
+        badgeRect.sizeDelta = new Vector2(112f, 40f);
         Image badge = badgeObject.AddComponent<Image>();
         badge.sprite = circleSprite;
         badge.color = BadgeColor;
@@ -90,7 +90,7 @@ public sealed class QuestScreenMarkerView : MonoBehaviour
         textRect.offsetMax = new Vector2(-10f, -2f);
         TextMeshProUGUI text = textObject.AddComponent<TextMeshProUGUI>();
         text.SetText("0 m");
-        text.fontSize = 21f;
+        text.fontSize = 22f;
         text.fontStyle = FontStyles.Bold;
         text.color = Color.white;
         text.alignment = TextAlignmentOptions.Center;

@@ -22,7 +22,7 @@ public sealed class QuestHUD : MonoBehaviour
     [SerializeField] private Camera targetCamera;
     [SerializeField] private bool clampMarkerToScreen = true;
     [SerializeField] private Vector2 screenPadding = new(64f, 64f);
-    [Tooltip("Hide the directional orb and its distance label when close enough to interact.")]
+    [Tooltip("Hide the screen marker and its distance label when close enough to interact.")]
     [SerializeField, Min(0.1f)] private float interactionMarkerHideDistance = 3f;
 
     private bool _uiVisible = true;
@@ -76,7 +76,6 @@ public sealed class QuestHUD : MonoBehaviour
         bool hasLocalPlayer = TryGetLocalPlayer(out var player);
         if (hasLocalPlayer) distance = Vector3.Distance(player.position, step.destination.position);
         bool showDirectionalMarker = !hasLocalPlayer || !step.RequiresInteraction || distance > interactionMarkerHideDistance;
-        worldMarker?.SetOrbVisible(showDirectionalMarker);
         if (distanceText != null) distanceText.text = $"{distance:0}m";
         UpdateMarker(step.destination.position, distance, showDirectionalMarker);
     }
