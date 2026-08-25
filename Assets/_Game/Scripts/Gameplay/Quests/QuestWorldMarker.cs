@@ -70,6 +70,13 @@ public sealed class QuestWorldMarker : MonoBehaviour
             ShowMarkerOrb();
     }
 
+    /// <summary>Shows or hides only the orb while preserving the active quest target.</summary>
+    public void SetOrbVisible(bool visible)
+    {
+        if (_markerOrb != null && _markerOrb.activeSelf != visible)
+            _markerOrb.SetActive(visible);
+    }
+
     /// <summary>Removes the current marker and restores any pre-existing outline settings.</summary>
     public void Clear()
     {
