@@ -1,27 +1,16 @@
 using UnityEngine;
-using UnityEngine.Rendering;
 
 /// <summary>
-/// Presents the current route destination in world space without owning quest state.
-/// Interactive destinations use a see-through outline; all other destinations use a marker orb.
+/// Presents interactive quest destinations with a see-through outline.
+/// Point destinations are presented by the screen-space marker owned by <see cref="QuestHUD"/>.
 /// </summary>
 public sealed class QuestWorldMarker : MonoBehaviour
 {
     [Header("Appearance")]
     [SerializeField] private Color markerColor = new(1f, 0.82f, 0.15f, 0.95f);
-    [SerializeField] private Color pulseColor = new(0.15f, 0.9f, 1f, 0.95f);
-    [SerializeField, Min(0.1f)] private float markerScale = 0.6f;
-    [SerializeField] private Vector3 markerOffset = new(0f, 1.25f, 0f);
     [SerializeField, Range(0f, 10f)] private float outlineWidth = 5f;
 
-    [Header("Pulse")]
-    [SerializeField, Min(0.01f)] private float pulseFrequency = 1.4f;
-    [SerializeField, Range(0f, 1f)] private float pulseColorStrength = 0.55f;
-    [SerializeField, Range(0f, 0.5f)] private float pulseScaleStrength = 0.12f;
-
     private Transform _target;
-    private GameObject _markerOrb;
-    private Material _markerMaterial;
     private Outline _activeOutline;
     private bool _ownsOutline;
     private bool _previousOutlineEnabled;
@@ -30,25 +19,7 @@ public sealed class QuestWorldMarker : MonoBehaviour
     private float _previousOutlineWidth;
     private QuestMarkerStyle _activeStyle;
 
-    private void LateUpdate()
-    {
-        if (_markerOrb == null || _target == null)
-            return;
-
-        float pulse = GetPulseValue();
-        _markerOrb.transform.position = _target.position + markerOffset;
-        _markerOrb.transform.localScale = Vector3.one * markerScale * (1f + pulse * pulseScaleStrength);
-        _markerMaterial.SetColor("_OutlineColor", Color.Lerp(markerColor, pulseColor, pulse * pulseColorStrength));
-    }
-
     private void OnDisable() => Clear();
-
-    private void OnDestroy()
-    {
-        Clear();
-        if (_markerMaterial != null)
-            Destroy(_markerMaterial);
-    }
 
     /// <summary>Updates the presentation for a newly active route step.</summary>
     public void SetTarget(QuestRouteStep step)
@@ -66,26 +37,11 @@ public sealed class QuestWorldMarker : MonoBehaviour
         _activeStyle = style;
         if (style == QuestMarkerStyle.Outline)
             ShowOutline(_target);
-        else
-            ShowMarkerOrb();
-    }
-
-    /// <summary>Shows or hides only the orb while preserving the active quest target.</summary>
-    public void SetOrbVisible(bool visible)
-    {
-        if (_markerOrb != null && _markerOrb.activeSelf != visible)
-            _markerOrb.SetActive(visible);
     }
 
     /// <summary>Removes the current marker and restores any pre-existing outline settings.</summary>
     public void Clear()
     {
-        if (_markerOrb != null)
-        {
-            Destroy(_markerOrb);
-            _markerOrb = null;
-        }
-
         if (_activeOutline != null)
         {
             if (_ownsOutline)
@@ -146,36 +102,4 @@ public sealed class QuestWorldMarker : MonoBehaviour
         _activeOutline.enabled = true;
     }
 
-    private void ShowMarkerOrb()
-    {
-        _markerOrb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        _markerOrb.name = "Quest Destination Marker";
-        _markerOrb.transform.position = _target.position + markerOffset;
-        _markerOrb.transform.localScale = Vector3.one * markerScale;
-
-        Collider markerCollider = _markerOrb.GetComponent<Collider>();
-        if (markerCollider != null)
-            Destroy(markerCollider);
-
-        Renderer markerRenderer = _markerOrb.GetComponent<Renderer>();
-        markerRenderer.sharedMaterial = GetMarkerMaterial();
-    }
-
-    private Material GetMarkerMaterial()
-    {
-        if (_markerMaterial != null)
-            return _markerMaterial;
-
-        Material template = Resources.Load<Material>("Materials/OutlineFill");
-        _markerMaterial = new Material(template)
-        {
-            name = "Quest Marker (Runtime)"
-        };
-        _markerMaterial.SetColor("_OutlineColor", markerColor);
-        _markerMaterial.SetFloat("_OutlineWidth", 0f);
-        _markerMaterial.SetFloat("_ZTest", (float)CompareFunction.Always);
-        return _markerMaterial;
-    }
-
-    private float GetPulseValue() => (Mathf.Sin(Time.unscaledTime * pulseFrequency * Mathf.PI * 2f) + 1f) * 0.5f;
 }
