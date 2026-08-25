@@ -23,7 +23,7 @@ public sealed class QuestHUD : MonoBehaviour
     [SerializeField] private bool clampMarkerToScreen = true;
     [SerializeField] private Vector2 screenPadding = new(64f, 64f);
     [Tooltip("Hide the screen marker and its distance label when close enough to interact.")]
-    [SerializeField, Min(0.1f)] private float interactionMarkerHideDistance = 3f;
+    [SerializeField, Min(0.1f)] private float interactionMarkerHideDistance = 6f;
 
     private bool _uiVisible = true;
 

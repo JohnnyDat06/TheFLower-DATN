@@ -698,7 +698,7 @@ MonoBehaviour:
   targetCamera: {fileID: 0}
   clampMarkerToScreen: 1
   screenPadding: {x: 64, y: 64}
-  interactionMarkerHideDistance: 3
+  interactionMarkerHideDistance: 6
 --- !u!114 &7614944414218845783
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -739,7 +739,7 @@ RectTransform:
   m_GameObject: {fileID: 3394929588582612277}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.5, y: 0.5, z: 0.5}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5533499552452255771}
@@ -769,6 +769,7 @@ MonoBehaviour:
   pulseRingImage: {fileID: 1297709862223625629}
   distanceBadge: {fileID: 3508680109760430157}
   distanceText: {fileID: 3335386911078314448}
+  visualScale: 0.5
   pulseFrequency: 1.25
   pulseMaximumScale: 1.45
 --- !u!1 &3712740206295200190

@@ -20,8 +20,15 @@ public sealed class QuestScreenMarkerView : MonoBehaviour
     [SerializeField] private Image pulseRingImage;
     [SerializeField] private RectTransform distanceBadge;
     [SerializeField] private TMP_Text distanceText;
+    [SerializeField, Range(0.25f, 1.5f)] private float visualScale = 0.5f;
     [SerializeField, Min(0.01f)] private float pulseFrequency = 1.25f;
     [SerializeField, Range(1f, 2f)] private float pulseMaximumScale = 1.45f;
+
+    private void Awake() => ApplyVisualScale();
+
+#if UNITY_EDITOR
+    private void OnValidate() => ApplyVisualScale();
+#endif
 
     /// <summary>Updates marker position and distance without allocating formatted strings.</summary>
     public void Present(Vector3 screenPosition, float distance)
@@ -106,7 +113,14 @@ public sealed class QuestScreenMarkerView : MonoBehaviour
         view.pulseRingImage = glow;
         view.distanceBadge = badgeRect;
         view.distanceText = text;
+        view.ApplyVisualScale();
         return view;
+    }
+
+    private void ApplyVisualScale()
+    {
+        if (markerRoot != null)
+            markerRoot.localScale = Vector3.one * visualScale;
     }
 
     private void UpdateDistanceBadgeSide(float screenX)
