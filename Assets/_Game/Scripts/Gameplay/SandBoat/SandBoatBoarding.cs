@@ -1,3 +1,4 @@
+using System;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -33,6 +34,12 @@ public sealed class SandBoatBoarding : InteractableBase
 
     /// <summary>True when the client player is seated in P2's seat.</summary>
     public bool IsP2Seated => _p2ClientId.Value != NoClientId;
+
+    /// <summary>
+    /// Raised locally on every peer after a checkpoint retry has restored the chase.
+    /// UI listeners can replay local-only presentation without introducing another network state.
+    /// </summary>
+    public event Action ChaseRestartedLocally;
 
     protected override void Awake()
     {
@@ -227,6 +234,7 @@ public sealed class SandBoatBoarding : InteractableBase
     private void ResumeChaseAfterResetClientRpc()
     {
         ApplyChaseStarted(true);
+        ChaseRestartedLocally?.Invoke();
     }
 
     private void SetChaseControllersEnabled(bool isEnabled)
