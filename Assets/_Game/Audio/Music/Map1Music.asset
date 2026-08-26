@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c65d348d572470f4fb011eb3050c40f8, type: 3}
   m_Name: Map1Music
   m_EditorClassIdentifier: 
-  Clip: {fileID: 8300000, guid: 79216fc1faf0545409235c1dfac827ff, type: 3}
-  Volume: 0.42
+  Clip: {fileID: 8300000, guid: 62fbda924998d6e47aa8aec091f88780, type: 3}
+  Volume: 0.375
   PitchMin: 1
   PitchMax: 1

@@ -29,6 +29,8 @@ public sealed class SandBoatChaseCheckpoint : MonoBehaviour
     private SandstormRockAttackController _stormRockAttack;
     [SerializeField, Tooltip("Component boarding hiện có; đặt người chơi lại vào ghế và tiếp tục chase qua NGO.")]
     private SandBoatBoarding _boarding;
+    [SerializeField, Tooltip("Trạng thái hoàn thành Phase 18/19 được mở lại khi bão bắt Player trước VaoDen.")]
+    private SandBoatChaseCompletion _completion;
 
     [Header("Runtime Debug")]
     [SerializeField, Tooltip("Chỉ đúng trong lúc một giao dịch reset checkpoint đang chạy.")]
@@ -55,6 +57,7 @@ public sealed class SandBoatChaseCheckpoint : MonoBehaviour
     private IEnumerator ResetChaseRoutine()
     {
         _isResetting = true;
+        _completion?.ResetCompletionForRetry();
         _movement?.SetRouteMovementEnabled(false);
         _movement?.ResetMovement();
         _horizontalOffset?.ResetOffset();

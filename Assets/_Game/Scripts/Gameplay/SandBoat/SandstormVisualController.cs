@@ -16,6 +16,8 @@ public sealed class SandstormVisualController : MonoBehaviour
     private Terrain _terrain;
     [SerializeField, Tooltip("Instance TornadoWithWindEfc trong scene, chỉ dùng làm hiệu ứng hình ảnh của bão.")]
     private Transform _stormVisual;
+    [SerializeField, Tooltip("Đích ngoài đường ray mà bão bay tới sau TempleFinish; gán TFD_City_Gate_01 (1) trong scene.")]
+    private Transform _templeTransitionTarget;
 
     [Header("Visual Placement")]
     [SerializeField, Min(0f), Tooltip("Khoảng cách hình ảnh gần nhất phía sau thuyền khi bão đã áp sát.")]
@@ -26,6 +28,10 @@ public sealed class SandstormVisualController : MonoBehaviour
     private float _groundOffset;
     [SerializeField, Min(0.01f), Tooltip("Giá trị cao hơn giúp lốc xoáy bám theo vị trí mục tiêu của thuyền nhanh hơn.")]
     private float _followSmoothing = 5f;
+
+    [Header("Bão sau TempleFinish")]
+    [SerializeField, Min(0.01f), Tooltip("Tốc độ visual bão rời đường ray và bay tới TFD_City_Gate_01 (1) sau TempleFinish.")]
+    private float _templeTransitionApproachSpeed = 20f;
 
     [Header("Visual Intensity")]
     [SerializeField, Min(0.01f), Tooltip("Hệ số scale và particle khi bão ở trạng thái Safe.")]
@@ -40,6 +46,23 @@ public sealed class SandstormVisualController : MonoBehaviour
     private ParticleSystem[] _particleSystems;
     private float[] _baseEmissionRates;
     private Vector3 _baseScale = Vector3.one;
+    private bool _showDuringTempleTransition;
+
+    /// <summary>
+    /// Keeps the storm visual active after the boat has stopped at TempleFinish.
+    /// Phase 19 clears this only when players enter the VaoDen shelter trigger.
+    /// </summary>
+    public void SetVisibleDuringTempleTransition(bool isVisible)
+    {
+        _showDuringTempleTransition = isVisible;
+    }
+
+    /// <summary>Returns the current storm visual position for server-authoritative transition hazards.</summary>
+    public bool TryGetVisualPosition(out Vector3 position)
+    {
+        position = _stormVisual != null ? _stormVisual.position : default;
+        return _stormVisual != null && _stormVisual.gameObject.activeInHierarchy;
+    }
 
     private void Awake()
     {
@@ -67,13 +90,21 @@ public sealed class SandstormVisualController : MonoBehaviour
         }
     }
 
+    private void OnValidate()
+    {
+        _minimumVisualDistance = Mathf.Max(0f, _minimumVisualDistance);
+        _maximumVisualDistance = Mathf.Max(_minimumVisualDistance, _maximumVisualDistance);
+        _followSmoothing = Mathf.Max(0.01f, _followSmoothing);
+        _templeTransitionApproachSpeed = Mathf.Max(0.01f, _templeTransitionApproachSpeed);
+    }
+
     private void LateUpdate()
     {
         bool shouldShow = Application.isPlaying
                           && _movement != null
                           && _stormLogic != null
                           && _stormVisual != null
-                          && _movement.IsRouteMovementEnabled;
+                          && (_movement.IsRouteMovementEnabled || _showDuringTempleTransition);
         if (_stormVisual != null && _stormVisual.gameObject.activeSelf != shouldShow)
         {
             _stormVisual.gameObject.SetActive(shouldShow);
@@ -86,6 +117,23 @@ public sealed class SandstormVisualController : MonoBehaviour
 
         SandBoatRouteSample routeSample = _movement.EvaluateRouteAhead(0f);
         float distance = Mathf.Lerp(_minimumVisualDistance, _maximumVisualDistance, _stormLogic.StormDistance);
+        if (_showDuringTempleTransition && _templeTransitionTarget != null)
+        {
+            Vector3 gatePosition = _templeTransitionTarget.position;
+            _stormVisual.position = Vector3.MoveTowards(
+                _stormVisual.position,
+                gatePosition,
+                _templeTransitionApproachSpeed * Time.deltaTime);
+            Vector3 moveDirection = gatePosition - _stormVisual.position;
+            if (moveDirection.sqrMagnitude > 0.0001f)
+            {
+                _stormVisual.rotation = Quaternion.LookRotation(moveDirection.normalized, Vector3.up);
+            }
+
+            ApplyIntensity(GetIntensityForState(_stormLogic.State));
+            return;
+        }
+
         Vector3 targetPosition = transform.position - routeSample.Forward * distance;
         if (_terrain != null)
         {

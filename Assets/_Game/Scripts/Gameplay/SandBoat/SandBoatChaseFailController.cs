@@ -80,6 +80,12 @@ public sealed class SandBoatChaseFailController : MonoBehaviour
         TriggerFail("[SandBoatChaseFail] The boat hit a blocking rock. Chase controls are locked pending reset.");
     }
 
+    /// <summary>Fails the chase when the moving storm catches a player during the temple transition.</summary>
+    public void TriggerTempleStormFail()
+    {
+        TriggerFail("[SandBoatChaseFail] The storm caught a player before VaoDen. Chase reset is pending.");
+    }
+
     private void TriggerFail(string logMessage)
     {
         if (_isFailed)

@@ -1,4 +1,5 @@
 using Unity.Cinemachine;
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
@@ -116,9 +117,16 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
 
         if (_thirdPersonCamera != null)
         {
-            _thirdPersonCamera.Target.TrackingTarget = _previousTrackingTarget;
-            _thirdPersonCamera.Target.LookAtTarget = _previousLookAtTarget;
-            _thirdPersonCamera.Target.CustomLookAtTarget = _previousCustomLookAt;
+            Transform playerTarget = ResolvePlayerCameraTarget();
+            Transform trackingTarget = IsUsablePreviousTarget(_previousTrackingTarget)
+                ? _previousTrackingTarget
+                : playerTarget;
+            Transform lookAtTarget = IsUsablePreviousTarget(_previousLookAtTarget)
+                ? _previousLookAtTarget
+                : trackingTarget;
+            _thirdPersonCamera.Target.TrackingTarget = trackingTarget;
+            _thirdPersonCamera.Target.LookAtTarget = lookAtTarget;
+            _thirdPersonCamera.Target.CustomLookAtTarget = trackingTarget != null && _previousCustomLookAt;
             _thirdPersonCamera.Lens.FieldOfView = _previousFov;
             if (_thirdPersonOrbit != null)
             {
@@ -138,5 +146,34 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
         _thirdPersonBrain = null;
         _didOverrideBrainUpdateMethod = false;
         _isApplied = false;
+    }
+
+    private bool IsUsablePreviousTarget(Transform target)
+    {
+        return target != null && target != transform;
+    }
+
+    private static Transform ResolvePlayerCameraTarget()
+    {
+        if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClient == null)
+        {
+            return null;
+        }
+
+        NetworkObject localPlayer = NetworkManager.Singleton.LocalClient.PlayerObject;
+        if (localPlayer == null)
+        {
+            return null;
+        }
+
+        foreach (Transform child in localPlayer.GetComponentsInChildren<Transform>(true))
+        {
+            if (child.name == "CameraLookTarget")
+            {
+                return child;
+            }
+        }
+
+        return localPlayer.transform;
     }
 }

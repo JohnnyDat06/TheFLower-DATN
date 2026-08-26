@@ -9,12 +9,20 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class SandBoatSteering : MonoBehaviour
 {
-    [SerializeField] private SandBoatHorizontalOffset _horizontalOffset;
-    [SerializeField] private PlayerInputHandler _steeringPlayer;
-    [SerializeField, Min(0.01f)] private float _steeringSpeed = 12f;
-    [SerializeField, Min(0.01f)] private float _steeringAcceleration = 32f;
-    [SerializeField, Min(0.01f)] private float _steeringSmoothing = 0.08f;
-    [SerializeField, Min(0f)] private float _maxHorizontalOffset = 12f;
+    [SerializeField, Tooltip("Bộ điều khiển khoảng lệch ngang của thuyền so với tâm đường spline.")]
+    private SandBoatHorizontalOffset _horizontalOffset;
+    [SerializeField, Tooltip("Nguồn input của người chơi P1 dùng để điều khiển hướng trái/phải.")]
+    private PlayerInputHandler _steeringPlayer;
+    [SerializeField, Min(0.01f), Tooltip("Tốc độ di chuyển ngang tối đa của thuyền khi P1 giữ phím lái.")]
+    private float _steeringSpeed = 12f;
+    [SerializeField, Min(0.01f), Tooltip("Gia tốc đạt tới tốc độ lái ngang khi P1 đang giữ phím.")]
+    private float _steeringAcceleration = 32f;
+    [SerializeField, Min(0.01f), Tooltip("Thời gian làm mượt input trong lúc P1 đang giữ phím lái.")]
+    private float _steeringSmoothing = 0.08f;
+    [SerializeField, Min(0f), Tooltip("Khoảng lệch ngang tối đa của thuyền so với tâm đường spline.")]
+    private float _maxHorizontalOffset = 12f;
+    [SerializeField, Range(0f, 0.5f), Tooltip("Ngưỡng input được xem là đã thả phím; thuyền dừng dịch ngang ngay khi input nằm trong ngưỡng này.")]
+    private float _steeringReleaseDeadZone = 0.05f;
 
     private float _targetOffset;
     private float _steeringVelocity;
@@ -30,6 +38,7 @@ public sealed class SandBoatSteering : MonoBehaviour
         _steeringAcceleration = Mathf.Max(0.01f, _steeringAcceleration);
         _steeringSmoothing = Mathf.Max(0.01f, _steeringSmoothing);
         _maxHorizontalOffset = Mathf.Max(0f, _maxHorizontalOffset);
+        _steeringReleaseDeadZone = Mathf.Clamp(_steeringReleaseDeadZone, 0f, 0.5f);
         _targetOffset = Mathf.Clamp(_targetOffset, -_maxHorizontalOffset, _maxHorizontalOffset);
     }
 
@@ -47,6 +56,16 @@ public sealed class SandBoatSteering : MonoBehaviour
 
         TryResolveP1Input();
         float rawSteeringInput = GetInvertedP1SteeringInput();
+        if (Mathf.Abs(rawSteeringInput) <= _steeringReleaseDeadZone)
+        {
+            _targetOffset = _horizontalOffset.CurrentOffset;
+            _smoothedInput = 0f;
+            _steeringVelocity = 0f;
+            _inputSmoothingVelocity = 0f;
+            _horizontalOffset.SetTargetOffset(_targetOffset);
+            return;
+        }
+
         _smoothedInput = Mathf.SmoothDamp(
             _smoothedInput,
             rawSteeringInput,

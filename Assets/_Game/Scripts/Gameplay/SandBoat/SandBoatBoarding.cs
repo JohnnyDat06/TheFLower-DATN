@@ -25,9 +25,13 @@ public sealed class SandBoatBoarding : InteractableBase
     private readonly NetworkVariable<ulong> _p1ClientId = new(NoClientId);
     private readonly NetworkVariable<ulong> _p2ClientId = new(NoClientId);
     private readonly NetworkVariable<bool> _chaseStarted = new(false);
+    private readonly NetworkVariable<bool> _chaseFinalized = new(false);
 
     /// <summary>True after the boarding condition has been fulfilled and route movement has started.</summary>
     public bool ChaseStarted => _chaseStarted.Value;
+
+    /// <summary>True after Phase 19 has permanently released players from the completed chase.</summary>
+    public bool ChaseFinalized => _chaseFinalized.Value;
 
     /// <summary>True when the host player is seated in P1's seat.</summary>
     public bool IsP1Seated => _p1ClientId.Value != NoClientId;
@@ -52,18 +56,20 @@ public sealed class SandBoatBoarding : InteractableBase
     {
         base.OnNetworkSpawn();
         _chaseStarted.OnValueChanged += OnChaseStartedChanged;
+        _chaseFinalized.OnValueChanged += OnChaseFinalizedChanged;
         ApplyChaseStarted(_chaseStarted.Value);
     }
 
     public override void OnNetworkDespawn()
     {
         _chaseStarted.OnValueChanged -= OnChaseStartedChanged;
+        _chaseFinalized.OnValueChanged -= OnChaseFinalizedChanged;
         base.OnNetworkDespawn();
     }
 
     public override void Interact(ulong playerId)
     {
-        if (!CanInteract || _chaseStarted.Value)
+        if (!CanInteract || _chaseStarted.Value || _chaseFinalized.Value)
         {
             return;
         }
@@ -74,7 +80,7 @@ public sealed class SandBoatBoarding : InteractableBase
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
     private void RequestBoardServerRpc(RpcParams rpcParams = default)
     {
-        if (_chaseStarted.Value)
+        if (_chaseStarted.Value || _chaseFinalized.Value)
         {
             return;
         }
@@ -129,7 +135,11 @@ public sealed class SandBoatBoarding : InteractableBase
 
     private void LateUpdate()
     {
-        if (!Application.isPlaying || !IsSpawned || NetworkManager.Singleton == null)
+        if (!Application.isPlaying
+            || !IsSpawned
+            || NetworkManager.Singleton == null
+            || !_chaseStarted.Value
+            || _chaseFinalized.Value)
         {
             return;
         }
@@ -201,6 +211,8 @@ public sealed class SandBoatBoarding : InteractableBase
             return;
         }
 
+        _chaseFinalized.Value = false;
+        _chaseStarted.Value = true;
         ReseatPlayer(_p1ClientId.Value, _playerSeatP1);
         ReseatPlayer(_p2ClientId.Value, _playerSeatP2);
         ApplyChaseStarted(true);
@@ -223,11 +235,50 @@ public sealed class SandBoatBoarding : InteractableBase
         ApplyChaseStarted(newValue);
     }
 
+    private void OnChaseFinalizedChanged(bool previousValue, bool newValue)
+    {
+        ApplyChaseStarted(_chaseStarted.Value);
+    }
+
     private void ApplyChaseStarted(bool isStarted)
     {
         _movement?.SetRouteMovementEnabled(isStarted);
         SetChaseControllersEnabled(isStarted);
-        SetInteractable(!isStarted);
+        SetInteractable(!isStarted && !_chaseFinalized.Value);
+    }
+
+    /// <summary>
+    /// Server-only Phase 19 handoff. It stops chase input but deliberately
+    /// leaves players at their current seats on the stationary boat, then
+    /// restores their normal controls so they can jump out themselves.
+    /// </summary>
+    public void EndChaseAndReleasePlayersOnBoat()
+    {
+        if (!IsServer || _chaseFinalized.Value)
+        {
+            return;
+        }
+
+        _chaseFinalized.Value = true;
+        _chaseStarted.Value = false;
+        ApplyChaseStarted(false);
+        ReseatPlayerForRelease(_p1ClientId.Value, _playerSeatP1);
+        ReseatPlayerForRelease(_p2ClientId.Value, _playerSeatP2);
+        RestorePlayerControlClientRpc(_p1ClientId.Value);
+        RestorePlayerControlClientRpc(_p2ClientId.Value);
+    }
+
+    private void ReseatPlayerForRelease(ulong clientId, Transform seat)
+    {
+        if (clientId == NoClientId || seat == null || !TryGetPlayerObject(clientId, out NetworkObject playerObject))
+        {
+            return;
+        }
+
+        // Confirm the final seat pose through the existing NGO teleport path
+        // before physics is restored. This prevents a stale network pose from
+        // snapping the player back down to terrain.
+        SeatPlayer(playerObject, seat);
     }
 
     [ClientRpc]
@@ -291,6 +342,49 @@ public sealed class SandBoatBoarding : InteractableBase
         {
             playerInteractor.ClearCurrentTarget();
             playerInteractor.enabled = false;
+        }
+    }
+
+    [ClientRpc]
+    private void RestorePlayerControlClientRpc(ulong playerClientId)
+    {
+        if (NetworkManager.Singleton == null || NetworkManager.Singleton.LocalClientId != playerClientId)
+        {
+            return;
+        }
+
+        NetworkObject playerObject = NetworkManager.Singleton.SpawnManager.GetPlayerNetworkObject(playerClientId);
+        if (playerObject == null)
+        {
+            return;
+        }
+
+        if (playerObject.TryGetComponent(out PlayerController playerController))
+        {
+            playerController.SetExternalMovementOverride(false);
+        }
+
+        if (playerObject.TryGetComponent(out PlayerStateMachine stateMachine))
+        {
+            stateMachine.enabled = true;
+            stateMachine.TransitionTo(PlayerStateType.Idle);
+        }
+
+        if (playerObject.TryGetComponent(out PlayerAnimator playerAnimator))
+        {
+            playerAnimator.SetExternalAnimationOverride(false);
+        }
+
+        if (playerObject.TryGetComponent(out Rigidbody playerRigidbody))
+        {
+            playerRigidbody.linearVelocity = Vector3.zero;
+            playerRigidbody.angularVelocity = Vector3.zero;
+            playerRigidbody.isKinematic = false;
+        }
+
+        if (playerObject.TryGetComponent(out PlayerInteractor playerInteractor))
+        {
+            playerInteractor.enabled = true;
         }
     }
 }
