@@ -9,17 +9,17 @@ public sealed class SandBoatMovement : MonoBehaviour
 {
     private const int RouteLengthSampleCount = 256;
 
-    [SerializeField, Tooltip("Authored spline route used to place and orient the boat.")]
+    [SerializeField, Tooltip("Spline Route đã thiết kế, dùng để đặt vị trí và hướng thuyền.")]
     private SandBoatRoute _route;
-    [SerializeField, Min(0.01f), Tooltip("Fallback speed used only before SandBoatSpeedController supplies the active chase speed.")]
-    private float _baseForwardSpeed = 20f;
-    [SerializeField, Range(0f, 1f), Tooltip("Normalized route position used when the boat resets.")]
+    [SerializeField, Min(0.01f), Tooltip("Tốc độ dự phòng chỉ dùng trước khi SandBoatSpeedController cung cấp tốc độ chase hiện tại.")]
+    private float _baseForwardSpeed = 18f;
+    [SerializeField, Range(0f, 1f), Tooltip("Tiến độ Route chuẩn hóa dùng khi reset thuyền.")]
     private float _startProgress;
-    [SerializeField, Tooltip("Enables automatic route movement as soon as this component awakens.")]
+    [SerializeField, Tooltip("Bật chuyển động tự động theo Route ngay khi component khởi tạo.")]
     private bool _startMovementOnAwake = true;
-    [SerializeField, Tooltip("Rotates the boat's yaw to follow the spline direction while preserving a level hull.")]
+    [SerializeField, Tooltip("Xoay yaw của thuyền theo hướng Spline nhưng giữ thân thuyền cân bằng.")]
     private bool _alignYawWithRoute = true;
-    [SerializeField, Tooltip("Use this when the boat mesh is authored with its nose facing local -Z instead of +Z.")]
+    [SerializeField, Tooltip("Bật khi mesh thuyền có mũi hướng local -Z thay vì +Z.")]
     private bool _reverseModelForwardAxis = true;
 
     private float _progress;
@@ -37,6 +37,9 @@ public sealed class SandBoatMovement : MonoBehaviour
 
     /// <summary>Current forward speed applied to the automatic route movement.</summary>
     public float CurrentForwardSpeed => _currentForwardSpeed;
+
+    /// <summary>Total authored route length in world units, used by ahead-of-boat attacks.</summary>
+    public float RouteLength => _routeLength;
 
     /// <summary>True after the boat reaches the route endpoint.</summary>
     public bool IsComplete => _isComplete;
@@ -108,14 +111,10 @@ public sealed class SandBoatMovement : MonoBehaviour
         _isRouteMovementEnabled = isEnabled;
     }
 
-    /// <summary>Applies a lateral offset supplied by the Phase 3 offset controller.</summary>
+    /// <summary>Stores the lateral offset that will be applied with the next single route-pose update.</summary>
     public void SetHorizontalOffset(float horizontalOffset)
     {
         _horizontalOffset = horizontalOffset;
-        if (Application.isPlaying)
-        {
-            ApplyRoutePose();
-        }
     }
 
     private float CalculateRouteLength()
@@ -146,22 +145,24 @@ public sealed class SandBoatMovement : MonoBehaviour
 
         SandBoatRouteSample sample = _route.Evaluate(_progress);
         Vector3 position = sample.Position + sample.Right * _horizontalOffset;
-        transform.position = position;
+        Quaternion rotation = transform.rotation;
 
-        if (!_alignYawWithRoute)
+        if (_alignYawWithRoute)
         {
-            return;
-        }
-
-        Vector3 planarForward = Vector3.ProjectOnPlane(sample.Forward, Vector3.up);
-        if (planarForward.sqrMagnitude > 0.0001f)
-        {
-            if (_reverseModelForwardAxis)
+            Vector3 planarForward = Vector3.ProjectOnPlane(sample.Forward, Vector3.up);
+            if (planarForward.sqrMagnitude > 0.0001f)
             {
-                planarForward = -planarForward;
-            }
+                if (_reverseModelForwardAxis)
+                {
+                    planarForward = -planarForward;
+                }
 
-            transform.rotation = Quaternion.LookRotation(planarForward.normalized, Vector3.up);
+                rotation = Quaternion.LookRotation(planarForward.normalized, Vector3.up);
+            }
         }
+
+        // Keep one authoritative transform write per frame so seats, Rigidbody
+        // triggers, and Cinemachine all observe the same downhill pose.
+        transform.SetPositionAndRotation(position, rotation);
     }
 }

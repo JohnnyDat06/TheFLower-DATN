@@ -7,10 +7,20 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class SandBoatObstacle : MonoBehaviour
 {
-    [SerializeField] private BoxCollider _obstacleCollider;
+    [SerializeField, Tooltip("MeshCollider có sẵn của chính mesh đá, dùng làm trigger va chạm chính xác cho Sand Boat.")]
+    private MeshCollider _obstacleCollider;
+
+    /// <summary>True only for rocks spawned at runtime by the sandstorm attack.</summary>
+    public bool IsStormRock { get; private set; }
 
     /// <summary>Collider used by the Sand Boat collision handler.</summary>
     public Collider ObstacleCollider => _obstacleCollider;
+
+    /// <summary>Marks this runtime obstacle as a storm rock that slows the boat instead of failing the chase.</summary>
+    public void MarkAsStormRock()
+    {
+        IsStormRock = true;
+    }
 
     private void Reset()
     {
@@ -29,35 +39,30 @@ public sealed class SandBoatObstacle : MonoBehaviour
 
     private void CacheAndConfigureCollider()
     {
-        _obstacleCollider ??= GetComponent<BoxCollider>();
+        _obstacleCollider ??= FindPreferredMeshCollider();
         if (_obstacleCollider == null)
         {
-            _obstacleCollider = gameObject.AddComponent<BoxCollider>();
-        }
-
-        _obstacleCollider.isTrigger = true;
-        FitTriggerToRenderers();
-    }
-
-    private void FitTriggerToRenderers()
-    {
-        Renderer[] renderers = GetComponentsInChildren<Renderer>();
-        if (renderers.Length == 0)
-        {
+            Debug.LogWarning(
+                "[SandBoatObstacle] Rock requires an existing MeshCollider; no fallback collider was added.",
+                this);
             return;
         }
 
-        Bounds worldBounds = renderers[0].bounds;
-        for (int rendererIndex = 1; rendererIndex < renderers.Length; rendererIndex++)
+        _obstacleCollider.convex = true;
+        _obstacleCollider.isTrigger = true;
+    }
+
+    private MeshCollider FindPreferredMeshCollider()
+    {
+        MeshCollider[] meshColliders = GetComponentsInChildren<MeshCollider>(true);
+        foreach (MeshCollider meshCollider in meshColliders)
         {
-            worldBounds.Encapsulate(renderers[rendererIndex].bounds);
+            if (meshCollider.gameObject.name.Contains("LOD0"))
+            {
+                return meshCollider;
+            }
         }
 
-        Vector3 lossyScale = transform.lossyScale;
-        _obstacleCollider.center = transform.InverseTransformPoint(worldBounds.center);
-        _obstacleCollider.size = new Vector3(
-            worldBounds.size.x / Mathf.Max(0.001f, Mathf.Abs(lossyScale.x)),
-            worldBounds.size.y / Mathf.Max(0.001f, Mathf.Abs(lossyScale.y)),
-            worldBounds.size.z / Mathf.Max(0.001f, Mathf.Abs(lossyScale.z)));
+        return meshColliders.Length > 0 ? meshColliders[0] : null;
     }
 }

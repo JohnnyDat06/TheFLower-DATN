@@ -18,6 +18,8 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
 
     private CinemachineCamera _thirdPersonCamera;
     private CinemachineOrbitalFollow _thirdPersonOrbit;
+    private CinemachineBrain _thirdPersonBrain;
+    private CinemachineBrain.UpdateMethods _previousBrainUpdateMethod;
     private Transform _previousTrackingTarget;
     private Transform _previousLookAtTarget;
     private bool _previousCustomLookAt;
@@ -26,6 +28,7 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
     private float _previousCameraDistance;
     private Vector2 _previousVerticalPitchRange;
     private bool _isApplied;
+    private bool _didOverrideBrainUpdateMethod;
 
     private void LateUpdate()
     {
@@ -74,6 +77,13 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
         _thirdPersonCamera.Target.TrackingTarget = transform;
         _thirdPersonCamera.Target.LookAtTarget = transform;
         _thirdPersonCamera.Target.CustomLookAtTarget = false;
+        _thirdPersonBrain = Object.FindFirstObjectByType<CinemachineBrain>(FindObjectsInactive.Include);
+        if (_thirdPersonBrain != null)
+        {
+            _previousBrainUpdateMethod = _thirdPersonBrain.UpdateMethod;
+            _thirdPersonBrain.UpdateMethod = CinemachineBrain.UpdateMethods.LateUpdate;
+            _didOverrideBrainUpdateMethod = true;
+        }
         _isApplied = true;
     }
 
@@ -99,23 +109,34 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
 
     private void RestoreThirdPersonCamera()
     {
-        if (!_isApplied || _thirdPersonCamera == null)
+        if (!_isApplied)
         {
             return;
         }
 
-        _thirdPersonCamera.Target.TrackingTarget = _previousTrackingTarget;
-        _thirdPersonCamera.Target.LookAtTarget = _previousLookAtTarget;
-        _thirdPersonCamera.Target.CustomLookAtTarget = _previousCustomLookAt;
-        _thirdPersonCamera.Lens.FieldOfView = _previousFov;
-        if (_thirdPersonOrbit != null)
+        if (_thirdPersonCamera != null)
         {
-            _thirdPersonOrbit.TargetOffset = _previousTargetOffset;
-            _thirdPersonOrbit.Radius = _previousCameraDistance;
-            InputAxis verticalAxis = _thirdPersonOrbit.VerticalAxis;
-            verticalAxis.Range = _previousVerticalPitchRange;
-            _thirdPersonOrbit.VerticalAxis = verticalAxis;
+            _thirdPersonCamera.Target.TrackingTarget = _previousTrackingTarget;
+            _thirdPersonCamera.Target.LookAtTarget = _previousLookAtTarget;
+            _thirdPersonCamera.Target.CustomLookAtTarget = _previousCustomLookAt;
+            _thirdPersonCamera.Lens.FieldOfView = _previousFov;
+            if (_thirdPersonOrbit != null)
+            {
+                _thirdPersonOrbit.TargetOffset = _previousTargetOffset;
+                _thirdPersonOrbit.Radius = _previousCameraDistance;
+                InputAxis verticalAxis = _thirdPersonOrbit.VerticalAxis;
+                verticalAxis.Range = _previousVerticalPitchRange;
+                _thirdPersonOrbit.VerticalAxis = verticalAxis;
+            }
         }
+
+        if (_didOverrideBrainUpdateMethod && _thirdPersonBrain != null)
+        {
+            _thirdPersonBrain.UpdateMethod = _previousBrainUpdateMethod;
+        }
+
+        _thirdPersonBrain = null;
+        _didOverrideBrainUpdateMethod = false;
         _isApplied = false;
     }
 }

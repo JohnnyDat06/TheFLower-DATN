@@ -9,23 +9,23 @@ using UnityEngine;
 public sealed class SandBoatChaseFailController : MonoBehaviour
 {
     [Header("Sand Boat References")]
-    [SerializeField, Tooltip("Storm logic that reports when the storm has caught the boat.")]
+    [SerializeField, Tooltip("Logic bão báo khi bão đã bắt kịp thuyền.")]
     private SandstormChaseController _stormLogic;
-    [SerializeField, Tooltip("Route movement stopped immediately when the chase fails.")]
+    [SerializeField, Tooltip("Dừng chuyển động theo Route ngay khi chase thất bại.")]
     private SandBoatMovement _movement;
-    [SerializeField, Tooltip("P1 steering controller disabled while the chase is failed.")]
+    [SerializeField, Tooltip("Tắt controller đánh lái P1 trong trạng thái chase thất bại.")]
     private SandBoatSteering _steering;
-    [SerializeField, Tooltip("P2 speed controller disabled while the chase is failed.")]
+    [SerializeField, Tooltip("Tắt controller tốc độ P2 trong trạng thái chase thất bại.")]
     private SandBoatSpeedController _speedController;
 
     [Header("Fail Feedback")]
-    [SerializeField, Min(0f), Tooltip("Short pause after failure before Phase 13 is allowed to reset the chase.")]
+    [SerializeField, Min(0f), Tooltip("Khoảng dừng ngắn sau thất bại trước khi Phase 13 được phép reset chase.")]
     private float _feedbackDuration = 1.5f;
 
     [Header("Runtime Debug")]
-    [SerializeField, Tooltip("True after the storm catches the boat. This state is raised only once per chase attempt.")]
+    [SerializeField, Tooltip("Đúng sau khi bão bắt kịp thuyền; trạng thái này chỉ phát một lần mỗi lượt chase.")]
     private bool _isFailed;
-    [SerializeField, Tooltip("True after the short fail-feedback pause has elapsed and a later checkpoint reset may begin.")]
+    [SerializeField, Tooltip("Đúng sau khi hết khoảng phản hồi thất bại ngắn và checkpoint có thể bắt đầu reset.")]
     private bool _isReadyForReset;
 
     private float _feedbackTimeRemaining;
@@ -70,11 +70,17 @@ public sealed class SandBoatChaseFailController : MonoBehaviour
     {
         if (state == SandstormChaseState.Caught)
         {
-            TriggerFail();
+            TriggerFail("[SandBoatChaseFail] The storm caught the boat. Chase controls are locked pending reset.");
         }
     }
 
-    private void TriggerFail()
+    /// <summary>Fails the current chase after the boat hits an authored blocking rock.</summary>
+    public void TriggerObstacleFail()
+    {
+        TriggerFail("[SandBoatChaseFail] The boat hit a blocking rock. Chase controls are locked pending reset.");
+    }
+
+    private void TriggerFail(string logMessage)
     {
         if (_isFailed)
         {
@@ -96,7 +102,7 @@ public sealed class SandBoatChaseFailController : MonoBehaviour
             _speedController.enabled = false;
         }
 
-        Debug.Log("[SandBoatChaseFail] The storm caught the boat. Chase controls are locked pending reset.", this);
+        Debug.Log(logMessage, this);
         ChaseFailed?.Invoke();
     }
 

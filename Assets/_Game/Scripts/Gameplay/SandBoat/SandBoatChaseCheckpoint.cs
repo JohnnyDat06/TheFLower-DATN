@@ -11,25 +11,27 @@ using UnityEngine;
 public sealed class SandBoatChaseCheckpoint : MonoBehaviour
 {
     [Header("Sand Boat References")]
-    [SerializeField, Tooltip("Route movement restored to its configured Start Progress on retry.")]
+    [SerializeField, Tooltip("Khôi phục chuyển động theo Route về tiến độ bắt đầu đã cấu hình khi thử lại.")]
     private SandBoatMovement _movement;
-    [SerializeField, Tooltip("Lateral offset component reset to the center of the route.")]
+    [SerializeField, Tooltip("Đặt component lệch ngang về tâm Route.")]
     private SandBoatHorizontalOffset _horizontalOffset;
-    [SerializeField, Tooltip("P1 steering state cleared before chase input is resumed.")]
+    [SerializeField, Tooltip("Xóa trạng thái đánh lái P1 trước khi bật lại điều khiển chase.")]
     private SandBoatSteering _steering;
-    [SerializeField, Tooltip("P2 speed and collision recovery state reset to the configured base speed.")]
+    [SerializeField, Tooltip("Đặt lại tốc độ P2 và trạng thái hồi phục va chạm về tốc độ cơ bản đã cấu hình.")]
     private SandBoatSpeedController _speedController;
-    [SerializeField, Tooltip("Obstacle cooldown reset so a retry is not blocked by the previous attempt.")]
+    [SerializeField, Tooltip("Đặt lại thời gian chờ chướng ngại để lần thử lại không bị chặn bởi lần trước.")]
     private SandBoatCollisionHandler _collisionHandler;
-    [SerializeField, Tooltip("Storm distance reset to its configured initial safe value.")]
+    [SerializeField, Tooltip("Đặt lại khoảng cách bão về giá trị an toàn ban đầu đã cấu hình.")]
     private SandstormChaseController _stormLogic;
-    [SerializeField, Tooltip("Phase 12 failure gate that requests this checkpoint retry.")]
+    [SerializeField, Tooltip("Cổng thất bại Phase 12 yêu cầu bắt đầu reset checkpoint này.")]
     private SandBoatChaseFailController _failController;
-    [SerializeField, Tooltip("Existing boarding owner that reseats players and resumes chase input through NGO.")]
+    [SerializeField, Tooltip("Controller đá bão Phase 14; xóa cảnh báo và đá đang chờ khi thử lại.")]
+    private SandstormRockAttackController _stormRockAttack;
+    [SerializeField, Tooltip("Component boarding hiện có; đặt người chơi lại vào ghế và tiếp tục chase qua NGO.")]
     private SandBoatBoarding _boarding;
 
     [Header("Runtime Debug")]
-    [SerializeField, Tooltip("True only while a single checkpoint reset transaction is running.")]
+    [SerializeField, Tooltip("Chỉ đúng trong lúc một giao dịch reset checkpoint đang chạy.")]
     private bool _isResetting;
 
     /// <summary>True while the current retry transaction is restoring the chase state.</summary>
@@ -60,6 +62,7 @@ public sealed class SandBoatChaseCheckpoint : MonoBehaviour
         _speedController?.ResetSpeed();
         _collisionHandler?.ResetCollisionState();
         _stormLogic?.ResetStormDistance();
+        _stormRockAttack?.ResetAttackState();
         _failController?.ResetFailState();
 
         // Allow the movement pose reset to update the authored seat transforms first.

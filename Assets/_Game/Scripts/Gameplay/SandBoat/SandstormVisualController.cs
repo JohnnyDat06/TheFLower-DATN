@@ -8,33 +8,33 @@ using UnityEngine;
 public sealed class SandstormVisualController : MonoBehaviour
 {
     [Header("Sand Boat References")]
-    [SerializeField, Tooltip("Sand Boat route source used to place the storm behind the current route direction.")]
+    [SerializeField, Tooltip("Nguồn Route của thuyền, dùng để đặt bão phía sau theo hướng Route hiện tại.")]
     private SandBoatMovement _movement;
-    [SerializeField, Tooltip("Logical storm-distance source. This component never writes gameplay state.")]
+    [SerializeField, Tooltip("Nguồn khoảng cách bão logic. Component này không ghi vào trạng thái gameplay.")]
     private SandstormChaseController _stormLogic;
-    [SerializeField, Tooltip("Terrain used to keep the tornado visual on the ground.")]
+    [SerializeField, Tooltip("Terrain dùng để giữ hiệu ứng lốc xoáy trên mặt đất.")]
     private Terrain _terrain;
-    [SerializeField, Tooltip("Scene instance of TornadoWithWindEfc used only as the storm visual.")]
+    [SerializeField, Tooltip("Instance TornadoWithWindEfc trong scene, chỉ dùng làm hiệu ứng hình ảnh của bão.")]
     private Transform _stormVisual;
 
     [Header("Visual Placement")]
-    [SerializeField, Min(0f), Tooltip("Closest visual distance behind the boat when the storm has caught up.")]
+    [SerializeField, Min(0f), Tooltip("Khoảng cách hình ảnh gần nhất phía sau thuyền khi bão đã áp sát.")]
     private float _minimumVisualDistance = 18f;
-    [SerializeField, Min(0.01f), Tooltip("Farthest visual distance behind the boat when Storm Distance is fully safe.")]
+    [SerializeField, Min(0.01f), Tooltip("Khoảng cách hình ảnh xa nhất phía sau thuyền khi Storm Distance hoàn toàn an toàn.")]
     private float _maximumVisualDistance = 85f;
-    [SerializeField, Tooltip("Vertical offset applied after the visual is aligned to the terrain ground.")]
+    [SerializeField, Tooltip("Độ lệch chiều cao áp dụng sau khi hiệu ứng được đặt theo mặt terrain.")]
     private float _groundOffset;
-    [SerializeField, Min(0.01f), Tooltip("Higher values make the tornado follow the boat's target position more quickly.")]
+    [SerializeField, Min(0.01f), Tooltip("Giá trị cao hơn giúp lốc xoáy bám theo vị trí mục tiêu của thuyền nhanh hơn.")]
     private float _followSmoothing = 5f;
 
     [Header("Visual Intensity")]
-    [SerializeField, Min(0.01f), Tooltip("Scale and particle multiplier while the storm is Safe.")]
+    [SerializeField, Min(0.01f), Tooltip("Hệ số scale và particle khi bão ở trạng thái Safe.")]
     private float _safeIntensity = 1f;
-    [SerializeField, Min(0.01f), Tooltip("Scale and particle multiplier while the storm is Warning.")]
+    [SerializeField, Min(0.01f), Tooltip("Hệ số scale và particle khi bão ở trạng thái Warning.")]
     private float _warningIntensity = 1.2f;
-    [SerializeField, Min(0.01f), Tooltip("Scale and particle multiplier while the storm is Critical.")]
+    [SerializeField, Min(0.01f), Tooltip("Hệ số scale và particle khi bão ở trạng thái Critical.")]
     private float _criticalIntensity = 1.45f;
-    [SerializeField, Min(0.01f), Tooltip("Scale and particle multiplier after the storm reaches Caught state.")]
+    [SerializeField, Min(0.01f), Tooltip("Hệ số scale và particle sau khi bão đạt trạng thái Caught.")]
     private float _caughtIntensity = 1.65f;
 
     private ParticleSystem[] _particleSystems;

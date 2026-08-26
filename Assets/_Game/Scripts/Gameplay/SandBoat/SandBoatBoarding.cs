@@ -18,7 +18,7 @@ public sealed class SandBoatBoarding : InteractableBase
     [SerializeField] private Vector3 _seatRotationOffset = new(0f, 180f, 0f);
 
     [Header("Debug")]
-    [SerializeField, Tooltip("Lets a solo host start the chase after boarding for manual testing.")]
+    [SerializeField, Tooltip("Cho phép host chơi một mình bắt đầu chase sau khi lên thuyền để manual test.")]
     private bool _allowSoloHostDebug = true;
 
     private readonly NetworkVariable<ulong> _p1ClientId = new(NoClientId);

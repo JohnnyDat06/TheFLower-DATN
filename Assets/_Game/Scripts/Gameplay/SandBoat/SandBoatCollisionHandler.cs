@@ -2,26 +2,38 @@ using System;
 using UnityEngine;
 
 /// <summary>
-/// Receives trigger contacts from <see cref="SandBoatObstacle"/> and applies one
-/// temporary speed penalty per cooldown without blocking spline movement.
+/// Receives trigger contacts from <see cref="SandBoatObstacle"/>. Authored rocks
+/// fail the chase, while runtime storm rocks apply a severe temporary slowdown.
 /// </summary>
 [RequireComponent(typeof(Rigidbody))]
 [DisallowMultipleComponent]
 public sealed class SandBoatCollisionHandler : MonoBehaviour
 {
-    [SerializeField] private SandBoatMovement _movement;
-    [SerializeField] private SandBoatSpeedController _speedController;
-    [SerializeField, Min(0f)] private float _collisionSpeedPenalty = 6f;
-    [SerializeField, Min(0.01f)] private float _collisionRecoveryTime = 1.5f;
-    [SerializeField, Min(0f)] private float _collisionCooldown = 1f;
+    [SerializeField, Tooltip("Nguồn chuyển động dùng để chỉ nhận va chạm khi Sand Boat đang chạy trên Route.")]
+    private SandBoatMovement _movement;
+    [SerializeField, Tooltip("Controller tốc độ nhận hiệu ứng giảm tốc khi thuyền chạm đá do bão phóng.")]
+    private SandBoatSpeedController _speedController;
+    [SerializeField, Tooltip("Controller thất bại dùng để chơi lại khi thuyền chạm đá chặn được đặt sẵn trên đường.")]
+    private SandBoatChaseFailController _failController;
+    [SerializeField, Min(0.01f), Tooltip("Số giây thuyền phục hồi tốc độ sau khi chạm đá do bão phóng.")]
+    private float _stormRockRecoveryTime = 3f;
+    [SerializeField, Min(0f), Tooltip("Thời gian chống nhận lặp nhiều va chạm đá bão liên tiếp.")]
+    private float _collisionCooldown = 1f;
 
     private float _nextCollisionTime;
 
-    /// <summary>Raised once after a valid obstacle hit has applied its speed penalty.</summary>
+    /// <summary>Raised once after a valid obstacle hit has been processed.</summary>
     public event Action<SandBoatObstacle> ObstacleHit;
+
+    private void OnValidate()
+    {
+        _stormRockRecoveryTime = Mathf.Max(0.01f, _stormRockRecoveryTime);
+        _collisionCooldown = Mathf.Max(0f, _collisionCooldown);
+    }
 
     private void Awake()
     {
+        _failController ??= GetComponent<SandBoatChaseFailController>();
         Rigidbody rigidbody = GetComponent<Rigidbody>();
         rigidbody.isKinematic = true;
         rigidbody.useGravity = false;
@@ -46,16 +58,27 @@ public sealed class SandBoatCollisionHandler : MonoBehaviour
     {
         if (!Application.isPlaying
             || _movement == null
-            || !_movement.IsRouteMovementEnabled
-            || Time.time < _nextCollisionTime)
+            || !_movement.IsRouteMovementEnabled)
+        {
+            return;
+        }
+
+        if (!obstacle.IsStormRock)
+        {
+            _failController?.TriggerObstacleFail();
+            ObstacleHit?.Invoke(obstacle);
+            return;
+        }
+
+        if (Time.time < _nextCollisionTime)
         {
             return;
         }
 
         _nextCollisionTime = Time.time + _collisionCooldown;
         _speedController?.ApplyCollisionSpeedPenalty(
-            _collisionSpeedPenalty,
-            _collisionRecoveryTime);
+            _speedController.MaxForwardSpeed,
+            _stormRockRecoveryTime);
         ObstacleHit?.Invoke(obstacle);
     }
 

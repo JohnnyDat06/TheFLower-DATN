@@ -10,6 +10,8 @@ using UnityEngine.Splines;
 [DisallowMultipleComponent]
 public sealed class SandBoatRoute : MonoBehaviour
 {
+    private const float DirectionSampleProgress = 1f / 256f;
+
     [SerializeField] private SplineContainer _splineContainer;
     [SerializeField] private Transform _endpointReference;
 
@@ -84,8 +86,15 @@ public sealed class SandBoatRoute : MonoBehaviour
         }
 
         Vector3 localPosition = SplineUtility.EvaluatePosition(_splineContainer.Spline, clampedProgress);
-        Vector3 localForward = SplineUtility.EvaluateTangent(_splineContainer.Spline, clampedProgress);
-        Vector3 localUp = SplineUtility.EvaluateUpVector(_splineContainer.Spline, clampedProgress);
+        float previousProgress = Mathf.Max(0f, clampedProgress - DirectionSampleProgress);
+        float nextProgress = Mathf.Min(1f, clampedProgress + DirectionSampleProgress);
+        Vector3 localPreviousPosition = SplineUtility.EvaluatePosition(_splineContainer.Spline, previousProgress);
+        Vector3 localNextPosition = SplineUtility.EvaluatePosition(_splineContainer.Spline, nextProgress);
+        Vector3 localForward = localNextPosition - localPreviousPosition;
+        if (localForward.sqrMagnitude < 0.0001f)
+        {
+            localForward = SplineUtility.EvaluateTangent(_splineContainer.Spline, clampedProgress);
+        }
 
         Vector3 forward = _splineContainer.transform.TransformDirection(localForward).normalized;
         if (forward.sqrMagnitude < 0.0001f)
@@ -93,13 +102,12 @@ public sealed class SandBoatRoute : MonoBehaviour
             forward = _splineContainer.transform.forward;
         }
 
-        Vector3 up = _splineContainer.transform.TransformDirection(localUp).normalized;
-        if (up.sqrMagnitude < 0.0001f)
-        {
-            up = Vector3.up;
-        }
-
-        Vector3 right = Vector3.Cross(up, forward).normalized;
+        // Steering is authored as a horizontal lane offset. Spline up-vectors can
+        // twist sharply between knots and must not inject vertical jumps into it.
+        Vector3 planarForward = Vector3.ProjectOnPlane(forward, Vector3.up);
+        Vector3 right = planarForward.sqrMagnitude > 0.0001f
+            ? Vector3.Cross(Vector3.up, planarForward.normalized).normalized
+            : Vector3.ProjectOnPlane(_splineContainer.transform.right, Vector3.up).normalized;
         return new SandBoatRouteSample(
             _splineContainer.transform.TransformPoint(localPosition),
             forward,

@@ -9,25 +9,25 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class SandBoatSpeedController : MonoBehaviour
 {
-    [SerializeField, Tooltip("SandBoatMovement that receives the resolved forward speed.")]
+    [SerializeField, Tooltip("SandBoatMovement nhận tốc độ tiến đã tính toán.")]
     private SandBoatMovement _movement;
-    [SerializeField, Tooltip("Runtime reference to P2, the player allowed to control speed.")]
+    [SerializeField, Tooltip("Tham chiếu runtime tới P2, người chơi được phép điều khiển tốc độ.")]
     private PlayerInputHandler _speedPlayer;
-    [SerializeField, Min(0.01f), Tooltip("Lowest allowed boat speed. The boat never stops or reverses below this value.")]
+    [SerializeField, Min(0.01f), Tooltip("Tốc độ thuyền thấp nhất. Thuyền không dừng hoặc chạy lùi dưới giá trị này.")]
     private float _minForwardSpeed = 8f;
-    [SerializeField, Min(0.01f), Tooltip("Default speed when the chase begins. Increase this value to make the boat start faster.")]
-    private float _baseForwardSpeed = 15f;
-    [SerializeField, Min(0.01f), Tooltip("Maximum speed P2 can reach while holding W.")]
+    [SerializeField, Min(0.01f), Tooltip("Tốc độ mặc định khi chase bắt đầu. Tăng giá trị để thuyền khởi hành nhanh hơn.")]
+    private float _baseForwardSpeed = 18f;
+    [SerializeField, Min(0.01f), Tooltip("Tốc độ tối đa P2 có thể đạt khi giữ W.")]
     private float _maxForwardSpeed = 24f;
-    [SerializeField, Min(0.01f), Tooltip("Speed gained per second while P2 holds W.")]
+    [SerializeField, Min(0.01f), Tooltip("Tốc độ tăng mỗi giây khi P2 giữ W.")]
     private float _accelerationRate = 8f;
-    [SerializeField, Min(0.01f), Tooltip("Speed lost per second while P2 holds S.")]
+    [SerializeField, Min(0.01f), Tooltip("Tốc độ giảm mỗi giây khi P2 giữ S.")]
     private float _brakeRate = 12f;
 
     [Header("Debug")]
-    [SerializeField, Tooltip("Allows the host to temporarily emulate P2 W/S input for Phase 5 manual testing.")]
+    [SerializeField, Tooltip("Cho phép host giả lập input W/S của P2 để manual test Phase 5.")]
     private bool _allowHostSpeedDebug;
-    [SerializeField, Tooltip("Host player used only when host speed debug is enabled.")]
+    [SerializeField, Tooltip("Player host chỉ dùng khi bật debug tốc độ host.")]
     private PlayerInputHandler _hostDebugPlayer;
 
     private float _currentForwardSpeed;
@@ -38,7 +38,7 @@ public sealed class SandBoatSpeedController : MonoBehaviour
     /// <summary>Current boat speed after P2 input and the configured bounds are applied.</summary>
     public float CurrentForwardSpeed => _currentForwardSpeed;
 
-    /// <summary>Neutral chase speed where the storm neither catches up nor recovers distance.</summary>
+    /// <summary>Default chase speed; the storm still applies passive catchup until P2 accelerates above it.</summary>
     public float BaseForwardSpeed => _baseForwardSpeed;
 
     /// <summary>Lowest configured forward speed available to P2.</summary>
