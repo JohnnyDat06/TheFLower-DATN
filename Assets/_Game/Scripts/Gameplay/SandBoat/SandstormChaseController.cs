@@ -39,6 +39,7 @@ public sealed class SandstormChaseController : MonoBehaviour
     private SandstormChaseState _state;
     private bool _wasChaseActive;
     private bool _hasCaught;
+    private bool _usesNetworkReplicaState;
 
     /// <summary>Raised once when the logical storm state crosses a threshold.</summary>
     public event Action<SandstormChaseState> StateChanged;
@@ -67,6 +68,11 @@ public sealed class SandstormChaseController : MonoBehaviour
 
     private void Update()
     {
+        if (_usesNetworkReplicaState)
+        {
+            return;
+        }
+
         bool isChaseActive = Application.isPlaying
                              && _movement != null
                              && _movement.IsRouteMovementEnabled;
@@ -92,6 +98,20 @@ public sealed class SandstormChaseController : MonoBehaviour
         _stormDistance = _initialStormDistance;
         _hasCaught = false;
         SetState(EvaluateState());
+    }
+
+    /// <summary>Applies the server-authoritative storm state to a client replica.</summary>
+    public void ApplyNetworkState(float stormDistance, SandstormChaseState state)
+    {
+        _stormDistance = Mathf.Clamp01(stormDistance);
+        _hasCaught = state == SandstormChaseState.Caught;
+        SetState(state);
+    }
+
+    /// <summary>Prevents a client replica from calculating its own storm distance.</summary>
+    public void SetNetworkReplicaMode(bool isReplica)
+    {
+        _usesNetworkReplicaState = isReplica;
     }
 
     private void UpdateStormDistance()

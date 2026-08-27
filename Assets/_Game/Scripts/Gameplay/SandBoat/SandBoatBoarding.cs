@@ -11,12 +11,18 @@ public sealed class SandBoatBoarding : InteractableBase
     private const ulong NoClientId = ulong.MaxValue;
 
     [Header("Sand Boat")]
-    [SerializeField] private SandBoatMovement _movement;
-    [SerializeField] private SandBoatSteering _steering;
-    [SerializeField] private SandBoatSpeedController _speedController;
-    [SerializeField] private Transform _playerSeatP1;
-    [SerializeField] private Transform _playerSeatP2;
-    [SerializeField] private Vector3 _seatRotationOffset = new(0f, 180f, 0f);
+    [SerializeField, Tooltip("Movement của Sand Boat được bật sau khi đủ điều kiện boarding.")]
+    private SandBoatMovement _movement;
+    [SerializeField, Tooltip("Controller lái dành riêng cho P1 và chỉ được mô phỏng trên server.")]
+    private SandBoatSteering _steering;
+    [SerializeField, Tooltip("Controller tốc độ dành riêng cho P2 và chỉ được mô phỏng trên server.")]
+    private SandBoatSpeedController _speedController;
+    [SerializeField, Tooltip("Vị trí ngồi của P1/Host trên thuyền.")]
+    private Transform _playerSeatP1;
+    [SerializeField, Tooltip("Vị trí ngồi của P2/Client trên thuyền.")]
+    private Transform _playerSeatP2;
+    [SerializeField, Tooltip("Góc xoay cộng thêm để nhân vật nhìn đúng về phía mũi thuyền khi ngồi.")]
+    private Vector3 _seatRotationOffset = new(0f, 180f, 0f);
 
     [Header("Debug")]
     [SerializeField, Tooltip("Cho phép host chơi một mình bắt đầu chase sau khi lên thuyền để manual test.")]
@@ -38,6 +44,14 @@ public sealed class SandBoatBoarding : InteractableBase
 
     /// <summary>True when the client player is seated in P2's seat.</summary>
     public bool IsP2Seated => _p2ClientId.Value != NoClientId;
+
+    /// <summary>Network client ID authoritative đang giữ role P2.</summary>
+    public ulong P2ClientId => _p2ClientId.Value;
+
+    /// <summary>True khi máy hiện tại chính là client đã được server gán role P2.</summary>
+    public bool IsLocalClientP2 => NetworkManager.Singleton != null
+                                   && _p2ClientId.Value != NoClientId
+                                   && NetworkManager.Singleton.LocalClientId == _p2ClientId.Value;
 
     /// <summary>
     /// Raised locally on every peer after a checkpoint retry has restored the chase.
@@ -243,7 +257,10 @@ public sealed class SandBoatBoarding : InteractableBase
     private void ApplyChaseStarted(bool isStarted)
     {
         _movement?.SetRouteMovementEnabled(isStarted);
-        SetChaseControllersEnabled(isStarted);
+        bool canSimulateChase = NetworkManager.Singleton == null
+                                || !IsSpawned
+                                || IsServer;
+        SetChaseControllersEnabled(isStarted && canSimulateChase);
         SetInteractable(!isStarted && !_chaseFinalized.Value);
     }
 

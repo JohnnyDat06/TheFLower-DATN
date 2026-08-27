@@ -1,4 +1,5 @@
 using System;
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
@@ -45,6 +46,11 @@ public sealed class SandBoatCollisionHandler : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+
         SandBoatObstacle obstacle = other.GetComponentInParent<SandBoatObstacle>();
         if (obstacle == null)
         {
@@ -58,11 +64,14 @@ public sealed class SandBoatCollisionHandler : MonoBehaviour
     {
         if (!Application.isPlaying
             || _movement == null
-            || !_movement.IsRouteMovementEnabled)
+            || !_movement.IsRouteMovementEnabled
+            || (_failController != null && _failController.IsFailed)
+            || Time.time < _nextCollisionTime)
         {
             return;
         }
 
+        _nextCollisionTime = Time.time + _collisionCooldown;
         if (!obstacle.IsStormRock)
         {
             _failController?.TriggerObstacleFail();
@@ -70,12 +79,6 @@ public sealed class SandBoatCollisionHandler : MonoBehaviour
             return;
         }
 
-        if (Time.time < _nextCollisionTime)
-        {
-            return;
-        }
-
-        _nextCollisionTime = Time.time + _collisionCooldown;
         _speedController?.ApplyCollisionSpeedPenalty(
             _speedController.MaxForwardSpeed,
             _stormRockRecoveryTime);

@@ -28,6 +28,7 @@ public sealed class SandBoatMovement : MonoBehaviour
     private float _currentForwardSpeed;
     private bool _isComplete;
     private bool _isRouteMovementEnabled;
+    private bool _usesNetworkReplicaState;
 
     /// <summary>Current normalized progress along the route.</summary>
     public float Progress => _progress;
@@ -77,7 +78,7 @@ public sealed class SandBoatMovement : MonoBehaviour
 
     private void Update()
     {
-        if (!Application.isPlaying || !_isRouteMovementEnabled || _isComplete || _route == null || !_route.IsValid || _routeLength <= 0f)
+        if (!Application.isPlaying || _usesNetworkReplicaState || !_isRouteMovementEnabled || _isComplete || _route == null || !_route.IsValid || _routeLength <= 0f)
         {
             return;
         }
@@ -109,6 +110,28 @@ public sealed class SandBoatMovement : MonoBehaviour
     public void SetRouteMovementEnabled(bool isEnabled)
     {
         _isRouteMovementEnabled = isEnabled;
+    }
+
+    /// <summary>Prevents a client replica from advancing the route independently.</summary>
+    public void SetNetworkReplicaMode(bool isReplica)
+    {
+        _usesNetworkReplicaState = isReplica;
+    }
+
+    /// <summary>Applies one server-authoritative route snapshot to a client replica.</summary>
+    public void ApplyNetworkState(
+        float progress,
+        float horizontalOffset,
+        float forwardSpeed,
+        bool routeMovementEnabled,
+        bool isComplete)
+    {
+        _progress = _route != null ? _route.ClampProgress(progress) : Mathf.Clamp01(progress);
+        _horizontalOffset = horizontalOffset;
+        _currentForwardSpeed = Mathf.Max(0.01f, forwardSpeed);
+        _isRouteMovementEnabled = routeMovementEnabled;
+        _isComplete = isComplete;
+        ApplyRoutePose();
     }
 
     /// <summary>

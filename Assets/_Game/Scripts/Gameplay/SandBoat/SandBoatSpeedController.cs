@@ -34,6 +34,8 @@ public sealed class SandBoatSpeedController : MonoBehaviour
     private float _collisionRecoveryTargetSpeed;
     private float _collisionRecoveryRate;
     private float _collisionRecoveryTimeRemaining;
+    private bool _hasAuthoritativeSpeedInput;
+    private float _authoritativeSpeedInput;
 
     /// <summary>Current boat speed after P2 input and the configured bounds are applied.</summary>
     public float CurrentForwardSpeed => _currentForwardSpeed;
@@ -117,6 +119,27 @@ public sealed class SandBoatSpeedController : MonoBehaviour
                                  / _collisionRecoveryTimeRemaining;
     }
 
+    /// <summary>Uses the P2 input value that the server accepted from the owning client.</summary>
+    public void SetAuthoritativeSpeedInput(float speedInput)
+    {
+        _hasAuthoritativeSpeedInput = true;
+        _authoritativeSpeedInput = Mathf.Clamp(speedInput, -1f, 1f);
+    }
+
+    /// <summary>Returns speed input handling to the existing local/debug path.</summary>
+    public void ClearAuthoritativeSpeedInput()
+    {
+        _hasAuthoritativeSpeedInput = false;
+        _authoritativeSpeedInput = 0f;
+    }
+
+    /// <summary>Updates client-side read-only speed presentation from the server snapshot.</summary>
+    public void ApplyNetworkSpeed(float forwardSpeed)
+    {
+        _currentForwardSpeed = Mathf.Clamp(forwardSpeed, _minForwardSpeed, _maxForwardSpeed);
+        ApplySpeed();
+    }
+
     private void UpdateSpeed(float speedInput)
     {
         if (speedInput > 0f)
@@ -180,6 +203,11 @@ public sealed class SandBoatSpeedController : MonoBehaviour
 
     private float GetP2SpeedInput()
     {
+        if (_hasAuthoritativeSpeedInput)
+        {
+            return _authoritativeSpeedInput;
+        }
+
         if (IsP2(_speedPlayer) && _speedPlayer.IsOwner)
         {
             return Mathf.Clamp(_speedPlayer.MoveInput.y, -1f, 1f);

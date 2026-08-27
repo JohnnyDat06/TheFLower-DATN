@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -8,7 +9,8 @@ using UnityEngine.Serialization;
 /// regular SandBoatObstacle only after landing.
 /// </summary>
 [DisallowMultipleComponent]
-public sealed class SandstormRockAttackController : MonoBehaviour
+[RequireComponent(typeof(NetworkObject))]
+public sealed class SandstormRockAttackController : NetworkBehaviour
 {
     private const float SafeLaneRatio = 0.65f;
 
@@ -60,7 +62,7 @@ public sealed class SandstormRockAttackController : MonoBehaviour
     private float _landingGroundOffset = 0.05f;
 
     private readonly List<StormRockSequence> _sequences = new();
-    private float _nextSpawnTime;
+    private double _nextSpawnTime;
     private int _spawnSequence;
     private bool _loggedMissingPrefab;
 
@@ -72,9 +74,9 @@ public sealed class SandstormRockAttackController : MonoBehaviour
         public Vector3 LandingPosition;
         public Vector3 FlightStartPosition;
         public Quaternion FlightRotation;
-        public float TelegraphCreatedTime;
-        public float LaunchTime;
-        public float LandedTime;
+        public double TelegraphCreatedTime;
+        public double LaunchTime;
+        public double LandedTime;
         public bool IsFlying;
     }
 
@@ -126,33 +128,63 @@ public sealed class SandstormRockAttackController : MonoBehaviour
         UpdateFlyingRocks();
         RemoveExpiredLandedRocks();
 
-        if (!_movement.IsRouteMovementEnabled || _stormLogic.State != _stormRockTriggerState)
+        if (!_movement.IsRouteMovementEnabled
+            || _stormLogic.State != _stormRockTriggerState
+            || (IsSpawned && !IsServer))
         {
             return;
         }
 
+        double synchronizedTime = GetSynchronizedTime();
         if (_nextSpawnTime <= 0f)
         {
-            _nextSpawnTime = Time.time + _rockSpawnInterval;
+            _nextSpawnTime = synchronizedTime + _rockSpawnInterval;
         }
 
-        if (Time.time < _nextSpawnTime || GetActiveSequenceCount() >= _maxActiveStormRocks)
+        if (synchronizedTime < _nextSpawnTime || GetActiveSequenceCount() >= _maxActiveStormRocks)
         {
             return;
         }
 
         if (TryScheduleStormRock())
         {
-            _nextSpawnTime = Time.time + _rockSpawnInterval;
+            _nextSpawnTime = synchronizedTime + _rockSpawnInterval;
         }
         else
         {
-            _nextSpawnTime = Time.time + 0.5f;
+            _nextSpawnTime = synchronizedTime + 0.5f;
         }
     }
 
     /// <summary>Clears all pending warnings and landed/flying rocks for a retry.</summary>
     public void ResetAttackState()
+    {
+        ResetAttackStateLocal();
+    }
+
+    /// <summary>Sends one server-authoritative cleanup transaction to every peer.</summary>
+    public void ResetAttackStateNetworked()
+    {
+        if (IsSpawned)
+        {
+            if (IsServer)
+            {
+                ResetAttackStateRpc();
+            }
+
+            return;
+        }
+
+        ResetAttackStateLocal();
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void ResetAttackStateRpc()
+    {
+        ResetAttackStateLocal();
+    }
+
+    private void ResetAttackStateLocal()
     {
         ClearSequences();
         _spawnSequence = 0;
@@ -202,31 +234,61 @@ public sealed class SandstormRockAttackController : MonoBehaviour
         Vector3 landingPosition = routeSample.Position + routeSample.Right * laneOffset;
         landingPosition.y = SampleGroundHeight(landingPosition) + _landingGroundOffset;
 
+        double telegraphCreatedTime = GetSynchronizedTime();
+        if (IsSpawned)
+        {
+            ScheduleStormRockRpc(landingPosition, routeSample.Forward, telegraphCreatedTime);
+        }
+        else
+        {
+            ScheduleStormRockLocal(landingPosition, routeSample.Forward, telegraphCreatedTime);
+        }
+
+        _spawnSequence++;
+        return true;
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void ScheduleStormRockRpc(
+        Vector3 landingPosition,
+        Vector3 routeForward,
+        double telegraphCreatedTime)
+    {
+        ScheduleStormRockLocal(landingPosition, routeForward, telegraphCreatedTime);
+    }
+
+    private void ScheduleStormRockLocal(
+        Vector3 landingPosition,
+        Vector3 routeForward,
+        double telegraphCreatedTime)
+    {
         SandstormRockTelegraph telegraph = SandstormRockTelegraph.Create(
             landingPosition,
             _telegraphRadius,
             _telegraphLineWidth);
+        Vector3 safeForward = routeForward.sqrMagnitude > 0.0001f
+            ? routeForward.normalized
+            : transform.forward;
 
         _sequences.Add(new StormRockSequence
         {
             Telegraph = telegraph,
             LandingPosition = landingPosition,
-            FlightRotation = Quaternion.LookRotation(routeSample.Forward, Vector3.up),
-            TelegraphCreatedTime = Time.time
+            FlightRotation = Quaternion.LookRotation(safeForward, Vector3.up),
+            TelegraphCreatedTime = telegraphCreatedTime
         });
-        _spawnSequence++;
-        return true;
     }
 
     private void UpdateFlyingRocks()
     {
+        double synchronizedTime = GetSynchronizedTime();
         for (int index = _sequences.Count - 1; index >= 0; index--)
         {
             StormRockSequence sequence = _sequences[index];
             if (!sequence.IsFlying)
             {
                 if (sequence.Rock == null && sequence.Telegraph != null
-                    && Time.time >= sequence.TelegraphCreatedTime + _telegraphLeadTime)
+                    && synchronizedTime >= sequence.TelegraphCreatedTime + _telegraphLeadTime)
                 {
                     LaunchRock(sequence);
                 }
@@ -234,7 +296,7 @@ public sealed class SandstormRockAttackController : MonoBehaviour
                 continue;
             }
 
-            float flightProgress = Mathf.Clamp01((Time.time - sequence.LaunchTime) / _rockFlightDuration);
+            float flightProgress = Mathf.Clamp01((float)((synchronizedTime - sequence.LaunchTime) / _rockFlightDuration));
             float smoothedProgress = Mathf.SmoothStep(0f, 1f, flightProgress);
             sequence.Rock.transform.position = EvaluateFlightArc(sequence, smoothedProgress);
             sequence.Rock.transform.Rotate(Vector3.right, 540f * Time.deltaTime, Space.Self);
@@ -264,7 +326,7 @@ public sealed class SandstormRockAttackController : MonoBehaviour
         sequence.Rock.name = "StormRock_Active";
         sequence.Rock.transform.localScale *= _rockScale;
         PrepareRock(sequence);
-        sequence.LaunchTime = Time.time;
+        sequence.LaunchTime = GetSynchronizedTime();
         sequence.IsFlying = true;
     }
 
@@ -311,7 +373,7 @@ public sealed class SandstormRockAttackController : MonoBehaviour
         }
 
         sequence.Rock.transform.SetPositionAndRotation(sequence.LandingPosition, sequence.FlightRotation);
-        if (sequence.Obstacle?.ObstacleCollider != null)
+        if ((!IsSpawned || IsServer) && sequence.Obstacle?.ObstacleCollider != null)
         {
             sequence.Obstacle.ObstacleCollider.enabled = true;
         }
@@ -322,12 +384,13 @@ public sealed class SandstormRockAttackController : MonoBehaviour
             sequence.Telegraph = null;
         }
 
-        sequence.LandedTime = Time.time;
+        sequence.LandedTime = GetSynchronizedTime();
         sequence.IsFlying = false;
     }
 
     private void RemoveExpiredLandedRocks()
     {
+        double synchronizedTime = GetSynchronizedTime();
         for (int index = _sequences.Count - 1; index >= 0; index--)
         {
             StormRockSequence sequence = _sequences[index];
@@ -342,7 +405,7 @@ public sealed class SandstormRockAttackController : MonoBehaviour
                 continue;
             }
 
-            if (Time.time < sequence.LandedTime + _landedRockLifetime)
+            if (synchronizedTime < sequence.LandedTime + _landedRockLifetime)
             {
                 continue;
             }
@@ -378,6 +441,13 @@ public sealed class SandstormRockAttackController : MonoBehaviour
         return _terrain != null
             ? _terrain.SampleHeight(position) + _terrain.transform.position.y
             : position.y;
+    }
+
+    private double GetSynchronizedTime()
+    {
+        return IsSpawned && NetworkManager != null
+            ? NetworkManager.ServerTime.Time
+            : Time.timeAsDouble;
     }
 
     private void ClearSequences()

@@ -65,7 +65,7 @@ public sealed class SandBoatChaseCheckpoint : MonoBehaviour
         _speedController?.ResetSpeed();
         _collisionHandler?.ResetCollisionState();
         _stormLogic?.ResetStormDistance();
-        _stormRockAttack?.ResetAttackState();
+        _stormRockAttack?.ResetAttackStateNetworked();
         _failController?.ResetFailState();
 
         // Allow the movement pose reset to update the authored seat transforms first.

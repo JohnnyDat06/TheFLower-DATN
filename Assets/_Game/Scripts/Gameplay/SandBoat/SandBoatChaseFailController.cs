@@ -1,4 +1,5 @@
 using System;
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
@@ -68,6 +69,11 @@ public sealed class SandBoatChaseFailController : MonoBehaviour
 
     private void OnStormStateChanged(SandstormChaseState state)
     {
+        if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
+        {
+            return;
+        }
+
         if (state == SandstormChaseState.Caught)
         {
             TriggerFail("[SandBoatChaseFail] The storm caught the boat. Chase controls are locked pending reset.");
@@ -88,7 +94,8 @@ public sealed class SandBoatChaseFailController : MonoBehaviour
 
     private void TriggerFail(string logMessage)
     {
-        if (_isFailed)
+        if (_isFailed
+            || (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer))
         {
             return;
         }
@@ -118,5 +125,16 @@ public sealed class SandBoatChaseFailController : MonoBehaviour
         _isFailed = false;
         _isReadyForReset = false;
         _feedbackTimeRemaining = 0f;
+    }
+
+    /// <summary>Mirrors the server fail flag on a client without raising another gameplay event.</summary>
+    public void ApplyNetworkState(bool isFailed)
+    {
+        _isFailed = isFailed;
+        if (!isFailed)
+        {
+            _isReadyForReset = false;
+            _feedbackTimeRemaining = 0f;
+        }
     }
 }
