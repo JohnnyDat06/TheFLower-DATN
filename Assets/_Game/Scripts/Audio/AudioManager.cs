@@ -200,6 +200,15 @@ public class AudioManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Trả về âm lượng SFX sau khi áp dụng Master Volume và SFX Volume hiện tại.
+    /// Dùng cho các loop gameplay cần thay đổi âm lượng liên tục nhưng vẫn phải theo Settings.
+    /// </summary>
+    public float ScaleSFXVolume(float baseVolume)
+    {
+        return GetSfxVolume(baseVolume);
+    }
+
     public void PlaySFX(
         SOAudioClip config,
         Vector3? position = null,

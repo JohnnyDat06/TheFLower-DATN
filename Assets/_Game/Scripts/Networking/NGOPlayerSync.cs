@@ -31,8 +31,13 @@ public class NGOPlayerSync : NetworkBehaviour
     [Header("Optional Owner-Only Behaviours")]
     [SerializeField] private Behaviour[] _ownerOnlyBehaviours;
 
-    private bool _isTeleporting; 
+    private bool _isTeleporting;
     private bool _isFrozenBySystem = true; // Trạng thái đóng băng hệ thống khi đổi màn
+    private bool _isExternallyLocked;
+    private RigidbodyInterpolation _defaultRigidbodyInterpolation;
+    private bool _defaultNetworkTransformInterpolation;
+    private bool _defaultNetworkTransformEnabled;
+    private bool _defaultNetworkRigidbodyEnabled;
     private uint _nextTeleportRequestId;
     private uint _lastConfirmedTeleportRequestId;
     private Vector3 _pendingTeleportPosition;
@@ -57,6 +62,7 @@ public class NGOPlayerSync : NetworkBehaviour
     {
         CacheReferences();
         ApplyNetcodeDefaults();
+        CacheInterpolationDefaults();
     }
 
     private bool IsTestMode() 
@@ -210,6 +216,18 @@ public class NGOPlayerSync : NetworkBehaviour
 
         uint requestId = ++_nextTeleportRequestId;
         BeginServerTeleport(position, rotation, requestId);
+    }
+
+    /// <summary>
+    /// Khóa hoặc mở mô phỏng cục bộ theo yêu cầu của gameplay bên ngoài, ví dụ khi
+    /// người chơi đang ngồi trên Sand Boat. Khóa này được giữ xuyên suốt teleport
+    /// để gravity và owner-authoritative movement không tự bật lại giữa chừng.
+    /// </summary>
+    public void SetExternalSimulationOverride(bool isLocked)
+    {
+        _isExternallyLocked = isLocked;
+        ApplyExternalInterpolationState(isLocked);
+        ApplyAuthorityState();
     }
 
     /// <summary>
@@ -470,7 +488,7 @@ public class NGOPlayerSync : NetworkBehaviour
 
     private void ApplyAuthorityState()
     {
-        bool isLocked = _isTeleporting || _isFrozenBySystem;
+        bool isLocked = _isTeleporting || _isFrozenBySystem || _isExternallyLocked;
 
         if (_rigidbody != null)
         {
@@ -501,7 +519,18 @@ public class NGOPlayerSync : NetworkBehaviour
         if (_ownerOnlyBehaviours == null) BuildOwnerOnlyBehaviourList();
         foreach (var behaviour in _ownerOnlyBehaviours)
         {
-            if (behaviour != null) behaviour.enabled = enabled;
+            if (behaviour == null)
+            {
+                continue;
+            }
+
+            // Khi ngồi Sand Boat, PlayerController/State/Animator phải khóa để
+            // nhân vật không tự đi hoặc rơi, nhưng InputHandler vẫn cần đọc P1/P2
+            // và gửi input điều khiển thuyền lên server.
+            bool keepInputForChase = _isExternallyLocked
+                                     && IsOwner
+                                     && behaviour == _inputHandler;
+            behaviour.enabled = enabled || keepInputForChase;
         }
     }
 
@@ -527,6 +556,50 @@ public class NGOPlayerSync : NetworkBehaviour
         if (_networkTransform != null) {
             _networkTransform.Interpolate = true;
             _networkTransform.SlerpPosition = false;
+        }
+    }
+
+    private void CacheInterpolationDefaults()
+    {
+        _defaultRigidbodyInterpolation = _rigidbody != null
+            ? _rigidbody.interpolation
+            : RigidbodyInterpolation.None;
+        _defaultNetworkTransformInterpolation = _networkTransform != null
+                                                && _networkTransform.Interpolate;
+        _defaultNetworkTransformEnabled = _networkTransform != null
+                                          && _networkTransform.enabled;
+        _defaultNetworkRigidbodyEnabled = _networkRigidbody != null
+                                          && _networkRigidbody.enabled;
+    }
+
+    private void ApplyExternalInterpolationState(bool isLocked)
+    {
+        if (_rigidbody != null)
+        {
+            _rigidbody.interpolation = isLocked
+                ? RigidbodyInterpolation.None
+                : _defaultRigidbodyInterpolation;
+        }
+
+        if (_networkTransform != null)
+        {
+            // Client owner bám theo seat cục bộ trong Chase. Tắt NetworkTransform
+            // tại client để state world-space cũ không kéo nhân vật giật ngược;
+            // server vẫn giữ bản sao remote đúng seat cho mọi máy còn lại.
+            _networkTransform.enabled = !isLocked || IsServer
+                ? _defaultNetworkTransformEnabled
+                : false;
+            _networkTransform.Interpolate = !isLocked && _defaultNetworkTransformInterpolation;
+        }
+
+        if (_networkRigidbody != null)
+        {
+            // ChÃ­nh client owner Ä‘Ã£ cÃ³ pose gháº¿ cÃ¥ng thuyá»n cá»¥c bá»™. KhÃ´ng Ä‘á»ƒ
+            // NetworkRigidbody Ã¡p láº¡i pose vÃ­t cÅ© vÃ o cuá»‘i FixedUpdate; server váº«n
+            // giá»¯ component nÃ y Ä‘á»ƒ replica remote luÃ´n Ä‘Ãºng cho má»i peer.
+            _networkRigidbody.enabled = !isLocked || IsServer
+                ? _defaultNetworkRigidbodyEnabled
+                : false;
         }
     }
 }

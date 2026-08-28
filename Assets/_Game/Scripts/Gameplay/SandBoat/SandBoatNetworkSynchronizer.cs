@@ -319,13 +319,23 @@ public sealed class SandBoatNetworkSynchronizer : NetworkBehaviour
         }
 
         predictedProgress = Mathf.Clamp01(predictedProgress);
-        bool movedBackToCheckpoint = predictedProgress + 0.02f < _movement.Progress;
-        float replicaProgress = forceSnap || movedBackToCheckpoint || snapshot.IsResetting
-            ? predictedProgress
-            : Mathf.MoveTowards(
+        // Route khÃ´ng bao giá» quay ngÆ°á»£c. GÃ³i snapshot Ä‘áº¿n muá»™n cÃ³ thá»ƒ cÅ© hÆ¡n
+        // pose client Ä‘ang hiá»ƒn thá»‹; khÃ´ng Ä‘Æ°á»£c snap ngÆ°á»£c vá» gÃ³i Ä‘Ã³ vÃ¬ camera vÃ 
+        // P2 sáº½ giÃ¢t lá»n phÃ­a sau. ChÄ© cho phÃ©p lá»›p client tiáº¿n lÃªn, trá»« luá»“ng
+        // checkpoint reset Ä‘Ã£ Ä‘Æ°á»£c server xÃ¡c nháº­n.
+        float replicaProgress;
+        if (forceSnap || snapshot.IsResetting)
+        {
+            replicaProgress = predictedProgress;
+        }
+        else
+        {
+            float smoothedProgress = Mathf.MoveTowards(
                 _movement.Progress,
                 predictedProgress,
                 CalculateProgressFollowRate(snapshot.CurrentSpeed) * Time.deltaTime);
+            replicaProgress = Mathf.Max(_movement.Progress, smoothedProgress);
+        }
         float replicaOffset = forceSnap || snapshot.IsResetting
             ? snapshot.HorizontalOffset
             : Mathf.Lerp(

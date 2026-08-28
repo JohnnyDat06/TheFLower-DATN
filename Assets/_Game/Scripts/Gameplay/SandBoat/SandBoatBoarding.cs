@@ -6,6 +6,7 @@ using UnityEngine;
 /// Seats both players in the Sand Boat through the existing interaction system and starts the chase once ready.
 /// A host-only start is available solely for the configured local manual-test workflow.
 /// </summary>
+[DefaultExecutionOrder(1000)]
 public sealed class SandBoatBoarding : InteractableBase
 {
     private const ulong NoClientId = ulong.MaxValue;
@@ -64,6 +65,19 @@ public sealed class SandBoatBoarding : InteractableBase
         base.Awake();
         SetChaseControllersEnabled(false);
         _movement?.SetRouteMovementEnabled(false);
+    }
+
+    private void OnEnable()
+    {
+        // NetworkTransform/NetworkRigidbody may apply a received world pose after
+        // LateUpdate. Re-apply the local seated player's visual pose immediately
+        // before rendering so a client never shows itself snapping behind the boat.
+        Application.onBeforeRender += ApplySeatedPlayerVisualsBeforeRender;
+    }
+
+    private void OnDisable()
+    {
+        Application.onBeforeRender -= ApplySeatedPlayerVisualsBeforeRender;
     }
 
     public override void OnNetworkSpawn()
@@ -138,13 +152,7 @@ public sealed class SandBoatBoarding : InteractableBase
 
     private void SeatPlayer(NetworkObject playerObject, Transform seat)
     {
-        Quaternion seatRotation = GetSeatRotation(seat);
-        playerObject.transform.SetPositionAndRotation(seat.position, seatRotation);
-
-        if (playerObject.TryGetComponent(out NGOPlayerSync playerSync))
-        {
-            playerSync.Teleport(seat.position, seatRotation);
-        }
+        ApplySeatPose(playerObject, seat);
     }
 
     private void LateUpdate()
@@ -158,26 +166,87 @@ public sealed class SandBoatBoarding : InteractableBase
             return;
         }
 
-        FollowLocalSeatedPlayer(_p1ClientId.Value, _playerSeatP1);
-        FollowLocalSeatedPlayer(_p2ClientId.Value, _playerSeatP2);
+        FollowSeatedPlayerReplica(_p1ClientId.Value, _playerSeatP1);
+        FollowSeatedPlayerReplica(_p2ClientId.Value, _playerSeatP2);
     }
 
-    private void FollowLocalSeatedPlayer(ulong playerClientId, Transform seat)
+    private void ApplySeatedPlayerVisualsBeforeRender()
+    {
+        if (!Application.isPlaying
+            || !IsSpawned
+            || NetworkManager.Singleton == null
+            || IsServer
+            || !_chaseStarted.Value
+            || _chaseFinalized.Value)
+        {
+            return;
+        }
+
+        // Cáº£ P1/Host vÃ  P2/Client Ä‘á»u pháº£i báº¡m Ä‘Ãºng gháº¿ trÃªn chiáº¿c thuyá»n replica
+        // cá»§a client. Báº£n sao P1 lÃ  remote object nÃªn NetworkTransform cÃ³ thá»ƒ Ä‘áº¿n muá»™n
+        // hÆ¡n pose thuyá»n; chÃ»m pose render-only nÃ y ngÄƒn nÃ³ giÃ¢t lá»n trÃªn mÃ n Client
+        // mÃ  khÃ´ng thay Ä‘á»•i authority hoáº·c giá»¯a state máº¡ng.
+        ApplySeatVisualForClient(_p1ClientId.Value, _playerSeatP1);
+        ApplySeatVisualForClient(_p2ClientId.Value, _playerSeatP2);
+    }
+
+    private void ApplySeatVisualForClient(ulong playerClientId, Transform seat)
     {
         if (playerClientId == NoClientId || seat == null)
         {
             return;
         }
 
-        NetworkObject playerObject = NetworkManager.Singleton.SpawnManager.GetPlayerNetworkObject(playerClientId);
-        if (playerObject == null || !playerObject.IsOwner)
+        NetworkObject playerObject = FindSpawnedPlayerObject(playerClientId);
+        if (playerObject != null)
+        {
+            ApplySeatVisualPose(playerObject, seat);
+        }
+    }
+
+    private static NetworkObject FindSpawnedPlayerObject(ulong playerClientId)
+    {
+        foreach (NetworkObject networkObject in FindObjectsByType<NetworkObject>(FindObjectsSortMode.None))
+        {
+            if (networkObject.IsSpawned
+                && networkObject.IsPlayerObject
+                && networkObject.OwnerClientId == playerClientId)
+            {
+                return networkObject;
+            }
+        }
+
+        return null;
+    }
+
+    private void FollowSeatedPlayerReplica(ulong playerClientId, Transform seat)
+    {
+        if (playerClientId == NoClientId || seat == null)
         {
             return;
         }
 
-        // NGOPlayerSync/ClientNetworkTransform can publish a world-space pose after the boarding teleport.
-        // Reapply the authored seat pose after those updates so the local owner remains visually on the boat.
-        playerObject.transform.SetPositionAndRotation(seat.position, GetSeatRotation(seat));
+        // NGO chỉ cho client truy vấn PlayerObject của chính nó; server mới có
+        // quyền truy vấn và cố định pose cho cả hai bản sao người chơi.
+        if (!IsServer && NetworkManager.Singleton.LocalClientId != playerClientId)
+        {
+            return;
+        }
+
+        NetworkObject playerObject = NetworkManager.Singleton.SpawnManager.GetPlayerNetworkObject(playerClientId);
+        if (playerObject == null || (!playerObject.IsOwner && !IsServer))
+        {
+            return;
+        }
+
+        // Chạy sau pose thuyền và NetworkTransform để local owner lẫn bản sao
+        // remote trên server luôn dùng đúng seat của thuyền authoritative.
+        ApplySeatPose(playerObject, seat);
+
+        if (!playerObject.IsOwner)
+        {
+            return;
+        }
 
         if (playerObject.TryGetComponent(out PlayerStateMachine stateMachine))
         {
@@ -193,6 +262,33 @@ public sealed class SandBoatBoarding : InteractableBase
     private Quaternion GetSeatRotation(Transform seat)
     {
         return seat.rotation * Quaternion.Euler(_seatRotationOffset);
+    }
+
+    private void ApplySeatPose(NetworkObject playerObject, Transform seat)
+    {
+        if (playerObject == null || seat == null)
+        {
+            return;
+        }
+
+        Quaternion seatRotation = GetSeatRotation(seat);
+        if (playerObject.TryGetComponent(out Rigidbody playerRigidbody))
+        {
+            playerRigidbody.position = seat.position;
+            playerRigidbody.rotation = seatRotation;
+        }
+
+        playerObject.transform.SetPositionAndRotation(seat.position, seatRotation);
+    }
+
+    private void ApplySeatVisualPose(NetworkObject playerObject, Transform seat)
+    {
+        if (playerObject == null || seat == null)
+        {
+            return;
+        }
+
+        playerObject.transform.SetPositionAndRotation(seat.position, GetSeatRotation(seat));
     }
 
     private bool CanStartChase()
@@ -292,9 +388,8 @@ public sealed class SandBoatBoarding : InteractableBase
             return;
         }
 
-        // Confirm the final seat pose through the existing NGO teleport path
-        // before physics is restored. This prevents a stale network pose from
-        // snapping the player back down to terrain.
+        // Chốt pose cuối ngay trên seat trước khi mở lại physics để tránh bản
+        // sao NetworkTransform cũ kéo người chơi xuống terrain.
         SeatPlayer(playerObject, seat);
     }
 
@@ -332,6 +427,16 @@ public sealed class SandBoatBoarding : InteractableBase
             return;
         }
 
+        if (playerObject.TryGetComponent(out NGOPlayerSync playerSync))
+        {
+            playerSync.SetExternalSimulationOverride(true);
+        }
+
+        Transform seat = playerClientId == NetworkManager.ServerClientId
+            ? _playerSeatP1
+            : _playerSeatP2;
+        ApplySeatPose(playerObject, seat);
+
         if (playerObject.TryGetComponent(out PlayerController playerController))
         {
             playerController.SetExternalMovementOverride(true);
@@ -346,13 +451,6 @@ public sealed class SandBoatBoarding : InteractableBase
         if (playerObject.TryGetComponent(out PlayerAnimator playerAnimator))
         {
             playerAnimator.SetExternalAnimationOverride(true);
-        }
-
-        if (playerObject.TryGetComponent(out Rigidbody playerRigidbody))
-        {
-            playerRigidbody.linearVelocity = Vector3.zero;
-            playerRigidbody.angularVelocity = Vector3.zero;
-            playerRigidbody.isKinematic = true;
         }
 
         if (playerObject.TryGetComponent(out PlayerInteractor playerInteractor))
@@ -376,6 +474,11 @@ public sealed class SandBoatBoarding : InteractableBase
             return;
         }
 
+        Transform seat = playerClientId == NetworkManager.ServerClientId
+            ? _playerSeatP1
+            : _playerSeatP2;
+        ApplySeatPose(playerObject, seat);
+
         if (playerObject.TryGetComponent(out PlayerController playerController))
         {
             playerController.SetExternalMovementOverride(false);
@@ -392,16 +495,14 @@ public sealed class SandBoatBoarding : InteractableBase
             playerAnimator.SetExternalAnimationOverride(false);
         }
 
-        if (playerObject.TryGetComponent(out Rigidbody playerRigidbody))
-        {
-            playerRigidbody.linearVelocity = Vector3.zero;
-            playerRigidbody.angularVelocity = Vector3.zero;
-            playerRigidbody.isKinematic = false;
-        }
-
         if (playerObject.TryGetComponent(out PlayerInteractor playerInteractor))
         {
             playerInteractor.enabled = true;
+        }
+
+        if (playerObject.TryGetComponent(out NGOPlayerSync playerSync))
+        {
+            playerSync.SetExternalSimulationOverride(false);
         }
     }
 }

@@ -4,12 +4,15 @@ using UnityEngine;
 
 public class ScreenShakeController : MonoBehaviour
 {
-    [SerializeField] private CinemachineCamera _vcamThirdPerson;
+    [SerializeField, Tooltip("Camera Third Person nhận Cinemachine Perlin để xử lý rung màn hình dùng chung.")]
+    private CinemachineCamera _vcamThirdPerson;
 
     private CinemachineBasicMultiChannelPerlin _perlin;
     private float _currentAmplitude;
     private int _activeShakeCount;
     private bool _shakeEnabled = true;
+    private float _persistentAmplitude;
+    private float _persistentFrequency;
 
     private void Awake()
     {
@@ -74,8 +77,7 @@ public class ScreenShakeController : MonoBehaviour
     {
         _activeShakeCount++;
         _currentAmplitude += config.Amplitude;
-        _perlin.AmplitudeGain = _currentAmplitude;
-        _perlin.FrequencyGain = config.Frequency;
+        ApplyCombinedShake(config.Frequency);
 
         yield return new WaitForSeconds(config.Duration);
 
@@ -85,14 +87,21 @@ public class ScreenShakeController : MonoBehaviour
 
         if (_activeShakeCount <= 0)
         {
-            _perlin.AmplitudeGain = 0f;
-            _perlin.FrequencyGain = 0f;
+            ApplyCombinedShake(_persistentFrequency);
             _activeShakeCount = 0;
         }
         else
         {
-            _perlin.AmplitudeGain = _currentAmplitude;
+            ApplyCombinedShake(config.Frequency);
         }
+    }
+
+    /// <summary>Sets a continuous shake layer, used by sustained hazards such as Critical Storm.</summary>
+    public void SetPersistentShake(float amplitude, float frequency)
+    {
+        _persistentAmplitude = _shakeEnabled ? Mathf.Max(0f, amplitude) : 0f;
+        _persistentFrequency = Mathf.Max(0f, frequency);
+        ApplyCombinedShake(_persistentFrequency);
     }
 
     public void StopAllShakes()
@@ -100,11 +109,24 @@ public class ScreenShakeController : MonoBehaviour
         StopAllCoroutines();
         _currentAmplitude = 0f;
         _activeShakeCount = 0;
+        _persistentAmplitude = 0f;
+        _persistentFrequency = 0f;
 
         if (_perlin != null)
         {
             _perlin.AmplitudeGain = 0f;
             _perlin.FrequencyGain = 0f;
         }
+    }
+
+    private void ApplyCombinedShake(float transientFrequency)
+    {
+        if (_perlin == null)
+        {
+            return;
+        }
+
+        _perlin.AmplitudeGain = _currentAmplitude + _persistentAmplitude;
+        _perlin.FrequencyGain = Mathf.Max(transientFrequency, _persistentFrequency);
     }
 }
