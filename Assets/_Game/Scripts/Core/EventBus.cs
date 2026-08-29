@@ -39,6 +39,12 @@ public static class EventBus
     public static event Action<ulong> OnPlayerDied;
 
     /// <summary>
+    /// Publisher: PlayerHealth | Subscriber: PlayerHapticListener
+    /// Raised trên client sở hữu khi HP giảm nhưng chưa chết.
+    /// </summary>
+    public static event Action<ulong> OnPlayerTookDamage;
+
+    /// <summary>
     /// Publisher: RespawnManager | Subscriber: PlayerController, HUDController, CameraManager
     /// </summary>
     public static event Action<ulong, Vector3> OnPlayerRespawned;
@@ -167,6 +173,10 @@ public static class EventBus
     /// <summary>PlayerHealth raises this khi player chết.</summary>
     public static void RaisePlayerDied(ulong clientId)
         => OnPlayerDied?.Invoke(clientId);
+
+    /// <summary>PlayerHealth raises this khi player nhận damage nhưng chưa chết.</summary>
+    public static void RaisePlayerTookDamage(ulong clientId)
+        => OnPlayerTookDamage?.Invoke(clientId);
 
     /// <summary>RespawnManager raises this khi player hồi sinh.</summary>
     public static void RaisePlayerRespawned(ulong clientId, Vector3 spawnPosition)
