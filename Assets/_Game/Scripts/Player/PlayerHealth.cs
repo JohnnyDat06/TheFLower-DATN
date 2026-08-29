@@ -73,6 +73,12 @@ public class PlayerHealth : NetworkBehaviour, IDamageable
         if (newVal < oldVal && newVal > 0)
         {
             TriggerHitAnimation();
+
+            // Thông báo haptic chỉ cho client sở hữu
+            if (IsOwner)
+            {
+                EventBus.RaisePlayerTookDamage(OwnerClientId);
+            }
         }
     }
 
