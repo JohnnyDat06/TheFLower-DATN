@@ -10,8 +10,6 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     [Header("Trạng thái gameplay")]
     [SerializeField, Tooltip("Boarding cung cấp trạng thái chase đang chạy.")]
     private SandBoatBoarding _boarding;
-    [SerializeField, Tooltip("Movement cung cấp tốc độ thuyền hiện tại để điều chỉnh tiếng thân thuyền.")]
-    private SandBoatMovement _movement;
     [SerializeField, Tooltip("Logic bão cung cấp khoảng cách và trạng thái Safe/Warning/Critical.")]
     private SandstormChaseController _stormLogic;
     [SerializeField, Tooltip("Completion cung cấp TempleFinish và VaoDen để tạo tương phản âm thanh khi vào đền.")]
@@ -20,8 +18,6 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     private SandBoatNetworkSynchronizer _networkSynchronizer;
 
     [Header("SOAudioClip do AudioManager quản lý")]
-    [SerializeField, Tooltip("Cấu hình tiếng thân thuyền gỗ; AudioManager phát qua kênh SFX.")]
-    private SOAudioClip _boatCreakSfx;
     [SerializeField, Tooltip("Cấu hình windloop chính của bão cát; AudioManager phát qua kênh SFX.")]
     private SOAudioClip _stormWindSfx;
     [SerializeField, Tooltip("Cấu hình rumble tần số thấp bổ sung cho bão cát.")]
@@ -32,8 +28,6 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     private SOAudioClip _gateClosingSfx;
 
     [Header("Cân chỉnh âm lượng")]
-    [SerializeField, Range(0f, 1f), Tooltip("Âm lượng tối đa của tiếng thân thuyền trước khi áp dụng Master/SFX Volume.")]
-    private float _boatCreakVolume = 0.28f;
     [SerializeField, Range(0f, 1f), Tooltip("Âm lượng windloop khi bão ở trạng thái Safe, trước khi áp dụng Master/SFX Volume.")]
     private float _safeWindVolume = 0.42f;
     [SerializeField, Range(0f, 1f), Tooltip("Âm lượng windloop khi bão ở trạng thái Critical, trước khi áp dụng Master/SFX Volume.")]
@@ -45,7 +39,6 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     [SerializeField, Range(200f, 22000f), Tooltip("Tần số Low Pass khi người chơi vào VaoDen; giá trị thấp tạo cảm giác bão bị bóp nghẹt ngoài đền.")]
     private float _templeMuffledCutoff = 850f;
 
-    private AudioSource _boatCreakSource;
     private AudioSource _stormWindSource;
     private AudioSource _stormRumbleSource;
     private bool _wasCompleted;
@@ -76,7 +69,6 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
             _networkSynchronizer.CollisionConfirmedLocally -= PlayRockCollision;
         }
 
-        StopManagedLoop(ref _boatCreakSource);
         StopManagedLoop(ref _stormWindSource);
         StopManagedLoop(ref _stormRumbleSource);
     }
@@ -87,17 +79,8 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
         bool completed = _completion != null && _completion.IsChaseCompleted;
         bool stormOutsideTemple = completed && !_completion.IsStormStoppedAtShelter;
         bool stormShouldPlay = chaseActive || stormOutsideTemple;
-        float speedRatio = _movement != null
-            ? Mathf.InverseLerp(8f, 24f, _movement.CurrentForwardSpeed)
-            : 0f;
         float stormPressure = _stormLogic != null ? 1f - _stormLogic.StormDistance : 0f;
 
-        UpdateManagedLoop(
-            ref _boatCreakSource,
-            _boatCreakSfx,
-            chaseActive ? Mathf.Lerp(0.08f, _boatCreakVolume, speedRatio) : 0f,
-            Mathf.Lerp(0.9f, 1.1f, speedRatio),
-            false);
         UpdateManagedLoop(
             ref _stormWindSource,
             _stormWindSfx,

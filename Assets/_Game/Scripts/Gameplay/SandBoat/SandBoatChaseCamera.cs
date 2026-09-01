@@ -124,6 +124,7 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
             _thirdPersonBrain.UpdateMethod = CinemachineBrain.UpdateMethods.LateUpdate;
             _didOverrideBrainUpdateMethod = true;
         }
+        _screenShakeController?.SetPersistentShake(0f, 0f);
         _isApplied = true;
     }
 
@@ -146,10 +147,6 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
             _thirdPersonCamera.Lens.FieldOfView,
             targetFov,
             fovFactor);
-        bool isCritical = _stormLogic != null && _stormLogic.State == SandstormChaseState.Critical;
-        _screenShakeController?.SetPersistentShake(
-            isCritical ? _criticalShakeAmplitude : 0f,
-            isCritical ? _criticalShakeFrequency : 0f);
         if (_thirdPersonOrbit != null)
         {
             _thirdPersonOrbit.TargetOffset = _cameraTargetOffset;

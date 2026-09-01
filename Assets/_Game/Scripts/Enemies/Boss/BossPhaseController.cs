@@ -20,6 +20,7 @@ public sealed class BossPhaseController : MonoBehaviour
     private BossTargetSlamAttack _targetSlamAttack;
     private BossDoublePawAttack _doublePawAttack;
     private FloorTileManager _floorTileManager;
+    private BossAnimationController _animationController;
     private float _nextAttackTime;
     private bool _nextPhaseTwoAttackIsDoublePaw;
 
@@ -51,9 +52,15 @@ public sealed class BossPhaseController : MonoBehaviour
     /// <summary>Copies authoritative phase and Core-health values to a non-simulating Client.</summary>
     public void ApplyNetworkState(BossCombatPhase phase, int currentCoreHealth, int coreHitCount)
     {
+        bool receivedNewCoreHit = coreHitCount > _debugCoreHitCount;
         _debugCurrentPhase = phase;
         _debugCurrentCoreHealth = Mathf.Max(0, currentCoreHealth);
         _debugCoreHitCount = Mathf.Max(0, coreHitCount);
+        if (receivedNewCoreHit)
+        {
+            _animationController ??= GetComponent<BossAnimationController>();
+            _animationController?.ResetFacingToFront();
+        }
     }
 
     /// <summary>Restores Phase 1 and all Core-health after a server-authoritative full-party wipe.</summary>
@@ -75,6 +82,7 @@ public sealed class BossPhaseController : MonoBehaviour
         _targetSlamAttack = GetComponent<BossTargetSlamAttack>();
         _doublePawAttack = GetComponent<BossDoublePawAttack>();
         _floorTileManager = GetComponent<FloorTileManager>();
+        _animationController = GetComponent<BossAnimationController>();
         _debugCurrentCoreHealth = _phaseData.MaxCoreHealth;
         if (_coreController != null) _coreController.CoreHit += HandleCoreHit;
         _nextAttackTime = Time.time + _phaseData.AttackCycleInterval;
@@ -155,6 +163,7 @@ public sealed class BossPhaseController : MonoBehaviour
     {
         _debugCurrentCoreHealth = Mathf.Max(0, _debugCurrentCoreHealth - 1);
         _debugCoreHitCount++;
+        _animationController?.ResetFacingToFront();
         Debug.Log($"[BossPhaseController] Core Hit #{_debugCoreHitCount}. Boss Core-health: {_debugCurrentCoreHealth}/{_phaseData.MaxCoreHealth}.", this);
 
         if (_debugCurrentPhase == BossCombatPhase.PhaseThree)

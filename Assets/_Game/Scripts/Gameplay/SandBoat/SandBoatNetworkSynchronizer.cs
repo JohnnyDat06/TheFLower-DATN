@@ -51,11 +51,6 @@ public sealed class SandBoatNetworkSynchronizer : NetworkBehaviour
         default,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
-    private readonly NetworkVariable<uint> _collisionSequence = new(
-        0,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server);
-
     private PlayerInputHandler _localInput;
     private float _serverP2SpeedInput;
     private float _lastSentP2SpeedInput;
@@ -81,8 +76,6 @@ public sealed class SandBoatNetworkSynchronizer : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
-        _collisionSequence.OnValueChanged += OnCollisionSequenceChanged;
-
         if (IsServer)
         {
             if (_collisionHandler != null)
@@ -100,7 +93,6 @@ public sealed class SandBoatNetworkSynchronizer : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
-        _collisionSequence.OnValueChanged -= OnCollisionSequenceChanged;
         if (IsServer && _collisionHandler != null)
         {
             _collisionHandler.ObstacleHit -= OnServerObstacleHit;
@@ -364,18 +356,23 @@ public sealed class SandBoatNetworkSynchronizer : NetworkBehaviour
 
     private void OnServerObstacleHit(SandBoatObstacle _)
     {
-        if (IsServer)
+        if (!IsServer)
         {
-            _collisionSequence.Value++;
+            return;
         }
+
+        ConfirmObstacleCollisionRpc();
     }
 
-    private void OnCollisionSequenceChanged(uint previousValue, uint currentValue)
+    /// <summary>
+    /// Server phat mot feedback va cham toi Host va tat ca Client. Gameplay fail
+    /// van chi duoc xu ly authoritative tren server; RPC nay chi trinh bay rung,
+    /// am thanh va VFX cuc bo tren tung may.
+    /// </summary>
+    [Rpc(SendTo.Everyone)]
+    private void ConfirmObstacleCollisionRpc()
     {
-        if (currentValue != previousValue)
-        {
-            CollisionConfirmedLocally?.Invoke();
-        }
+        CollisionConfirmedLocally?.Invoke();
     }
 }
 

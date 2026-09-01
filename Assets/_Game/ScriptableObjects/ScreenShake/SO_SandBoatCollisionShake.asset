@@ -12,6 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a841769d45565c44b50852c687ae425, type: 3}
   m_Name: SO_SandBoatCollisionShake
   m_EditorClassIdentifier: 
-  Amplitude: 0.72
-  Frequency: 2.8
-  Duration: 0.28
+  Amplitude: 1.25
+  Frequency: 5.5
+  Duration: 0.32

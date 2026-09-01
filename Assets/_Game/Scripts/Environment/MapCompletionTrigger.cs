@@ -21,19 +21,26 @@ public class MapCompletionTrigger : NetworkBehaviour
         if (other.CompareTag(Constants.Tags.PLAYER))
         {
             Debug.Log($"[MapCompletionTrigger] Player {other.name} entered completion zone.");
-            
-            if (IsServer)
-            {
-                StartCompletionSequence();
-            }
-            else
-            {
-                // Nếu là Client chạm vào, gửi Request lên Server
-                StartCompletionSequenceServerRpc();
-            }
-            
-            _isTriggered = true;
+            TriggerCompletion();
         }
+    }
+
+    /// <summary>
+    /// Bắt đầu credit authoritative. TheFlower gọi hàm này ngay sau khi hai người
+    /// chơi tương tác thành công; trigger vật lý vẫn được giữ làm đường dự phòng.
+    /// </summary>
+    public void TriggerCompletion()
+    {
+        if (_isTriggered) return;
+
+        if (IsServer)
+        {
+            StartCompletionSequence();
+            return;
+        }
+
+        _isTriggered = true;
+        StartCompletionSequenceServerRpc();
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]
@@ -44,7 +51,7 @@ public class MapCompletionTrigger : NetworkBehaviour
 
     private void StartCompletionSequence()
     {
-        if (!IsServer) return;
+        if (!IsServer || _isTriggered) return;
         
         _isTriggered = true;
         StartCoroutine(CompletionRoutine());

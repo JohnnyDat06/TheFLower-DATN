@@ -15,6 +15,7 @@ public sealed class FloorPatternController : MonoBehaviour
     [SerializeField] private Color _telegraphColor = new(1f, 0.03f, 0.02f, 1f);
 
     private BossController _bossController;
+    private BossAnimationController _animationController;
     private BossArenaReferences _arenaReferences;
     private LineRenderer _telegraphLine;
     private LineRenderer _secondaryTelegraphLine;
@@ -37,6 +38,7 @@ public sealed class FloorPatternController : MonoBehaviour
     private void Awake()
     {
         _bossController = GetComponent<BossController>();
+        _animationController = GetComponent<BossAnimationController>();
         _arenaReferences = GetComponent<BossArenaReferences>();
         CreateTelegraphLine();
         SetTelegraphVisible(false);
@@ -61,10 +63,11 @@ public sealed class FloorPatternController : MonoBehaviour
         }
         if (!shouldShowLane || _arenaReferences == null) return;
 
-        Vector3 origin = _arenaReferences.ShockwaveOrigin.position + Vector3.up * _heightOffset;
         Vector3 direction = hasTargetTelegraph || hasDoubleTelegraph
             ? _targetTelegraphDirection
             : _arenaReferences.ShockwaveDirection;
+        _animationController?.SetTelegraphFacing(direction);
+        Vector3 origin = _arenaReferences.ShockwaveOrigin.position + Vector3.up * _heightOffset;
         _telegraphLine.SetPosition(0, origin);
         _telegraphLine.SetPosition(1, origin + direction * _telegraphLength);
 

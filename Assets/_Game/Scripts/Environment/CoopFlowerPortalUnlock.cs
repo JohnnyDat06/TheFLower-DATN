@@ -96,6 +96,7 @@ public sealed class CoopFlowerPortalUnlock : NetworkBehaviour, IInteractable
 
         _isUnlocked.Value = true;
         ApplyUnlockedPresentation(true);
+        _completionPortal?.TriggerCompletion();
         Debug.Log("[CoopFlowerPortalUnlock] Both players activated TheFlower. Completion portal unlocked.", this);
     }
 
