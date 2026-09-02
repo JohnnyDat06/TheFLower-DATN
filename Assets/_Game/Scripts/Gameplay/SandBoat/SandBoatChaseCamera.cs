@@ -19,6 +19,8 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
     private SandstormChaseController _stormLogic;
     [SerializeField, Tooltip("State mạng phát sự kiện collision đúng một lần để camera rung va chạm.")]
     private SandBoatNetworkSynchronizer _networkSynchronizer;
+    [SerializeField, Tooltip("Controller đá bão phát sự kiện local khi đá chạm mặt đất.")]
+    private SandstormRockAttackController _stormRockAttackController;
     [SerializeField, Tooltip("Screen Shake dùng chung của project, điều khiển Cinemachine Perlin và accessibility setting.")]
     private ScreenShakeController _screenShakeController;
     [SerializeField, Tooltip("Cấu hình rung ngắn khi Sand Boat va vào đá.")]
@@ -62,6 +64,11 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
         {
             _networkSynchronizer.CollisionConfirmedLocally += PlayCollisionShake;
         }
+
+        if (_stormRockAttackController != null)
+        {
+            _stormRockAttackController.StormRockLandedLocally += PlayStormRockLandingShake;
+        }
     }
 
     private void LateUpdate()
@@ -83,6 +90,11 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
         if (_networkSynchronizer != null)
         {
             _networkSynchronizer.CollisionConfirmedLocally -= PlayCollisionShake;
+        }
+
+        if (_stormRockAttackController != null)
+        {
+            _stormRockAttackController.StormRockLandedLocally -= PlayStormRockLandingShake;
         }
 
         _screenShakeController?.SetPersistentShake(0f, 0f);
@@ -200,6 +212,11 @@ public sealed class SandBoatChaseCamera : MonoBehaviour
     }
 
     private void PlayCollisionShake()
+    {
+        _screenShakeController?.Shake(_collisionShakeConfig);
+    }
+
+    private void PlayStormRockLandingShake(Vector3 landingPosition)
     {
         _screenShakeController?.Shake(_collisionShakeConfig);
     }

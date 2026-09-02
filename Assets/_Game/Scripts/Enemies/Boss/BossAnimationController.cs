@@ -80,7 +80,9 @@ public sealed class BossAnimationController : MonoBehaviour
     /// <summary>Starts the authored Paw Slam clip when the Cat Sphinx rig is available.</summary>
     public void PlayPawSlam()
     {
-        if (_animator != null && _animator.runtimeAnimatorController != null)
+        if (_animator != null
+            && _animator.isActiveAndEnabled
+            && _animator.runtimeAnimatorController != null)
         {
             _animator.Play(PawSlamStateName, 0, 0f);
             return;

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c65d348d572470f4fb011eb3050c40f8, type: 3}
   m_Name: SO_SandBoat_RockCollision
   m_EditorClassIdentifier: 
-  Clip: {fileID: 8300000, guid: 42a6d8b4236798f4e90faba0ce2d8df5, type: 3}
-  Volume: 0.9
+  Clip: {fileID: 8300000, guid: 0d0069e00c3ab0249b359fc31dbce7d0, type: 3}
+  Volume: 1
   PitchMin: 0.98
   PitchMax: 1.02

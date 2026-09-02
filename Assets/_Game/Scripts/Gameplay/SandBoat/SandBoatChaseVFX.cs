@@ -21,9 +21,9 @@ public sealed class SandBoatChaseVFX : MonoBehaviour
     [Header("Particle từ asset có sẵn")]
     [SerializeField, Tooltip("Ba particle TFF_Smoke_01A đã đổi màu cát, đặt sát dưới đít thuyền để tạo vệt cát dày liên tục.")]
     private ParticleSystem[] _sandTrailParticles;
-    [SerializeField, Tooltip("Particle TFD_Dust_01A ở mé trái, chỉ tăng mạnh khi thuyền dịch sang phải.")]
+    [SerializeField, Tooltip("Particle bụi đánh lái bên trái được giữ để tương thích scene cũ và luôn bị tắt.")]
     private ParticleSystem _leftSteeringDust;
-    [SerializeField, Tooltip("Particle TFD_Dust_01A ở mé phải, chỉ tăng mạnh khi thuyền dịch sang trái.")]
+    [SerializeField, Tooltip("Particle bụi đánh lái bên phải được giữ để tương thích scene cũ và luôn bị tắt.")]
     private ParticleSystem _rightSteeringDust;
     [SerializeField, Tooltip("Particle TFD_Dust_01A dạng one-shot phát tại thuyền sau collision authoritative.")]
     private ParticleSystem _collisionDust;
@@ -31,36 +31,35 @@ public sealed class SandBoatChaseVFX : MonoBehaviour
     private ParticleSystem _cameraSand;
 
     [Header("Cân chỉnh VFX")]
+    [SerializeField, ColorUsage(true, true), Tooltip("Màu sáng nhân riêng lên material của bụi cát sau thuyền; không làm thay đổi material khói gốc trong project.")]
+    private Color _sandTrailMaterialTint = new Color(1.35f, 0.82f, 0.38f, 1f);
     [SerializeField, Min(0f), Tooltip("Số hạt cát mỗi giây của từng emitter khi thuyền ở tốc độ thấp nhất.")]
     private float _minimumTrailEmission = 75f;
     [SerializeField, Min(0f), Tooltip("Số hạt cát mỗi giây của từng emitter khi thuyền ở tốc độ cao nhất.")]
     private float _maximumTrailEmission = 170f;
-    [SerializeField, Min(0.01f), Tooltip("Tốc độ dịch ngang tối thiểu để particle bụi đánh lái bắt đầu rõ ràng.")]
-    private float _steeringDustThreshold = 0.25f;
-    [SerializeField, Min(0f), Tooltip("Số hạt mỗi giây tối đa của bụi đánh lái.")]
-    private float _maximumSteeringEmission = 55f;
+
     [SerializeField, Min(1), Tooltip("Số hạt bụi phát một lần khi thuyền va chạm đá.")]
     private int _collisionBurstCount = 42;
-
-    private float _previousHorizontalOffset;
 
     private void OnValidate()
     {
         _minimumTrailEmission = Mathf.Max(0f, _minimumTrailEmission);
         _maximumTrailEmission = Mathf.Max(_minimumTrailEmission, _maximumTrailEmission);
-        _steeringDustThreshold = Mathf.Max(0.01f, _steeringDustThreshold);
-        _maximumSteeringEmission = Mathf.Max(0f, _maximumSteeringEmission);
         _collisionBurstCount = Mathf.Max(1, _collisionBurstCount);
+
+        ApplySandTrailAppearance();
     }
 
     private void Awake()
     {
-        _previousHorizontalOffset = _movement != null ? _movement.HorizontalOffset : 0f;
+        ApplySandTrailAppearance();
         StopContinuousParticles(true);
     }
 
     private void OnEnable()
     {
+        ApplySandTrailAppearance();
+
         if (_networkSynchronizer != null)
         {
             _networkSynchronizer.CollisionConfirmedLocally += PlayCollisionDust;
@@ -86,27 +85,12 @@ public sealed class SandBoatChaseVFX : MonoBehaviour
         if (!chaseActive)
         {
             StopContinuousParticles(false);
-            _previousHorizontalOffset = _movement != null ? _movement.HorizontalOffset : 0f;
             return;
         }
 
         float speedRatio = Mathf.InverseLerp(8f, 24f, _movement.CurrentForwardSpeed);
         float trailEmission = Mathf.Lerp(_minimumTrailEmission, _maximumTrailEmission, speedRatio);
         SetEmission(_sandTrailParticles, trailEmission);
-
-        float horizontalSpeed = (_movement.HorizontalOffset - _previousHorizontalOffset)
-                                / Mathf.Max(Time.deltaTime, 0.0001f);
-        _previousHorizontalOffset = _movement.HorizontalOffset;
-        float steeringStrength = Mathf.InverseLerp(
-            _steeringDustThreshold,
-            _steeringDustThreshold * 8f,
-            Mathf.Abs(horizontalSpeed));
-        SetEmission(
-            _leftSteeringDust,
-            horizontalSpeed > _steeringDustThreshold ? steeringStrength * _maximumSteeringEmission : 0f);
-        SetEmission(
-            _rightSteeringDust,
-            horizontalSpeed < -_steeringDustThreshold ? steeringStrength * _maximumSteeringEmission : 0f);
 
         if (_cameraSand != null && !_cameraSand.isPlaying)
         {
@@ -139,8 +123,8 @@ public sealed class SandBoatChaseVFX : MonoBehaviour
     private void StopContinuousParticles(bool clear)
     {
         SetEmission(_sandTrailParticles, 0f);
-        SetEmission(_leftSteeringDust, 0f);
-        SetEmission(_rightSteeringDust, 0f);
+        DisableParticle(_leftSteeringDust, clear);
+        DisableParticle(_rightSteeringDust, clear);
         if (_cameraSand != null && _cameraSand.isPlaying)
         {
             _cameraSand.Stop(
@@ -162,6 +146,34 @@ public sealed class SandBoatChaseVFX : MonoBehaviour
         }
     }
 
+    private void ApplySandTrailAppearance()
+    {
+        if (_sandTrailParticles == null)
+        {
+            return;
+        }
+
+        foreach (ParticleSystem particle in _sandTrailParticles)
+        {
+            if (particle == null)
+            {
+                continue;
+            }
+
+            ParticleSystemRenderer particleRenderer = particle.GetComponent<ParticleSystemRenderer>();
+            if (particleRenderer == null)
+            {
+                continue;
+            }
+
+            MaterialPropertyBlock properties = new MaterialPropertyBlock();
+            particleRenderer.GetPropertyBlock(properties);
+            properties.SetColor("_BaseColor", _sandTrailMaterialTint);
+            properties.SetColor("_Color", _sandTrailMaterialTint);
+            particleRenderer.SetPropertyBlock(properties);
+        }
+    }
+
     private static void SetEmission(ParticleSystem particle, float ratePerSecond)
     {
         if (particle == null)
@@ -176,5 +188,19 @@ public sealed class SandBoatChaseVFX : MonoBehaviour
         {
             particle.Play(true);
         }
+    }
+
+    private static void DisableParticle(ParticleSystem particle, bool clear)
+    {
+        if (particle == null)
+        {
+            return;
+        }
+
+        ParticleSystem.EmissionModule emission = particle.emission;
+        emission.enabled = false;
+        particle.Stop(
+            true,
+            clear ? ParticleSystemStopBehavior.StopEmittingAndClear : ParticleSystemStopBehavior.StopEmitting);
     }
 }

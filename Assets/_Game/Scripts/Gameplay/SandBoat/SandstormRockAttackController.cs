@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -65,6 +66,12 @@ public sealed class SandstormRockAttackController : NetworkBehaviour
     private double _nextSpawnTime;
     private int _spawnSequence;
     private bool _loggedMissingPrefab;
+
+    /// <summary>
+    /// Phát đúng một lần trên từng máy khi một viên đá bão chạm mặt đất.
+    /// Chỉ dùng cho presentation local như âm thanh và camera shake.
+    /// </summary>
+    public event Action<Vector3> StormRockLandedLocally;
 
     private sealed class StormRockSequence
     {
@@ -386,6 +393,7 @@ public sealed class SandstormRockAttackController : NetworkBehaviour
 
         sequence.LandedTime = GetSynchronizedTime();
         sequence.IsFlying = false;
+        StormRockLandedLocally?.Invoke(sequence.LandingPosition);
     }
 
     private void RemoveExpiredLandedRocks()
