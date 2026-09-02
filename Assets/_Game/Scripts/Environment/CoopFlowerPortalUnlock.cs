@@ -10,15 +10,15 @@ public sealed class CoopFlowerPortalUnlock : NetworkBehaviour, IInteractable
 {
     private const ulong NoPlayer = ulong.MaxValue;
 
-    [Tooltip("Text displayed by the shared Interact prompt while the flower is available.")]
+    [Tooltip("Nội dung nút tương tác hiển thị khi bông hoa vẫn còn có thể nhặt.")]
     [SerializeField] private string _interactionPrompt = "Interact with the Flower";
-    [Tooltip("Maximum server-validated distance between a player and the flower.")]
+    [Tooltip("Khoảng cách tối đa từ người chơi tới bông hoa được Host chấp nhận.")]
     [SerializeField, Min(0.5f)] private float _interactionDistance = 3f;
-    [Tooltip("Seconds allowed for the second player to interact after the first player.")]
+    [Tooltip("Số giây cho phép người chơi thứ hai tương tác sau người chơi đầu tiên.")]
     [SerializeField, Min(0.1f)] private float _syncWindow = 3f;
-    [Tooltip("Visual child hidden after both players complete the interaction.")]
+    [Tooltip("GameObject hình ảnh của bông hoa sẽ biến mất sau khi cả hai người chơi tương tác thành công.")]
     [SerializeField] private GameObject _flowerVisual;
-    [Tooltip("Completion trigger enabled only after the flower has been unlocked.")]
+    [Tooltip("Cổng kết thúc chỉ được bật sau khi bông hoa đã được nhặt.")]
     [SerializeField] private MapCompletionTrigger _completionPortal;
 
     private readonly NetworkVariable<bool> _isUnlocked = new(
@@ -96,8 +96,7 @@ public sealed class CoopFlowerPortalUnlock : NetworkBehaviour, IInteractable
 
         _isUnlocked.Value = true;
         ApplyUnlockedPresentation(true);
-        _completionPortal?.TriggerCompletion();
-        Debug.Log("[CoopFlowerPortalUnlock] Both players activated TheFlower. Completion portal unlocked.", this);
+        Debug.Log("[CoopFlowerPortalUnlock] Both players activated TheFlower. Flower hidden; completion portal unlocked.", this);
     }
 
     private bool IsPlayerInRange(ulong playerId)

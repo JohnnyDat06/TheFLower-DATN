@@ -1,33 +1,74 @@
 using Unity.Netcode;
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 /// <summary>
-/// MapCompletionTrigger — Kích hoạt hiệu ứng "The End!" và quay về Lobby khi có bất kỳ player nào chạm vào.
+/// MapCompletionTrigger — Kích hoạt hiệu ứng "The End!" và quay về Lobby sau khi đủ số người chơi vào cổng.
 /// </summary>
 public class MapCompletionTrigger : NetworkBehaviour
 {
     [Header("Settings")]
-    [SerializeField] private string _lobbySceneName = Constants.Scenes.LOBBY;
-    [SerializeField] private float _delayBeforeLoad = 4.0f;
-    [SerializeField] private float _endCreditsTimeout = 120.0f;
+    [SerializeField, Tooltip("Tên scene Lobby sẽ tải sau khi Credit kết thúc.")]
+    private string _lobbySceneName = Constants.Scenes.LOBBY;
+    [SerializeField, Min(0f), Tooltip("Thời gian chờ tối thiểu trước khi kiểm tra Credit đã chạy xong.")]
+    private float _delayBeforeLoad = 4.0f;
+    [SerializeField, Min(1f), Tooltip("Thời gian tối đa chờ Credit trước khi tự động quay về Lobby.")]
+    private float _endCreditsTimeout = 120.0f;
+    [SerializeField, Min(1), Tooltip("Số Network Player khác nhau phải cùng ở trong cổng trước khi Credit bắt đầu.")]
+    private int _requiredPlayerCount = 1;
 
     private bool _isTriggered = false;
+    private readonly HashSet<ulong> _playersInside = new();
+
+    private void OnEnable()
+    {
+        _playersInside.Clear();
+    }
+
+    private void OnDisable()
+    {
+        _playersInside.Clear();
+    }
 
     private void OnTriggerEnter(Collider other)
     {
-        if (_isTriggered) return;
+        if (_isTriggered || !IsServer || !TryGetPlayerClientId(other, out ulong playerClientId)) return;
 
-        if (other.CompareTag(Constants.Tags.PLAYER))
+        if (_playersInside.Add(playerClientId))
         {
-            Debug.Log($"[MapCompletionTrigger] Player {other.name} entered completion zone.");
-            TriggerCompletion();
+            Debug.Log(
+                $"[MapCompletionTrigger] Player {playerClientId} entered completion zone. " +
+                $"{_playersInside.Count}/{Mathf.Max(1, _requiredPlayerCount)} players ready.",
+                this);
         }
+
+        if (_playersInside.Count >= Mathf.Max(1, _requiredPlayerCount))
+            TriggerCompletion();
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (!IsServer || !TryGetPlayerClientId(other, out ulong playerClientId)) return;
+        _playersInside.Remove(playerClientId);
+    }
+
+    private bool TryGetPlayerClientId(Collider other, out ulong playerClientId)
+    {
+        playerClientId = default;
+        if (other == null) return false;
+
+        NetworkObject playerObject = other.GetComponentInParent<NetworkObject>();
+        if (playerObject == null || !playerObject.IsPlayerObject || !playerObject.IsSpawned) return false;
+        if (!other.CompareTag(Constants.Tags.PLAYER) && !playerObject.CompareTag(Constants.Tags.PLAYER)) return false;
+
+        playerClientId = playerObject.OwnerClientId;
+        return NetworkManager != null && NetworkManager.ConnectedClients.ContainsKey(playerClientId);
     }
 
     /// <summary>
-    /// Bắt đầu credit authoritative. TheFlower gọi hàm này ngay sau khi hai người
-    /// chơi tương tác thành công; trigger vật lý vẫn được giữ làm đường dự phòng.
+    /// Bắt đầu Credit authoritative sau khi điều kiện của cổng đã được đáp ứng.
+    /// Hàm public được giữ để các completion flow một người chơi hiện có tiếp tục tái sử dụng trigger này.
     /// </summary>
     public void TriggerCompletion()
     {

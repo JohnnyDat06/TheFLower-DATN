@@ -50,6 +50,7 @@ public class InteractPromptHUD : MonoBehaviour
     private Camera _mainCamera;
     private Canvas        _parentCanvas;
     private float _lastCanvasScale = -1f;
+    private int _secretObjectLayer = -1;
 
     // ─── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -57,6 +58,7 @@ public class InteractPromptHUD : MonoBehaviour
     {
         _mainCamera = Camera.main;
         _parentCanvas = GetComponentInParent<Canvas>();
+        _secretObjectLayer = LayerMask.NameToLayer("SecretObject");
 
         RectTransform panel = _promptPanel;
         if (panel != null)
@@ -137,7 +139,7 @@ public class InteractPromptHUD : MonoBehaviour
             _actionLabel.text = target.InteractionPrompt;
 
         RefreshColor();
-        SetVisible(true);
+        SetVisible(!ShouldHideCurrentTarget());
     }
 
     private void HandleLost()
@@ -150,6 +152,12 @@ public class InteractPromptHUD : MonoBehaviour
     private void TrackPromptForCanvasRender()
     {
         if (_currentTarget == null || _currentTargetTransform == null) return;
+        if (ShouldHideCurrentTarget())
+        {
+            SetVisible(false);
+            return;
+        }
+
         if (_mainCamera == null || !_mainCamera.isActiveAndEnabled)
             _mainCamera = Camera.main;
         if (_mainCamera == null) return;
@@ -204,6 +212,14 @@ public class InteractPromptHUD : MonoBehaviour
     {
         float scale = _parentCanvas == null ? 1f : Mathf.Max(0.01f, _parentCanvas.scaleFactor);
         return Vector3.one / scale;
+    }
+
+    private bool ShouldHideCurrentTarget()
+    {
+        if (_secretObjectLayer < 0 || _currentTarget is not Component targetComponent)
+            return false;
+
+        return targetComponent.gameObject.layer == _secretObjectLayer;
     }
 
     /// <summary>

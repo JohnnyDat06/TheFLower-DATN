@@ -26,8 +26,6 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     private SOAudioClip _stormRumbleSfx;
     [SerializeField, Tooltip("Cấu hình âm va chạm đá phát một lần qua AudioManager.")]
     private SOAudioClip _rockCollisionSfx;
-    [SerializeField, Tooltip("Cấu hình âm cổng đá đóng phát một lần qua AudioManager.")]
-    private SOAudioClip _gateClosingSfx;
 
     [Header("Cân chỉnh âm lượng")]
     [SerializeField, Range(0f, 1f), Tooltip("Âm lượng tiếng thân thuyền khi Chase đang chạy, trước khi AudioManager áp dụng Master/SFX Volume.")]
@@ -49,17 +47,11 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     private float _currentBoatCreakVolume;
     private float _currentStormWindVolume;
     private float _currentStormRumbleVolume;
-    private bool _wasCompleted;
 
     private void OnValidate()
     {
         _volumeFadeSpeed = Mathf.Max(0.01f, _volumeFadeSpeed);
         _templeMuffledCutoff = Mathf.Clamp(_templeMuffledCutoff, 200f, 22000f);
-    }
-
-    private void Awake()
-    {
-        _wasCompleted = _completion != null && _completion.IsChaseCompleted;
     }
 
     private void OnEnable()
@@ -86,8 +78,10 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     {
         bool chaseActive = _boarding != null && _boarding.ChaseStarted;
         bool completed = _completion != null && _completion.IsChaseCompleted;
-        bool stormOutsideTemple = completed && !_completion.IsStormStoppedAtShelter;
-        bool stormShouldPlay = chaseActive || stormOutsideTemple;
+        // Windloop chỉ bắt đầu khi Boat đã khởi hành và bão thực sự truy đuổi.
+        // Sau TempleFinish, bão vẫn đuổi người chơi cho đến khi họ vào VaoDen.
+        bool stormIsPursuingPlayers = chaseActive ||
+                                      (completed && !_completion.IsStormStoppedAtShelter);
         float stormPressure = _stormLogic != null ? 1f - _stormLogic.StormDistance : 0f;
 
         UpdateManagedLoop(
@@ -101,7 +95,7 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
             ref _stormWindSource,
             ref _currentStormWindVolume,
             _stormWindSfx,
-            stormShouldPlay
+            stormIsPursuingPlayers
                 ? Mathf.Lerp(_safeWindVolume, _criticalWindVolume, Mathf.Clamp01(stormPressure * 1.4f))
                 : 0f,
             Mathf.Lerp(0.96f, 1.04f, stormPressure),
@@ -110,18 +104,12 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
             ref _stormRumbleSource,
             ref _currentStormRumbleVolume,
             _stormRumbleSfx,
-            stormShouldPlay
+            stormIsPursuingPlayers
                 ? Mathf.Lerp(0.08f, _criticalRumbleVolume, Mathf.Clamp01(stormPressure * 1.5f))
                 : 0f,
             Mathf.Lerp(0.88f, 1.05f, stormPressure),
             true);
 
-        if (completed && !_wasCompleted && _gateClosingSfx != null && AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlaySFX(_gateClosingSfx);
-        }
-
-        _wasCompleted = completed;
     }
 
     private void PlayRockCollision()
