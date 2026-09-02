@@ -58,7 +58,7 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
     private void HandlePlayerDied(ulong clientId)
     {
         if (!IsServer || _encounter == null) return;
-        if (CountDeadPlayers() >= 2)
+        if (_encounter.HasEncounterStarted && CountDeadPlayers() >= 2)
         {
             CancelAllServerRoutines();
             _encounter.NotifyBothPlayersDeadServer();

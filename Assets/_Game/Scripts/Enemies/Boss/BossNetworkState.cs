@@ -189,7 +189,24 @@ public sealed class BossNetworkState : NetworkBehaviour
         _floorTileManager?.ResetAllTilesForEncounter();
         _phaseController?.ResetEncounterState();
         _bossController?.ResetEncounterState();
+
+        _serverAttackType = BossNetworkAttackType.None;
+        _serverAttackStartedAt = 0d;
+        _attackSnapshot.Value = default;
+        ClearTransientBossActivityRpc();
         Debug.Log("[BossNetworkState] Full-party wipe reset Cat Sphinx and every FloorTile to Phase 1.", this);
+    }
+
+    /// <summary>Stops transient Boss visuals and active Shockwaves on Host and every Client during a wipe.</summary>
+    [Rpc(SendTo.Everyone)]
+    private void ClearTransientBossActivityRpc()
+    {
+        CacheArenaComponents();
+        ShockwaveController.DestroyAllActive();
+        _floorPatternController?.ClearAttackTelegraphs();
+        _animationController?.ResetPose();
+        _clientAttackType = BossNetworkAttackType.None;
+        _clientAttackPoseReset = true;
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Everyone)]

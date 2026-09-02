@@ -18,6 +18,8 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     private SandBoatNetworkSynchronizer _networkSynchronizer;
 
     [Header("SOAudioClip do AudioManager quản lý")]
+    [SerializeField, Tooltip("Cấu hình tiếng thân thuyền kẽo kẹt; AudioManager phát loop qua kênh SFX khi Chase đang chạy.")]
+    private SOAudioClip _boatCreakSfx;
     [SerializeField, Tooltip("Cấu hình windloop chính của bão cát; AudioManager phát qua kênh SFX.")]
     private SOAudioClip _stormWindSfx;
     [SerializeField, Tooltip("Cấu hình rumble tần số thấp bổ sung cho bão cát.")]
@@ -28,6 +30,8 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     private SOAudioClip _gateClosingSfx;
 
     [Header("Cân chỉnh âm lượng")]
+    [SerializeField, Range(0f, 1f), Tooltip("Âm lượng tiếng thân thuyền khi Chase đang chạy, trước khi AudioManager áp dụng Master/SFX Volume.")]
+    private float _boatCreakVolume = 0.28f;
     [SerializeField, Range(0f, 1f), Tooltip("Âm lượng windloop khi bão ở trạng thái Safe, trước khi áp dụng Master/SFX Volume.")]
     private float _safeWindVolume = 0.42f;
     [SerializeField, Range(0f, 1f), Tooltip("Âm lượng windloop khi bão ở trạng thái Critical, trước khi áp dụng Master/SFX Volume.")]
@@ -39,8 +43,12 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
     [SerializeField, Range(200f, 22000f), Tooltip("Tần số Low Pass khi người chơi vào VaoDen; giá trị thấp tạo cảm giác bão bị bóp nghẹt ngoài đền.")]
     private float _templeMuffledCutoff = 850f;
 
+    private AudioSource _boatCreakSource;
     private AudioSource _stormWindSource;
     private AudioSource _stormRumbleSource;
+    private float _currentBoatCreakVolume;
+    private float _currentStormWindVolume;
+    private float _currentStormRumbleVolume;
     private bool _wasCompleted;
 
     private void OnValidate()
@@ -69,8 +77,9 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
             _networkSynchronizer.CollisionConfirmedLocally -= PlayRockCollision;
         }
 
-        StopManagedLoop(ref _stormWindSource);
-        StopManagedLoop(ref _stormRumbleSource);
+        StopManagedLoop(ref _boatCreakSource, ref _currentBoatCreakVolume);
+        StopManagedLoop(ref _stormWindSource, ref _currentStormWindVolume);
+        StopManagedLoop(ref _stormRumbleSource, ref _currentStormRumbleVolume);
     }
 
     private void Update()
@@ -82,7 +91,15 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
         float stormPressure = _stormLogic != null ? 1f - _stormLogic.StormDistance : 0f;
 
         UpdateManagedLoop(
+            ref _boatCreakSource,
+            ref _currentBoatCreakVolume,
+            _boatCreakSfx,
+            chaseActive && !completed ? _boatCreakVolume : 0f,
+            1f,
+            false);
+        UpdateManagedLoop(
             ref _stormWindSource,
+            ref _currentStormWindVolume,
             _stormWindSfx,
             stormShouldPlay
                 ? Mathf.Lerp(_safeWindVolume, _criticalWindVolume, Mathf.Clamp01(stormPressure * 1.4f))
@@ -91,6 +108,7 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
             true);
         UpdateManagedLoop(
             ref _stormRumbleSource,
+            ref _currentStormRumbleVolume,
             _stormRumbleSfx,
             stormShouldPlay
                 ? Mathf.Lerp(0.08f, _criticalRumbleVolume, Mathf.Clamp01(stormPressure * 1.5f))
@@ -116,6 +134,7 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
 
     private void UpdateManagedLoop(
         ref AudioSource source,
+        ref float currentBaseVolume,
         SOAudioClip config,
         float targetVolume,
         float targetPitch,
@@ -124,7 +143,7 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
         AudioManager manager = AudioManager.Instance;
         if (manager == null || config == null || config.Clip == null)
         {
-            StopManagedLoop(ref source);
+            StopManagedLoop(ref source, ref currentBaseVolume);
             return;
         }
 
@@ -133,7 +152,8 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
             source = manager.PlaySFXLoop(config);
             if (source != null)
             {
-                source.volume = 0f;
+                currentBaseVolume = 0f;
+                manager.SetSFXLoopParameters(source, 0f, targetPitch);
             }
         }
 
@@ -142,15 +162,15 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
             return;
         }
 
-        float scaledTargetVolume = manager.ScaleSFXVolume(targetVolume * config.Volume);
-        source.volume = Mathf.MoveTowards(
-            source.volume,
-            scaledTargetVolume,
+        currentBaseVolume = Mathf.MoveTowards(
+            currentBaseVolume,
+            targetVolume * config.Volume,
             _volumeFadeSpeed * Time.deltaTime);
-        source.pitch = Mathf.Lerp(
+        float currentPitch = Mathf.Lerp(
             source.pitch,
             targetPitch,
             1f - Mathf.Exp(-5f * Time.deltaTime));
+        manager.SetSFXLoopParameters(source, currentBaseVolume, currentPitch);
 
         if (usesTempleLowPass)
         {
@@ -158,16 +178,17 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
             SetLowPass(source, stormMuffled ? _templeMuffledCutoff : 22000f);
         }
 
-        if (source.volume <= 0.001f && targetVolume <= 0f)
+        if (currentBaseVolume <= 0.001f && targetVolume <= 0f)
         {
-            StopManagedLoop(ref source);
+            StopManagedLoop(ref source, ref currentBaseVolume);
         }
     }
 
-    private static void StopManagedLoop(ref AudioSource source)
+    private static void StopManagedLoop(ref AudioSource source, ref float currentBaseVolume)
     {
         if (source == null)
         {
+            currentBaseVolume = 0f;
             return;
         }
 
@@ -188,6 +209,7 @@ public sealed class SandBoatChaseAudio : MonoBehaviour
         }
 
         source = null;
+        currentBaseVolume = 0f;
     }
 
     private static void SetLowPass(AudioSource source, float cutoff)

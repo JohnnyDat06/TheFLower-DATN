@@ -71,6 +71,18 @@ public sealed class ShockwaveController : MonoBehaviour
         return controller;
     }
 
+    /// <summary>Removes every active Boss Shockwave when a full-party wipe pauses the encounter.</summary>
+    public static void DestroyAllActive()
+    {
+        ShockwaveController[] activeShockwaves = FindObjectsByType<ShockwaveController>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None);
+        foreach (ShockwaveController shockwave in activeShockwaves)
+        {
+            if (shockwave != null) Destroy(shockwave.gameObject);
+        }
+    }
+
     private void Update()
     {
         if (!_isInitialized) return;

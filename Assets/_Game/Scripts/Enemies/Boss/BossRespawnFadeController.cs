@@ -1,11 +1,10 @@
 using System.Collections;
-using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Che man hinh cua rieng nguoi choi bi ha trong Boss Room va chi mo lai
-/// sau khi teleport hoi sinh authoritative da hoan tat.
+/// Che man hinh cua ca hai nguoi choi khi tran Boss vao trang thai full-party wipe
+/// va chi mo lai sau khi Host da hoi sinh day du ca hai nguoi choi.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class BossRespawnFadeController : MonoBehaviour
@@ -19,15 +18,13 @@ public sealed class BossRespawnFadeController : MonoBehaviour
     private float _minimumBlackHoldDuration = 0.35f;
     [SerializeField, Tooltip("Thu tu ve cua lop man den; gia tri cao giup che toan bo HUD Boss.")]
     private int _sortingOrder = 6500;
-    [SerializeField, Tooltip("Trang thai that bai Sand Boat trong cung scene; man hinh se mo den trong luc checkpoint dang reset.")]
+    [SerializeField, Tooltip("Trang thai that bai Sand Boat truoc khi vao Boss; giu nguyen fade cua checkpoint duong truot.")]
     private SandBoatChaseFailController _sandBoatFailController;
     [SerializeField, Tooltip("Trang thai tran Boss authoritative; ca Host va Client se mo den khi hai nguoi choi cung chet va wipe reset.")]
     private BossEncounterManager _bossEncounter;
 
     private CanvasGroup _fadeGroup;
     private Coroutine _fadeRoutine;
-    private PlayerHealth _localPlayerHealth;
-    private bool _localDeathEventActive;
     private bool _fadeRequested;
 
     private void Awake()
@@ -38,52 +35,23 @@ public sealed class BossRespawnFadeController : MonoBehaviour
         SetFadeAlpha(0f);
     }
 
-    private void OnEnable()
-    {
-        EventBus.OnPlayerDied += HandlePlayerDied;
-        EventBus.OnPlayerRespawned += HandlePlayerRespawned;
-    }
-
     private void OnDisable()
     {
-        EventBus.OnPlayerDied -= HandlePlayerDied;
-        EventBus.OnPlayerRespawned -= HandlePlayerRespawned;
         if (_fadeRoutine != null) StopCoroutine(_fadeRoutine);
         _fadeRoutine = null;
-        _localPlayerHealth = null;
-        _localDeathEventActive = false;
         _fadeRequested = false;
+        SetFadeAlpha(0f);
     }
 
     private void Update()
     {
-        ResolveLocalPlayerHealth();
         ResolveSandBoatFailController();
         ResolveBossEncounter();
 
-        bool localPlayerIsDead = _localPlayerHealth != null && _localPlayerHealth.IsDead;
-        bool sandBoatChaseFailed = _sandBoatFailController != null && _sandBoatFailController.IsFailed;
-        bool bossWipeReset = _bossEncounter != null
-                             && _bossEncounter.State == BossEncounterManager.EncounterState.WipeReset;
-        ApplyFadeRequirement(
-            _localDeathEventActive
-            || localPlayerIsDead
-            || sandBoatChaseFailed
-            || bossWipeReset);
-    }
-
-    private void HandlePlayerDied(ulong playerClientId)
-    {
-        if (!IsLocalPlayer(playerClientId)) return;
-        _localDeathEventActive = true;
-        ApplyFadeRequirement(true);
-    }
-
-    private void HandlePlayerRespawned(ulong playerClientId, Vector3 _)
-    {
-        if (!IsLocalPlayer(playerClientId)) return;
-        _localDeathEventActive = false;
-        bool sandBoatChaseFailed = _sandBoatFailController != null && _sandBoatFailController.IsFailed;
+        bool bossEncounterStarted = _bossEncounter != null && _bossEncounter.HasEncounterStarted;
+        bool sandBoatChaseFailed = !bossEncounterStarted
+                                   && _sandBoatFailController != null
+                                   && _sandBoatFailController.IsFailed;
         bool bossWipeReset = _bossEncounter != null
                              && _bossEncounter.State == BossEncounterManager.EncounterState.WipeReset;
         ApplyFadeRequirement(sandBoatChaseFailed || bossWipeReset);
@@ -105,38 +73,6 @@ public sealed class BossRespawnFadeController : MonoBehaviour
         _fadeRoutine = StartCoroutine(FadeLifecycle());
     }
 
-    private void ResolveLocalPlayerHealth()
-    {
-        if (_localPlayerHealth != null
-            && _localPlayerHealth.IsSpawned
-            && _localPlayerHealth.IsOwner)
-        {
-            return;
-        }
-
-        _localPlayerHealth = null;
-        NetworkManager networkManager = NetworkManager.Singleton;
-        if (networkManager == null
-            || !networkManager.IsClient
-            || networkManager.LocalClient == null
-            || networkManager.LocalClient.PlayerObject == null)
-        {
-            return;
-        }
-
-        networkManager.LocalClient.PlayerObject.TryGetComponent(out _localPlayerHealth);
-    }
-
-    private void ResolveSandBoatFailController()
-    {
-        if (_sandBoatFailController != null)
-        {
-            return;
-        }
-
-        _sandBoatFailController = FindFirstObjectByType<SandBoatChaseFailController>(FindObjectsInactive.Include);
-    }
-
     private void ResolveBossEncounter()
     {
         if (_bossEncounter != null)
@@ -151,11 +87,10 @@ public sealed class BossRespawnFadeController : MonoBehaviour
         }
     }
 
-    private static bool IsLocalPlayer(ulong playerClientId)
+    private void ResolveSandBoatFailController()
     {
-        return NetworkManager.Singleton != null
-               && NetworkManager.Singleton.IsClient
-               && NetworkManager.Singleton.LocalClientId == playerClientId;
+        if (_sandBoatFailController != null) return;
+        _sandBoatFailController = FindFirstObjectByType<SandBoatChaseFailController>(FindObjectsInactive.Include);
     }
 
     private IEnumerator FadeLifecycle()

@@ -27,12 +27,8 @@ public sealed class BossAnimationController : MonoBehaviour
     [SerializeField, Min(0.05f)] private float _defeatedTransitionDuration = 2f;
     [Tooltip("Thoi gian noi suy de boss ha xuong/hoi phuc pose Stunned, tranh dich chuyen tuc thi.")]
     [SerializeField, Min(0.05f)] private float _stunnedTransitionDuration = 0.75f;
-    [Tooltip("Toc do CatFinalBoss xoay theo huong duong Telegraph mau do.")]
-    [SerializeField, Min(0.1f)] private float _telegraphTurnSpeed = 12f;
-
     private Vector3 _restLocalPosition;
     private Quaternion _restLocalRotation;
-    private Quaternion _currentFacingLocalRotation;
     private bool _hasRestPose;
     private bool _isDefeated;
     private bool _defeatedPoseSettled;
@@ -71,14 +67,14 @@ public sealed class BossAnimationController : MonoBehaviour
                 progress);
             _telegraphVisual.localRotation = Quaternion.Slerp(
                 _defeatedStartLocalRotation,
-                _currentFacingLocalRotation,
+                _restLocalRotation,
                 progress);
             _defeatedPoseSettled = progress >= 1f;
             return;
         }
 
         _telegraphVisual.localPosition = targetPosition;
-        _telegraphVisual.localRotation = _currentFacingLocalRotation;
+        _telegraphVisual.localRotation = _restLocalRotation;
     }
 
     /// <summary>Starts the authored Paw Slam clip when the Cat Sphinx rig is available.</summary>
@@ -105,8 +101,8 @@ public sealed class BossAnimationController : MonoBehaviour
             _restLocalPosition + _raisedLocalPositionOffset,
             easedProgress);
         _telegraphVisual.localRotation = Quaternion.Slerp(
-            _currentFacingLocalRotation,
-            _currentFacingLocalRotation * Quaternion.Euler(_raisedLocalEulerOffset),
+            _restLocalRotation,
+            _restLocalRotation * Quaternion.Euler(_raisedLocalEulerOffset),
             easedProgress);
     }
 
@@ -122,8 +118,8 @@ public sealed class BossAnimationController : MonoBehaviour
             _restLocalPosition,
             easedProgress);
         _telegraphVisual.localRotation = Quaternion.Slerp(
-            _currentFacingLocalRotation * Quaternion.Euler(_raisedLocalEulerOffset),
-            _currentFacingLocalRotation,
+            _restLocalRotation * Quaternion.Euler(_raisedLocalEulerOffset),
+            _restLocalRotation,
             easedProgress);
     }
 
@@ -139,7 +135,7 @@ public sealed class BossAnimationController : MonoBehaviour
         StopStunnedPoseTransition();
         if (!CaptureRestPose()) return;
         _telegraphVisual.localPosition = _restLocalPosition;
-        _telegraphVisual.localRotation = _currentFacingLocalRotation;
+        _telegraphVisual.localRotation = _restLocalRotation;
     }
 
     /// <summary>Smoothly lowers the boss into, or restores it from, the Phase 8 Stunned pose.</summary>
@@ -153,45 +149,9 @@ public sealed class BossAnimationController : MonoBehaviour
             ? _restLocalPosition + _stunnedLocalPositionOffset
             : _restLocalPosition;
         Quaternion targetRotation = isStunned
-            ? _currentFacingLocalRotation * Quaternion.Euler(_stunnedLocalEulerOffset)
-            : _currentFacingLocalRotation;
+            ? _restLocalRotation * Quaternion.Euler(_stunnedLocalEulerOffset)
+            : _restLocalRotation;
         _stunnedPoseTransition = StartCoroutine(TransitionStunnedPose(targetPosition, targetRotation));
-    }
-
-    /// <summary>Xoay model CatFinalBoss theo huong ma duong Telegraph dang canh bao.</summary>
-    public void SetTelegraphFacing(Vector3 worldDirection)
-    {
-        if (!CaptureRestPose()) return;
-
-        Vector3 planarDirection = Vector3.ProjectOnPlane(worldDirection, Vector3.up);
-        if (planarDirection.sqrMagnitude < 0.0001f) return;
-
-        Transform visualParent = _telegraphVisual.parent;
-        Vector3 localDirection = visualParent != null
-            ? visualParent.InverseTransformDirection(planarDirection.normalized)
-            : planarDirection.normalized;
-        localDirection = Vector3.ProjectOnPlane(localDirection, Vector3.up).normalized;
-        if (localDirection.sqrMagnitude < 0.0001f) return;
-
-        Quaternion previousFacing = _currentFacingLocalRotation;
-        Quaternion targetFacing = Quaternion.LookRotation(localDirection, Vector3.up);
-        float turnFactor = 1f - Mathf.Exp(-_telegraphTurnSpeed * Time.deltaTime);
-        _currentFacingLocalRotation = Quaternion.Slerp(previousFacing, targetFacing, turnFactor);
-
-        // Giu nguyen do nghieng/pose cua animation trong khi chi thay doi yaw nhin.
-        Quaternion poseOffset = Quaternion.Inverse(previousFacing) * _telegraphVisual.localRotation;
-        _telegraphVisual.localRotation = _currentFacingLocalRotation * poseOffset;
-    }
-
-    /// <summary>Dua CatFinalBoss ve huong nhin phia truoc da dat san trong Scene.</summary>
-    public void ResetFacingToFront()
-    {
-        if (!CaptureRestPose()) return;
-
-        Quaternion previousFacing = _currentFacingLocalRotation;
-        Quaternion poseOffset = Quaternion.Inverse(previousFacing) * _telegraphVisual.localRotation;
-        _currentFacingLocalRotation = _restLocalRotation;
-        _telegraphVisual.localRotation = _currentFacingLocalRotation * poseOffset;
     }
 
     /// <summary>Leaves the Cat Sphinx in its lowered stone-statue pose after defeat.</summary>
@@ -245,7 +205,6 @@ public sealed class BossAnimationController : MonoBehaviour
 
         _restLocalPosition = _telegraphVisual.localPosition;
         _restLocalRotation = _telegraphVisual.localRotation;
-        _currentFacingLocalRotation = _restLocalRotation;
         _hasRestPose = true;
         return true;
     }

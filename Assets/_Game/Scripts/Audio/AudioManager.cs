@@ -209,6 +209,18 @@ public class AudioManager : MonoBehaviour
         return GetSfxVolume(baseVolume);
     }
 
+    /// <summary>
+    /// Cập nhật âm lượng và cao độ của một SFX loop đang được AudioManager quản lý.
+    /// Âm lượng đầu vào chưa bao gồm Master/SFX Volume; AudioManager luôn áp dụng Settings hiện tại.
+    /// </summary>
+    public void SetSFXLoopParameters(AudioSource source, float baseVolume, float pitch)
+    {
+        if (source == null || _musicSources.Contains(source)) return;
+
+        source.volume = GetSfxVolume(baseVolume);
+        source.pitch = Mathf.Clamp(pitch, -3f, 3f);
+    }
+
     public void PlaySFX(
         SOAudioClip config,
         Vector3? position = null,

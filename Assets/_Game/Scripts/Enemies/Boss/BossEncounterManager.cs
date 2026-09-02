@@ -144,11 +144,15 @@ public sealed class BossEncounterManager : NetworkBehaviour
     {
         _resetInProgress = true;
         _state.Value = EncounterState.WipeReset;
-        yield return new WaitForSeconds(_config != null ? _config.WipeResetDelay : 2f);
 
+        // Huy don dang chay ngay khi full-party wipe bat dau. IsActive luc nay cung la false,
+        // nen cac combat loop khong the bat dau don moi trong luc man hinh dang fade.
         if (_bossNetworkState == null) _bossNetworkState = GetComponent<BossNetworkState>();
         _bossNetworkState?.ResetEncounterServer();
         ResetTargets();
+
+        yield return new WaitForSeconds(_config != null ? _config.WipeResetDelay : 2f);
+
         foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList)
         {
             if (client.PlayerObject == null) continue;
@@ -173,10 +177,37 @@ public sealed class BossEncounterManager : NetworkBehaviour
                 Debug.LogError($"[BossEncounterManager] Wipe reset did not revive owner {client.ClientId}; teleport was not confirmed.");
         }
 
+        // Giu nguyen WipeReset (va man hinh den) neu bat ky nguoi choi nao chua
+        // thuc su song lai tren Host. Boss chi duoc phep tiep tuc sau dieu kien nay.
+        yield return new WaitUntil(AreAllConnectedPlayersAlive);
+
         _resetInProgress = false;
         SetDoorsClosed(true);
         _state.Value = EncounterState.Active;
         Debug.Log("[BossEncounterManager] Both players revived. Boss encounter resumed without leaving boss mode.", this);
+    }
+
+    private bool AreAllConnectedPlayersAlive()
+    {
+        if (NetworkManager.Singleton == null) return false;
+
+        int requiredPlayers = RequiredPlayerCount();
+        if (requiredPlayers <= 0) return false;
+
+        int alivePlayers = 0;
+        foreach (NetworkClient client in NetworkManager.Singleton.ConnectedClientsList)
+        {
+            if (client.PlayerObject == null ||
+                !client.PlayerObject.TryGetComponent(out PlayerHealth health) ||
+                health.IsDead)
+            {
+                continue;
+            }
+
+            alivePlayers++;
+        }
+
+        return alivePlayers >= requiredPlayers;
     }
 
     private void ResetTargets()

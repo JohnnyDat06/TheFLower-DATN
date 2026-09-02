@@ -81,6 +81,8 @@ public sealed class SandstormVisualController : MonoBehaviour
 
         foreach (AudioSource audioSource in _stormVisual.GetComponentsInChildren<AudioSource>(true))
         {
+            audioSource.Stop();
+            audioSource.playOnAwake = false;
             audioSource.enabled = false;
         }
 
