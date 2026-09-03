@@ -18,6 +18,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private const float EndThankYouDuration = 2.5f;
     private const float EndCreditsHoldDuration = 1.2f;
     private const float EndFadeDuration = 0.24f;
+    private const float EndCreditsMusicFadeDuration = 1.2f;
     private const float EndCreditsLogoSpacing = 48f;
     private static readonly Vector2 EndCreditsLogoSize = new(360f, 360f);
     private const string EndCreditsContent =
@@ -65,11 +66,14 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private GameObject _creditsBackdrop;
     private CanvasGroup _endTitleGroup;
     private CanvasGroup _creditsStageGroup;
+    private AudioClip _endCreditsMusic;
+    private AudioSource _endCreditsMusicSource;
     private float _targetProgress;
     private bool _fadeInRequested;
     private bool _lobbyInteractive;
     private bool _isShowingEndCredits;
     private bool _endCreditsFinished;
+    private bool _returnToLobbyAfterTest;
     private float _endCreditsEndPosition;
     private static Sprite s_roundedSprite;
     private static TMP_FontAsset s_vietnameseCreditsFont;
@@ -87,6 +91,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
         if (_canvasGroup == null) _canvasGroup = GetComponent<CanvasGroup>();
         if (_canvasGroup == null) _canvasGroup = gameObject.AddComponent<CanvasGroup>();
+        _endCreditsMusic = Resources.Load<AudioClip>("Audio/Music/Monkey Business (Anime Vanguards OST) - Erick Aleixo");
         BuildRemadeInterface();
         _lobbyInteractive = IsLobbyScene();
 
@@ -102,6 +107,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private void OnDestroy()
     {
         UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        StopEndCreditsMusic();
     }
 
     private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
@@ -151,8 +157,10 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     {
         if (_creditsViewport == null || _creditsContent == null) return;
 
+        _returnToLobbyAfterTest = _lobbyInteractive;
         BeginLoadingTransition();
         StopAllCoroutines();
+        StartEndCreditsMusic();
         HideForLoadingPresentation();
         if (_creditsBackdrop != null) _creditsBackdrop.SetActive(true);
         _creditsViewport.gameObject.SetActive(false);
@@ -167,6 +175,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     public void HideEndCredits()
     {
         StopAllCoroutines();
+        StopEndCreditsMusic();
         _isShowingEndCredits = false;
         _endCreditsFinished = false;
         if (_creditsBackdrop != null) _creditsBackdrop.SetActive(false);
@@ -303,7 +312,70 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         }));
 
         yield return new WaitForSecondsRealtime(EndThankYouDuration);
+        yield return StartCoroutine(FadeOutEndCreditsMusic());
         _endCreditsFinished = true;
+
+        if (_returnToLobbyAfterTest)
+        {
+            _returnToLobbyAfterTest = false;
+            _lobbyInteractive = true;
+            HideForLobby();
+            LobbyAutoController.ResumeLobbyMusicAfterEndCredits();
+        }
+    }
+
+    private void StartEndCreditsMusic()
+    {
+        StopEndCreditsMusic();
+
+        if (AudioManager.Instance == null)
+            return;
+
+        LobbyAutoController.StopLobbyMusicForEndCredits();
+        AudioManager.Instance.StopAllMusic();
+        if (_endCreditsMusic == null)
+        {
+            Debug.LogWarning("[SeamlessLoadingOverlay] End credits music was not found at Resources/Audio/Music/Monkey Business (Anime Vanguards OST) - Erick Aleixo.");
+            return;
+        }
+
+        _endCreditsMusicSource = gameObject.AddComponent<AudioSource>();
+        _endCreditsMusicSource.clip = _endCreditsMusic;
+        _endCreditsMusicSource.playOnAwake = false;
+        _endCreditsMusicSource.loop = false;
+        _endCreditsMusicSource.spatialBlend = 0f;
+        _endCreditsMusicSource.outputAudioMixerGroup = null;
+        _endCreditsMusicSource.ignoreListenerPause = true;
+        _endCreditsMusicSource.volume = 1f;
+        _endCreditsMusicSource.Play();
+    }
+
+    private IEnumerator FadeOutEndCreditsMusic()
+    {
+        if (_endCreditsMusicSource == null)
+            yield break;
+
+        float startVolume = _endCreditsMusicSource.volume;
+        float elapsed = 0f;
+        while (_endCreditsMusicSource != null && elapsed < EndCreditsMusicFadeDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float progress = Mathf.Clamp01(elapsed / EndCreditsMusicFadeDuration);
+            _endCreditsMusicSource.volume = Mathf.Lerp(startVolume, 0f, progress);
+            yield return null;
+        }
+
+        StopEndCreditsMusic();
+    }
+
+    private void StopEndCreditsMusic()
+    {
+        if (_endCreditsMusicSource == null)
+            return;
+
+        _endCreditsMusicSource.Stop();
+        Destroy(_endCreditsMusicSource);
+        _endCreditsMusicSource = null;
     }
 
     private IEnumerator FadeToStage(Action setupStage)
