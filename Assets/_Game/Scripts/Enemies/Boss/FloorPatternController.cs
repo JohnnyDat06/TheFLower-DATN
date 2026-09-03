@@ -13,6 +13,8 @@ public sealed class FloorPatternController : MonoBehaviour
     [SerializeField, Min(0f)] private float _earthquakeSurfaceLift = 0.18f;
     [Tooltip("Mau duong canh bao truoc khi Boss dap.")]
     [SerializeField] private Color _telegraphColor = new(1f, 0.03f, 0.02f, 1f);
+    [Tooltip("Material URP duoc luu trong project cho telegraph. Asset reference giu shader trong ban build.")]
+    [SerializeField] private Material _telegraphMaterial;
 
     private BossController _bossController;
     private BossArenaReferences _arenaReferences;
@@ -130,19 +132,20 @@ public sealed class FloorPatternController : MonoBehaviour
         _telegraphLine.startColor = _telegraphColor;
         _telegraphLine.endColor = _telegraphColor;
 
-        Shader lineShader = Shader.Find("Sprites/Default");
-        if (lineShader == null) lineShader = Shader.Find("Universal Render Pipeline/Unlit");
-        if (lineShader == null) return;
+        if (_telegraphMaterial == null)
+        {
+            Debug.LogError("[FloorPatternController] Telegraph Material URP chua duoc gan.", this);
+            return;
+        }
 
-        _telegraphLine.material = new Material(lineShader);
-        _telegraphLine.material.color = _telegraphColor;
-        _secondaryTelegraphLine = CreateAdditionalLine("Double Paw Telegraph", lineShader, 2);
-        _earthquakeRing = CreateAdditionalLine("Earthquake Outer Ring Telegraph", lineShader, 33);
+        _telegraphLine.sharedMaterial = _telegraphMaterial;
+        _secondaryTelegraphLine = CreateAdditionalLine("Double Paw Telegraph", _telegraphMaterial, 2);
+        _earthquakeRing = CreateAdditionalLine("Earthquake Outer Ring Telegraph", _telegraphMaterial, 33);
         _earthquakeRing.loop = true;
-        CreateEarthquakeArea(lineShader);
+        CreateEarthquakeArea(_telegraphMaterial);
     }
 
-    private LineRenderer CreateAdditionalLine(string objectName, Shader shader, int positionCount)
+    private LineRenderer CreateAdditionalLine(string objectName, Material material, int positionCount)
     {
         GameObject lineObject = new(objectName);
         lineObject.transform.SetParent(transform, false);
@@ -154,8 +157,7 @@ public sealed class FloorPatternController : MonoBehaviour
         line.endWidth = _telegraphWidth;
         line.startColor = _telegraphColor;
         line.endColor = _telegraphColor;
-        line.material = new Material(shader);
-        line.material.color = _telegraphColor;
+        line.sharedMaterial = material;
         line.enabled = false;
         return line;
     }
@@ -194,7 +196,7 @@ public sealed class FloorPatternController : MonoBehaviour
         }
     }
 
-    private void CreateEarthquakeArea(Shader shader)
+    private void CreateEarthquakeArea(Material material)
     {
         _earthquakeArea = GameObject.CreatePrimitive(PrimitiveType.Plane);
         _earthquakeArea.name = "Earthquake Full Arena Telegraph";
@@ -205,7 +207,7 @@ public sealed class FloorPatternController : MonoBehaviour
         Renderer areaRenderer = _earthquakeArea.GetComponent<Renderer>();
         if (areaRenderer != null)
         {
-            areaRenderer.material = new Material(shader);
+            areaRenderer.sharedMaterial = material;
             areaRenderer.material.color = new Color(
                 _telegraphColor.r,
                 _telegraphColor.g,
