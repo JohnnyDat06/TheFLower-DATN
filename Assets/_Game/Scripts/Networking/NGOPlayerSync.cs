@@ -219,6 +219,40 @@ public class NGOPlayerSync : NetworkBehaviour
     }
 
     /// <summary>
+    /// Requests a server-authoritative teleport for this player's NetworkObject.
+    /// Host calls are handled immediately; remote clients go through the owner
+    /// ServerRpc so ClientNetworkTransform and the confirmation flow stay in sync.
+    /// </summary>
+    public void RequestTeleport(Vector3 position, Quaternion rotation)
+    {
+        if (!IsSpawned)
+        {
+            Debug.LogWarning("[NGOPlayerSync] Cannot request teleport before the player is spawned.", this);
+            return;
+        }
+
+        if (IsServer)
+        {
+            Teleport(position, rotation);
+            return;
+        }
+
+        if (!IsOwner)
+        {
+            Debug.LogWarning("[NGOPlayerSync] Only the owning client can request a player teleport.", this);
+            return;
+        }
+
+        RequestTeleportServerRpc(position, rotation);
+    }
+
+    [ServerRpc(RequireOwnership = true)]
+    private void RequestTeleportServerRpc(Vector3 position, Quaternion rotation)
+    {
+        Teleport(position, rotation);
+    }
+
+    /// <summary>
     /// Khóa hoặc mở mô phỏng cục bộ theo yêu cầu của gameplay bên ngoài, ví dụ khi
     /// người chơi đang ngồi trên Sand Boat. Khóa này được giữ xuyên suốt teleport
     /// để gravity và owner-authoritative movement không tự bật lại giữa chừng.

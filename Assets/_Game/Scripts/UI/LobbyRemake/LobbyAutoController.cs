@@ -44,6 +44,7 @@ namespace Game.UI.LobbyAuto
         private LobbyModel _currentLobby;
         private LobbyModel _selectedLobby;
         private LobbyRuntimeConfig _config;
+        private Sprite _theFlowerExitButton;
         private CanvasGroup _shellGroup;
         private AudioSource _musicSource;
         private InputSettingsPanelController _inputSettings;
@@ -120,6 +121,7 @@ namespace Game.UI.LobbyAuto
         private bool _usingGamepad;
         private bool _lastNavigationWasGamepad;
         private bool _showGamepadFocusFrames;
+        private bool _exitRequested;
         private Selectable _selectionBeforeBusy;
         private Coroutine _restoreBusySelectionCoroutine;
 
@@ -151,6 +153,7 @@ namespace Game.UI.LobbyAuto
         private void Awake()
         {
             _config = Resources.Load<LobbyRuntimeConfig>("UI/LobbyRuntimeConfig");
+            _theFlowerExitButton = Resources.Load<Sprite>("UI/Lobby/TheFlowerExitButton");
             _usingGamepad = Gamepad.current != null;
             _lastNavigationWasGamepad = _usingGamepad;
             _showGamepadFocusFrames = PlayerPrefs.GetInt(GamepadFocusVisiblePref, 1) != 0;
@@ -638,6 +641,33 @@ namespace Game.UI.LobbyAuto
             }
         }
 
+        private async void ExitGame()
+        {
+            if (_exitRequested) return;
+
+            _exitRequested = true;
+            NetworkDisconnectCoordinator.PrepareForLocalExit();
+            SetBusy(true, "Exiting game...");
+
+            try
+            {
+                if (_lobbyManager != null)
+                    await _lobbyManager.LeaveLobby();
+            }
+            catch (Exception exception)
+            {
+                Debug.LogWarning($"[LobbyAutoController] Exit cleanup failed: {exception.Message}");
+            }
+            finally
+            {
+#if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+#else
+                Application.Quit();
+#endif
+            }
+        }
+
         private void HandleLobbyJoined(LobbyModel lobby)
         {
             _currentLobby = lobby;
@@ -1031,8 +1061,11 @@ namespace Game.UI.LobbyAuto
             start.onClick.AddListener(ShowModeSelection);
             Button settings = CreateButton(panel, "SETTINGS", PanelSoft, new Vector2(0f, -448f), 520f, 110f, 19f);
             settings.onClick.AddListener(ShowSettings);
+            Button exit = CreateButton(panel, "EXIT", Red, new Vector2(0f, -565f), 520f, 120f, 19f, Paper);
+            exit.onClick.AddListener(ExitGame);
             SetExplicitNavigation(start, null, settings, null, null);
-            SetExplicitNavigation(settings, start, null, null, null);
+            SetExplicitNavigation(settings, start, exit, null, null);
+            SetExplicitNavigation(exit, settings, null, null, null);
             _panelDefaultSelections[panel.gameObject] = start;
             return panel.gameObject;
         }
@@ -1768,6 +1801,7 @@ namespace Game.UI.LobbyAuto
                 "JOIN ROOM" => _config?.JoinRoomButton,
                 "START" => _config?.StartButton,
                 "SETTINGS" => _config?.SettingsButton,
+                "EXIT" => _theFlowerExitButton,
                 "BACK" => _config?.BackButton,
                 "CREATE" => _config?.CreateButton,
                 "CANCEL" => _config?.CancelButton,

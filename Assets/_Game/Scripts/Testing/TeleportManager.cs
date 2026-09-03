@@ -60,6 +60,14 @@ namespace Game.Testing
             UpdatePointsListUI();
         }
 
+        private void OnDestroy()
+        {
+            if (Instance == this)
+                Instance = null;
+
+            UICursorLockService.Release(this);
+        }
+
         private void Update()
         {
             // Kiểm tra phím Tab từ Input System mới
@@ -240,9 +248,13 @@ namespace Game.Testing
 
         public void OnTeleportRequested()
         {
-            if (int.TryParse(_idInputField.text, out int id))
+            if (_idInputField != null && int.TryParse(_idInputField.text, out int id))
             {
                 TeleportToPoint(id);
+            }
+            else if (_idInputField == null)
+            {
+                Debug.LogError("[TeleportManager] Teleport ID input field is not assigned.");
             }
             HideUI();
         }
@@ -276,68 +288,18 @@ namespace Game.Testing
                 return;
             }
 
-            // ─── THỰC HIỆN DỊCH CHUYỂN AN TOÀN ───
-            
-            // 1. Tạm thời tắt Rigidbody Interpolation để tránh rubber banding
-            bool hasRigidbody = playerObject.TryGetComponent<Rigidbody>(out var rb);
-            RigidbodyInterpolation originalInterpolation = RigidbodyInterpolation.None;
-            bool originalIsKinematic = false;
-            if (hasRigidbody)
+            if (!playerObject.TryGetComponent<NGOPlayerSync>(out var playerSync))
             {
-                originalInterpolation = rb.interpolation;
-                originalIsKinematic = rb.isKinematic;
-                rb.interpolation = RigidbodyInterpolation.None;
-
-                if (!rb.isKinematic)
-                {
-                    rb.linearVelocity = Vector3.zero;
-                    rb.angularVelocity = Vector3.zero;
-                }
-
-                rb.isKinematic = true; // Tạm khóa vật lý
+                Debug.LogError("[TeleportManager] Local PlayerObject is missing NGOPlayerSync.");
+                return;
             }
 
-            // 2. Cập nhật vị trí transform
-            playerObject.transform.position = target.position;
-            playerObject.transform.rotation = target.rotation;
-
-            // 3. Thông báo cho NetworkTransform thực hiện Teleport (nếu có hỗ trợ)
-            // Trong NGO 1.x trở lên, NetworkTransform tự động theo dõi transform. 
-            // Nếu bạn dùng ClientNetworkTransform kế thừa NetworkTransform, 
-            // nó sẽ tự đồng bộ vị trí mới trong frame tiếp theo.
-            if (playerObject.TryGetComponent<ClientNetworkTransform>(out var nt))
-            {
-                // Gọi hàm Teleport của NetworkTransform để clear nội suy cũ phía Network
-                // nt.Teleport(target.position, target.rotation, target.localScale); // Chỉ có từ NGO 1.5.x+
-                // Nếu version cũ hơn, việc gán trực tiếp transform phía Owner là đủ, 
-                // nhưng Rigidbody mới là thủ phạm chính gây "giật".
-            }
-
-            // 4. Khôi phục Rigidbody (Dùng Coroutine để đảm bảo frame tiếp theo mới bật lại)
-            if (hasRigidbody)
-            {
-                StartCoroutine(RestoreRigidbodyState(rb, originalInterpolation, originalIsKinematic));
-            }
+            // Keep fast travel inside the same authoritative teleport transaction
+            // used by spawn and respawn. Directly moving the local transform lets
+            // ClientNetworkTransform/physics overwrite the pose after a restart.
+            playerSync.RequestTeleport(target.position, target.rotation);
 
             Debug.Log($"[TeleportManager] Đã dịch chuyển đến: {_teleportPoints[id].Name}");
-        }
-
-        private IEnumerator RestoreRigidbodyState(Rigidbody rb, RigidbodyInterpolation originalInterpolation, bool originalIsKinematic)
-        {
-            // Chờ 1 frame để Engine vật lý và NetworkTransform ghi nhận vị trí mới
-            yield return new WaitForFixedUpdate();
-            
-            if (rb != null)
-            {
-                rb.isKinematic = originalIsKinematic;
-                rb.interpolation = originalInterpolation;
-
-                if (!rb.isKinematic)
-                {
-                    rb.linearVelocity = Vector3.zero;
-                    rb.angularVelocity = Vector3.zero;
-                }
-            }
         }
 
         private void LockPlayerInput(bool isLocked)
