@@ -91,7 +91,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
         if (_canvasGroup == null) _canvasGroup = GetComponent<CanvasGroup>();
         if (_canvasGroup == null) _canvasGroup = gameObject.AddComponent<CanvasGroup>();
-        _endCreditsMusic = Resources.Load<AudioClip>("Audio/Music/Monkey Business (Anime Vanguards OST) - Erick Aleixo");
+        _endCreditsMusic = Resources.Load<AudioClip>("Audio/Music/Where_The_River_Widens");
         BuildRemadeInterface();
         _lobbyInteractive = IsLobbyScene();
 
@@ -332,10 +332,11 @@ public class SeamlessLoadingOverlay : MonoBehaviour
             return;
 
         LobbyAutoController.StopLobbyMusicForEndCredits();
+        StopActiveSceneAudioForEndCredits();
         AudioManager.Instance.StopAllMusic();
         if (_endCreditsMusic == null)
         {
-            Debug.LogWarning("[SeamlessLoadingOverlay] End credits music was not found at Resources/Audio/Music/Monkey Business (Anime Vanguards OST) - Erick Aleixo.");
+            Debug.LogWarning("[SeamlessLoadingOverlay] End credits music was not found at Resources/Audio/Music/Where_The_River_Widens.");
             return;
         }
 
@@ -348,6 +349,21 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         _endCreditsMusicSource.ignoreListenerPause = true;
         _endCreditsMusicSource.volume = 1f;
         _endCreditsMusicSource.Play();
+    }
+
+    private void StopActiveSceneAudioForEndCredits()
+    {
+        UnityEngine.SceneManagement.Scene activeScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        AudioSource[] sources = FindObjectsByType<AudioSource>(FindObjectsSortMode.None);
+
+        foreach (AudioSource source in sources)
+        {
+            // Boss ambience is authored as a scene-owned AudioSource, outside AudioManager's music pool.
+            if (source == null || !source.isPlaying || source.gameObject.scene.handle != activeScene.handle)
+                continue;
+
+            source.Stop();
+        }
     }
 
     private IEnumerator FadeOutEndCreditsMusic()
