@@ -1951,6 +1951,33 @@ namespace Game.UI.LobbyAuto
             _musicSource.Play();
         }
 
+        public static void StopLobbyMusicForEndCredits()
+        {
+            foreach (LobbyAutoController controller in FindObjectsByType<LobbyAutoController>(FindObjectsSortMode.None))
+                controller.StopLobbyMusic();
+        }
+
+        private void StopLobbyMusic()
+        {
+            if (_musicSource == null) return;
+
+            _musicSource.Stop();
+            Destroy(_musicSource);
+            _musicSource = null;
+        }
+
+        public static void ResumeLobbyMusicAfterEndCredits()
+        {
+            foreach (LobbyAutoController controller in FindObjectsByType<LobbyAutoController>(FindObjectsSortMode.None))
+                controller.ResumeLobbyMusic();
+        }
+
+        private void ResumeLobbyMusic()
+        {
+            if (_musicSource != null && _musicSource.isPlaying) return;
+            StartLobbyMusic();
+        }
+
         private void ApplyAudioSettings()
         {
             if (_musicSource == null) return;

@@ -142,6 +142,15 @@ public class AudioManager : MonoBehaviour
         StopSFX(source);
     }
 
+    /// <summary>Stops every music source currently managed by the shared audio manager.</summary>
+    public void StopAllMusic()
+    {
+        AudioSource[] sources = new AudioSource[_musicSources.Count];
+        _musicSources.CopyTo(sources);
+        foreach (AudioSource source in sources)
+            StopMusic(source);
+    }
+
     public AudioSource PlaySFXLoop(SOAudioClip config)
     {
         if (config == null || config.Clip == null) return null;
