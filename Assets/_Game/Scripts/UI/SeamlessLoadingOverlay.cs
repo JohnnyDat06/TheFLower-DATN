@@ -21,14 +21,26 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private const string EndCreditsContent =
         "<size=120%><b>THE FLOWER</b></size>\n\n" +
         "A GAME BY TEAM DORO\n\n\n" +
-        "<b>HỒ TẤN ĐẠT</b>\n" +
-        "Final Boss • Sand Boat • Camera • Main Character • Features • Puzzles\n\n" +
-        "<b>HUỲNH TRẦN ANH THƯ</b>\n" +
-        "Map • Environment • Character Textures • Lighting\n\n" +
-        "<b>PHẠM HỒNG ĐĂNG</b>\n" +
-        "UI • HUD • Networking Support • Performance • Features • Puzzles\n\n" +
-        "<b>LÊ PHAN HÒA THUẬN</b>\n" +
-        "Puzzles • Quests • Interaction • Map Gameplay";
+        "Main Character: HỒ TẤN ĐẠT\n" +
+        "Final Boss: HỒ TẤN ĐẠT\n" +
+        "Sand Boat: HỒ TẤN ĐẠT\n" +
+        "Camera: HỒ TẤN ĐẠT\n" +
+        "Gameplay Features: HỒ TẤN ĐẠT, PHẠM HỒNG ĐĂNG\n" +
+        "Game Puzzles: HỒ TẤN ĐẠT, PHẠM HỒNG ĐĂNG, LÊ PHAN HÒA THUẬN\n\n" +
+        "Map: HỒ TẤN ĐẠT, HUỲNH TRẦN ANH THƯ, LÊ PHAN HÒA THUẬN\n" +
+        "Environment: HUỲNH TRẦN ANH THƯ\n" +
+        "Character Textures: HUỲNH TRẦN ANH THƯ\n" +
+        "Lighting: HUỲNH TRẦN ANH THƯ\n\n" +
+        "User Interface: PHẠM HỒNG ĐĂNG\n" +
+        "HUD: PHẠM HỒNG ĐĂNG\n" +
+        "Networking Support: PHẠM HỒNG ĐĂNG\n" +
+        "Performance: PHẠM HỒNG ĐĂNG\n" +
+        "Gameplay Features: PHẠM HỒNG ĐĂNG\n" +
+        "Game Puzzles: PHẠM HỒNG ĐĂNG\n\n" +
+        "Puzzles: LÊ PHAN HÒA THUẬN\n" +
+        "Quests: LÊ PHAN HÒA THUẬN\n" +
+        "Interaction: LÊ PHAN HÒA THUẬN\n" +
+        "Map Gameplay: LÊ PHAN HÒA THUẬN";
 
     public static SeamlessLoadingOverlay Instance { get; private set; }
 
@@ -53,6 +65,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private bool _endCreditsFinished;
     private float _endCreditsEndPosition;
     private static Sprite s_roundedSprite;
+    private static TMP_FontAsset s_vietnameseCreditsFont;
 
     private void Awake()
     {
@@ -333,13 +346,14 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         _creditsContent.ForceUpdateRectTransforms();
         _creditsContent.GetComponent<TextMeshProUGUI>().ForceMeshUpdate();
 
+        float viewportHeight = Mathf.Max(1f, _creditsViewport.rect.height);
         float contentHeight = Mathf.Max(
             _creditsContent.rect.height,
             _creditsContent.GetComponent<TextMeshProUGUI>().preferredHeight + EndCreditsStartPadding);
 
         _creditsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, contentHeight);
         _creditsContent.anchoredPosition = new Vector2(0f, -contentHeight - EndCreditsStartPadding);
-        _endCreditsEndPosition = EndCreditsEndPadding;
+        _endCreditsEndPosition = viewportHeight + EndCreditsEndPadding;
         _isShowingEndCredits = true;
         _endCreditsFinished = false;
     }
@@ -497,7 +511,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
             Vector2.one,
             Vector2.zero,
             Vector2.zero,
-            new Color(0.005f, 0.012f, 0.02f, 0.97f));
+            Color.black);
         _creditsBackdrop = creditsBackdrop.gameObject;
         _creditsBackdrop.SetActive(false);
         creditsBackdrop.transform.SetSiblingIndex(_toBeContinuedText.transform.GetSiblingIndex());
@@ -511,6 +525,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         _creditsStageGroup = _creditsViewport.gameObject.AddComponent<CanvasGroup>();
         _creditsStageGroup.alpha = 0f;
 
+        TMP_FontAsset creditsFont = GetVietnameseCreditsFont(headingFont);
         TextMeshProUGUI creditsText = CreateText(
             _creditsViewport,
             EndCreditsContent,
@@ -518,7 +533,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
             new Color(1f, 0.96f, 0.82f, 1f),
             FontStyles.Normal,
             TextAlignmentOptions.Center,
-            headingFont);
+            creditsFont);
         _creditsContent = creditsText.rectTransform;
         _creditsContent.anchorMin = new Vector2(0.5f, 0f);
         _creditsContent.anchorMax = new Vector2(0.5f, 0f);
@@ -529,6 +544,29 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         creditsText.overflowMode = TextOverflowModes.Overflow;
         creditsText.verticalAlignment = VerticalAlignmentOptions.Top;
         _creditsViewport.gameObject.SetActive(false);
+    }
+
+    private static TMP_FontAsset GetVietnameseCreditsFont(TMP_FontAsset fallbackFont)
+    {
+        if (s_vietnameseCreditsFont != null) return s_vietnameseCreditsFont;
+
+        TMP_FontAsset systemFont = TMP_FontAsset.CreateFontAsset("Arial", "Regular", 90);
+        if (systemFont == null)
+        {
+            Debug.LogWarning("[SeamlessLoadingOverlay] Arial was not available; using the default credits font.");
+            return fallbackFont;
+        }
+
+        systemFont.hideFlags = HideFlags.HideAndDontSave;
+        if (!systemFont.TryAddCharacters(EndCreditsContent, out string missingCharacters))
+        {
+            Debug.LogWarning($"[SeamlessLoadingOverlay] Credits font is missing characters: {missingCharacters}");
+            UnityEngine.Object.Destroy(systemFont);
+            return fallbackFont;
+        }
+
+        s_vietnameseCreditsFont = systemFont;
+        return s_vietnameseCreditsFont;
     }
 
     private Slider CreateProgressSlider(RectTransform parent)
