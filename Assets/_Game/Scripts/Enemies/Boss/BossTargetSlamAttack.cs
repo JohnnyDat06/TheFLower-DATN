@@ -107,8 +107,7 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
             direction = DirectionToTarget(target, diagonalOffset);
             _currentTelegraphDirection = direction;
             _floorPatternController?.ShowTargetTelegraph(direction, 0.1f);
-            if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
-                _animationController.SetTelegraphProgress(elapsed / _telegraphDuration);
+            _animationController?.SetTelegraphProgress(elapsed / _telegraphDuration);
             yield return null;
         }
 
@@ -116,8 +115,7 @@ public sealed class BossTargetSlamAttack : MonoBehaviour
         while (descentElapsed < _impactReturnDuration)
         {
             descentElapsed += Time.deltaTime;
-            if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
-                _animationController.SetSlamDescentProgress(descentElapsed / _impactReturnDuration);
+            _animationController?.SetSlamDescentProgress(descentElapsed / _impactReturnDuration);
             yield return null;
         }
 

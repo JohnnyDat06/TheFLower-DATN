@@ -80,8 +80,7 @@ public sealed class BossPawSlamAttack : MonoBehaviour
         while (elapsed < _telegraphDuration)
         {
             elapsed += Time.deltaTime;
-            if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
-                _animationController.SetTelegraphProgress(elapsed / _telegraphDuration);
+            _animationController?.SetTelegraphProgress(elapsed / _telegraphDuration);
             yield return null;
         }
 
@@ -89,8 +88,7 @@ public sealed class BossPawSlamAttack : MonoBehaviour
         while (descentElapsed < _impactReturnDuration)
         {
             descentElapsed += Time.deltaTime;
-            if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
-                _animationController.SetSlamDescentProgress(descentElapsed / _impactReturnDuration);
+            _animationController?.SetSlamDescentProgress(descentElapsed / _impactReturnDuration);
             yield return null;
         }
 

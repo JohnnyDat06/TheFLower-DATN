@@ -91,6 +91,7 @@ public sealed class BossNetworkState : NetworkBehaviour
         CacheArenaComponents();
 
         _fightSnapshot.OnValueChanged += HandleFightSnapshotChanged;
+        _attackSnapshot.OnValueChanged += HandleAttackSnapshotChanged;
         _runeStates.OnListChanged += HandleRuneListChanged;
         _sealStates.OnListChanged += HandleSealListChanged;
         _floorTileStates.OnListChanged += HandleFloorTileListChanged;
@@ -104,6 +105,7 @@ public sealed class BossNetworkState : NetworkBehaviour
         {
             DisableClientGameplaySimulation();
             ApplyAllReplicatedState();
+            UpdateClientAttackVisual();
         }
     }
 
@@ -111,6 +113,7 @@ public sealed class BossNetworkState : NetworkBehaviour
     {
         if (IsServer) ShockwaveController.ShockwaveSpawned -= HandleServerShockwaveSpawned;
         _fightSnapshot.OnValueChanged -= HandleFightSnapshotChanged;
+        _attackSnapshot.OnValueChanged -= HandleAttackSnapshotChanged;
         _runeStates.OnListChanged -= HandleRuneListChanged;
         _sealStates.OnListChanged -= HandleSealListChanged;
         _floorTileStates.OnListChanged -= HandleFloorTileListChanged;
@@ -134,6 +137,14 @@ public sealed class BossNetworkState : NetworkBehaviour
         }
 
         ApplyReplicatedTargetIfAvailable();
+    }
+
+    private void LateUpdate()
+    {
+        if (!IsSpawned || IsServer) return;
+
+        // The pose is written after Animator.Update so the replicated Host timeline always
+        // wins over any local Animator state on a remote Client.
         UpdateClientAttackVisual();
     }
 
@@ -335,6 +346,14 @@ public sealed class BossNetworkState : NetworkBehaviour
         if (!IsServer) ApplyFightSnapshot(current);
     }
 
+    private void HandleAttackSnapshotChanged(BossAttackNetworkSnapshot previous, BossAttackNetworkSnapshot current)
+    {
+        if (IsServer) return;
+
+        CacheArenaComponents();
+        UpdateClientAttackVisual();
+    }
+
     private void ApplyAllReplicatedState()
     {
         ApplyFightSnapshot(_fightSnapshot.Value);
@@ -395,8 +414,8 @@ public sealed class BossNetworkState : NetworkBehaviour
         if (isTelegraphing)
         {
             ShowClientTelegraph(attackType, snapshot);
-            if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
-                _animationController.SetTelegraphProgress(elapsed / Mathf.Max(0.01f, snapshot.TelegraphDuration));
+            _animationController?.SetTelegraphProgress(
+                elapsed / Mathf.Max(0.01f, snapshot.TelegraphDuration));
             return;
         }
 
@@ -406,9 +425,8 @@ public sealed class BossNetworkState : NetworkBehaviour
         float descentElapsed = elapsed - snapshot.TelegraphDuration;
         if (usesDescent && descentElapsed < snapshot.ImpactReturnDuration)
         {
-            if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
-                _animationController.SetSlamDescentProgress(
-                    descentElapsed / Mathf.Max(0.01f, snapshot.ImpactReturnDuration));
+            _animationController?.SetSlamDescentProgress(
+                descentElapsed / Mathf.Max(0.01f, snapshot.ImpactReturnDuration));
             return;
         }
 

@@ -59,8 +59,7 @@ public sealed class BossEarthquakeAttack : MonoBehaviour
         while (elapsed < _telegraphDuration)
         {
             elapsed += Time.deltaTime;
-            if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
-                _animationController.SetTelegraphProgress(elapsed / _telegraphDuration);
+            _animationController?.SetTelegraphProgress(elapsed / _telegraphDuration);
             yield return null;
         }
 

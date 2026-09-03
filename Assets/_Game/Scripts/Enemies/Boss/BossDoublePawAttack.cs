@@ -76,8 +76,7 @@ public sealed class BossDoublePawAttack : MonoBehaviour
             _firstTelegraphDirection = firstDirection;
             _secondTelegraphDirection = secondDirection;
             _floorPatternController?.ShowDoubleTelegraph(firstDirection, secondDirection, 0.1f);
-            if (_animationController != null && !_animationController.UsesAuthoredPawSlam)
-                _animationController.SetTelegraphProgress(elapsed / _telegraphDuration);
+            _animationController?.SetTelegraphProgress(elapsed / _telegraphDuration);
             yield return null;
         }
 
