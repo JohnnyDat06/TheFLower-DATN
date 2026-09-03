@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -33,6 +34,7 @@ public sealed class SandBoatBoarding : InteractableBase
     private readonly NetworkVariable<ulong> _p2ClientId = new(NoClientId);
     private readonly NetworkVariable<bool> _chaseStarted = new(false);
     private readonly NetworkVariable<bool> _chaseFinalized = new(false);
+    private Coroutine _releasePlayersRoutine;
 
     /// <summary>True after the boarding condition has been fulfilled and route movement has started.</summary>
     public bool ChaseStarted => _chaseStarted.Value;
@@ -375,22 +377,53 @@ public sealed class SandBoatBoarding : InteractableBase
         _chaseFinalized.Value = true;
         _chaseStarted.Value = false;
         ApplyChaseStarted(false);
-        ReseatPlayerForRelease(_p1ClientId.Value, _playerSeatP1);
-        ReseatPlayerForRelease(_p2ClientId.Value, _playerSeatP2);
-        RestorePlayerControlClientRpc(_p1ClientId.Value);
-        RestorePlayerControlClientRpc(_p2ClientId.Value);
+
+        if (_releasePlayersRoutine != null)
+        {
+            StopCoroutine(_releasePlayersRoutine);
+        }
+
+        _releasePlayersRoutine = StartCoroutine(ReleasePlayersOnBoatRoutine());
     }
 
-    private void ReseatPlayerForRelease(ulong clientId, Transform seat)
+    private IEnumerator ReleasePlayersOnBoatRoutine()
+    {
+        // Client-owned NetworkTransform keeps an old world pose while the chase
+        // is locked. Confirm the final seat teleport on each owner before physics
+        // and normal movement are restored, otherwise P2 can snap onto terrain.
+        yield return TeleportPlayerToSeatForRelease(_p1ClientId.Value, _playerSeatP1);
+        yield return TeleportPlayerToSeatForRelease(_p2ClientId.Value, _playerSeatP2);
+
+        RestorePlayerControlClientRpc(_p1ClientId.Value);
+        RestorePlayerControlClientRpc(_p2ClientId.Value);
+        _releasePlayersRoutine = null;
+    }
+
+    private IEnumerator TeleportPlayerToSeatForRelease(ulong clientId, Transform seat)
     {
         if (clientId == NoClientId || seat == null || !TryGetPlayerObject(clientId, out NetworkObject playerObject))
         {
-            return;
+            yield break;
         }
 
-        // Chốt pose cuối ngay trên seat trước khi mở lại physics để tránh bản
-        // sao NetworkTransform cũ kéo người chơi xuống terrain.
-        SeatPlayer(playerObject, seat);
+        Quaternion seatRotation = GetSeatRotation(seat);
+        if (playerObject.TryGetComponent(out NGOPlayerSync playerSync))
+        {
+            bool teleportConfirmed = false;
+            yield return playerSync.TeleportAndWaitForOwner(
+                seat.position,
+                seatRotation,
+                confirmed => teleportConfirmed = confirmed);
+
+            if (teleportConfirmed)
+            {
+                yield break;
+            }
+        }
+
+        // Fallback for a misconfigured Player prefab. This preserves the server
+        // replica at the seat even when NGOPlayerSync is unavailable.
+        ApplySeatPose(playerObject, seat);
     }
 
     [ClientRpc]
@@ -473,11 +506,6 @@ public sealed class SandBoatBoarding : InteractableBase
         {
             return;
         }
-
-        Transform seat = playerClientId == NetworkManager.ServerClientId
-            ? _playerSeatP1
-            : _playerSeatP2;
-        ApplySeatPose(playerObject, seat);
 
         if (playerObject.TryGetComponent(out PlayerController playerController))
         {

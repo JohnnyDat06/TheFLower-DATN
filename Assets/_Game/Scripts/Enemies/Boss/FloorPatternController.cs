@@ -22,6 +22,7 @@ public sealed class FloorPatternController : MonoBehaviour
     private LineRenderer _secondaryTelegraphLine;
     private LineRenderer _earthquakeRing;
     private GameObject _earthquakeArea;
+    private Material _runtimeTelegraphMaterial;
     private Vector3 _targetTelegraphDirection;
     private Vector3 _doubleLeftDirection;
     private Vector3 _doubleRightDirection;
@@ -138,11 +139,45 @@ public sealed class FloorPatternController : MonoBehaviour
             return;
         }
 
-        _telegraphLine.sharedMaterial = _telegraphMaterial;
-        _secondaryTelegraphLine = CreateAdditionalLine("Double Paw Telegraph", _telegraphMaterial, 2);
-        _earthquakeRing = CreateAdditionalLine("Earthquake Outer Ring Telegraph", _telegraphMaterial, 33);
+        Material telegraphMaterial = CreateRuntimeTelegraphMaterial();
+        _telegraphLine.sharedMaterial = telegraphMaterial;
+        _secondaryTelegraphLine = CreateAdditionalLine("Double Paw Telegraph", telegraphMaterial, 2);
+        _earthquakeRing = CreateAdditionalLine("Earthquake Outer Ring Telegraph", telegraphMaterial, 33);
         _earthquakeRing.loop = true;
-        CreateEarthquakeArea(_telegraphMaterial);
+        CreateEarthquakeArea(telegraphMaterial);
+    }
+
+    /// <summary>
+    /// Creates a per-encounter copy so the red warning is visible in Player builds without
+    /// changing the source material used by other renderers.
+    /// </summary>
+    private Material CreateRuntimeTelegraphMaterial()
+    {
+        _runtimeTelegraphMaterial = new Material(_telegraphMaterial)
+        {
+            name = "Boss Telegraph Runtime Material"
+        };
+
+        Color transparentRed = new(
+            _telegraphColor.r,
+            _telegraphColor.g,
+            _telegraphColor.b,
+            _telegraphColor.a);
+        if (_runtimeTelegraphMaterial.HasProperty("_BaseColor"))
+            _runtimeTelegraphMaterial.SetColor("_BaseColor", transparentRed);
+        if (_runtimeTelegraphMaterial.HasProperty("_Color"))
+            _runtimeTelegraphMaterial.SetColor("_Color", transparentRed);
+        if (_runtimeTelegraphMaterial.HasProperty("_EmissionColor"))
+        {
+            _runtimeTelegraphMaterial.DisableKeyword("_EMISSION");
+            _runtimeTelegraphMaterial.SetColor("_EmissionColor", Color.black);
+        }
+        // A LineRenderer is a flat ribbon. Render both faces so the warning remains visible
+        // from the normal top-down gameplay camera as well as from a low camera angle.
+        if (_runtimeTelegraphMaterial.HasProperty("_Cull"))
+            _runtimeTelegraphMaterial.SetFloat("_Cull", 0f);
+
+        return _runtimeTelegraphMaterial;
     }
 
     private LineRenderer CreateAdditionalLine(string objectName, Material material, int positionCount)

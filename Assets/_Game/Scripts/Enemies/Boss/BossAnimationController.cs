@@ -7,10 +7,6 @@ using UnityEngine;
 /// </summary>
 public sealed class BossAnimationController : MonoBehaviour
 {
-    private const string PawSlamStateName = "PawSlam";
-
-    [Tooltip("Animator cua boss, chi dung khi co Runtime Animator Controller hop le.")]
-    [SerializeField] private Animator _animator;
     [Tooltip("Model boss duoc di chuyen cho telegraph, slam va Stunned pose.")]
     [SerializeField] private Transform _telegraphVisual;
     [Tooltip("Do nang local cua model trong telegraph Paw Slam.")]
@@ -37,12 +33,8 @@ public sealed class BossAnimationController : MonoBehaviour
     private float _defeatedTransitionElapsed;
     private Coroutine _stunnedPoseTransition;
 
-    /// <summary>True when the Cat Sphinx Animator has the generated Paw Slam state.</summary>
-    public bool UsesAuthoredPawSlam => _animator != null && _animator.runtimeAnimatorController != null;
-
     private void Awake()
     {
-        if (_animator == null) _animator = GetComponentInChildren<Animator>();
         ResolveTelegraphVisual();
         CaptureRestPose();
     }
@@ -77,17 +69,9 @@ public sealed class BossAnimationController : MonoBehaviour
         _telegraphVisual.localRotation = _restLocalRotation;
     }
 
-    /// <summary>Starts the authored Paw Slam clip when the Cat Sphinx rig is available.</summary>
+    /// <summary>Starts the deterministic transform-based Paw Slam pose used by every peer.</summary>
     public void PlayPawSlam()
     {
-        if (_animator != null
-            && _animator.isActiveAndEnabled
-            && _animator.runtimeAnimatorController != null)
-        {
-            _animator.Play(PawSlamStateName, 0, 0f);
-            return;
-        }
-
         SetTelegraphProgress(0f);
     }
 
@@ -128,12 +112,6 @@ public sealed class BossAnimationController : MonoBehaviour
     /// <summary>Returns the boss to its rest pose after the slam impact.</summary>
     public void ResetPose()
     {
-        if (_animator != null && _animator.runtimeAnimatorController != null)
-        {
-            _animator.Play("Idle", 0, 0f);
-            return;
-        }
-
         StopStunnedPoseTransition();
         if (!CaptureRestPose()) return;
         _telegraphVisual.localPosition = _restLocalPosition;
@@ -165,9 +143,6 @@ public sealed class BossAnimationController : MonoBehaviour
         _defeatedPoseSettled = false;
         _defeatedTransitionElapsed = 0f;
         StopStunnedPoseTransition();
-        if (_animator != null && _animator.runtimeAnimatorController != null)
-            _animator.Play("Idle", 0, 0f);
-
         _defeatedStartLocalPosition = _telegraphVisual.localPosition;
         _defeatedStartLocalRotation = _telegraphVisual.localRotation;
     }
