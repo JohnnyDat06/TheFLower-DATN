@@ -343,11 +343,11 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         _endCreditsMusicSource = gameObject.AddComponent<AudioSource>();
         _endCreditsMusicSource.clip = _endCreditsMusic;
         _endCreditsMusicSource.playOnAwake = false;
-        _endCreditsMusicSource.loop = false;
+        _endCreditsMusicSource.loop = true;
         _endCreditsMusicSource.spatialBlend = 0f;
         _endCreditsMusicSource.outputAudioMixerGroup = null;
         _endCreditsMusicSource.ignoreListenerPause = true;
-        _endCreditsMusicSource.volume = 1f;
+        _endCreditsMusicSource.volume = 0.4f;
         _endCreditsMusicSource.Play();
     }
 
