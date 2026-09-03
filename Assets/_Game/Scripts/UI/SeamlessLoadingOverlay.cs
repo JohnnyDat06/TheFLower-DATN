@@ -18,29 +18,30 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private const float EndThankYouDuration = 2.5f;
     private const float EndCreditsHoldDuration = 1.2f;
     private const float EndFadeDuration = 0.24f;
+    private const float EndCreditsLogoSpacing = 48f;
+    private static readonly Vector2 EndCreditsLogoSize = new(360f, 360f);
     private const string EndCreditsContent =
-        "<size=120%><b>THE FLOWER</b></size>\n\n" +
-        "A GAME BY TEAM DORO\n\n\n" +
-        "Main Character: HỒ TẤN ĐẠT\n" +
-        "Final Boss: HỒ TẤN ĐẠT\n" +
-        "Sand Boat: HỒ TẤN ĐẠT\n" +
-        "Camera: HỒ TẤN ĐẠT\n" +
-        "Gameplay Features: HỒ TẤN ĐẠT, PHẠM HỒNG ĐĂNG\n" +
-        "Game Puzzles: HỒ TẤN ĐẠT, PHẠM HỒNG ĐĂNG, LÊ PHAN HÒA THUẬN\n\n" +
-        "Map: HỒ TẤN ĐẠT, HUỲNH TRẦN ANH THƯ, LÊ PHAN HÒA THUẬN\n" +
-        "Environment: HUỲNH TRẦN ANH THƯ\n" +
-        "Character Textures: HUỲNH TRẦN ANH THƯ\n" +
-        "Lighting: HUỲNH TRẦN ANH THƯ\n\n" +
-        "User Interface: PHẠM HỒNG ĐĂNG\n" +
-        "HUD: PHẠM HỒNG ĐĂNG\n" +
-        "Networking Support: PHẠM HỒNG ĐĂNG\n" +
-        "Performance: PHẠM HỒNG ĐĂNG\n" +
-        "Gameplay Features: PHẠM HỒNG ĐĂNG\n" +
-        "Game Puzzles: PHẠM HỒNG ĐĂNG\n\n" +
-        "Puzzles: LÊ PHAN HÒA THUẬN\n" +
-        "Quests: LÊ PHAN HÒA THUẬN\n" +
-        "Interaction: LÊ PHAN HÒA THUẬN\n" +
-        "Map Gameplay: LÊ PHAN HÒA THUẬN";
+        "<size=120%><b>THE FLOWER</b></size>\n\n\n" +
+        "<b>GAME DIRECTOR</b>\nHồ Tấn Đạt\n\n" +
+        "<b>GAME PRODUCER</b>\nHồ Tấn Đạt\n\n" +
+        "<b>LEAD DESIGNER</b>\nHồ Tấn Đạt\n\n" +
+        "<b>MAP & LEVEL DESIGN</b>\nHuỳnh Trần Anh Thư\nLê Phan Hòa Thuận\nHồ Tấn Đạt\n\n" +
+        "<b>NARRATIVE DESIGN</b>\nTeam Doro\n\n" +
+        "<b>UI/UX DESIGN</b>\nPhạm Hồng Đăng\n\n" +
+        "<b>PROGRAMMING</b>\nHồ Tấn Đạt\nLê Phan Hòa Thuận\nPhạm Hồng Đăng\n\n" +
+        "<b>GAMEPLAY SYSTEMS</b>\nLê Phan Hòa Thuận\n\n" +
+        "<b>ART DIRECTOR</b>\nHuỳnh Trần Anh Thư\n\n" +
+        "<b>ENVIRONMENT & TECHNICAL ART</b>\nHuỳnh Trần Anh Thư\n\n" +
+        "<b>ART & VFX</b>\nHuỳnh Trần Anh Thư\nHồ Tấn Đạt\n\n" +
+        "<b>ANIMATION</b>\nTeam Doro\n\n" +
+        "<b>AUDIO</b>\nHồ Tấn Đạt\nLê Phan Hòa Thuận\nPhạm Hồng Đăng\n\n" +
+        "<b>QA / TESTING</b>\nLê Phan Hòa Thuận (Lead)\nHồ Tấn Đạt · Phạm Hồng Đăng · Huỳnh Trần Anh Thư\n\n" +
+        "<b>GAME MARKETING</b>\nHồ Tấn Đạt\n\n\n" +
+        "<b>BUILT WITH</b>\nUnity 6 LTS\nNetcode for GameObjects\nUnity Gaming Services (Lobby & Relay)\nVivox Voice Chat\nCinemachine · Unity Splines · URP\n\n\n" +
+        "<b>SPECIAL THANKS</b>\n" +
+        "Thầy Nguyễn Thế Trung - Giảng viên hướng dẫn\n" +
+        "Thầy Nguyễn Thế Duy - Giảng viên Lập trình Game\n" +
+        "Trường Cao đẳng FPT Polytechnic Cần Thơ";
 
     public static SeamlessLoadingOverlay Instance { get; private set; }
 
@@ -49,12 +50,18 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     [SerializeField] private TextMeshProUGUI _toBeContinuedText;
     [SerializeField] private float _fadeDuration = 0.5f;
 
+    [Header("End Credits")]
+    [Tooltip("Assign the game logo here to have it appear above the end credits.")]
+    [SerializeField] private Sprite _endCreditsLogo;
+
     private GameObject _loadingPanel;
     private TextMeshProUGUI _progressText;
     private TextMeshProUGUI _loadingStatusText;
     private RectTransform _tipLeaf;
     private RectTransform _creditsViewport;
     private RectTransform _creditsContent;
+    private RectTransform _creditsLogoRect;
+    private TextMeshProUGUI _creditsText;
     private GameObject _creditsBackdrop;
     private CanvasGroup _endTitleGroup;
     private CanvasGroup _creditsStageGroup;
@@ -344,12 +351,13 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private void ResetEndCreditsScroll()
     {
         _creditsContent.ForceUpdateRectTransforms();
-        _creditsContent.GetComponent<TextMeshProUGUI>().ForceMeshUpdate();
+        _creditsText.ForceMeshUpdate();
 
+        float logoBlockHeight = EndCreditsLogoSize.y + EndCreditsLogoSpacing;
         float viewportHeight = Mathf.Max(1f, _creditsViewport.rect.height);
         float contentHeight = Mathf.Max(
             _creditsContent.rect.height,
-            _creditsContent.GetComponent<TextMeshProUGUI>().preferredHeight + EndCreditsStartPadding);
+            logoBlockHeight + _creditsText.preferredHeight + EndCreditsStartPadding);
 
         _creditsContent.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, contentHeight);
         _creditsContent.anchoredPosition = new Vector2(0f, -contentHeight - EndCreditsStartPadding);
@@ -525,24 +533,49 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         _creditsStageGroup = _creditsViewport.gameObject.AddComponent<CanvasGroup>();
         _creditsStageGroup.alpha = 0f;
 
+        // Scrolling container: holds the game logo (top) and the credits text (below it).
+        _creditsContent = CreateRect(_creditsViewport, "EndCreditsContent");
+        _creditsContent.anchorMin = new Vector2(0.5f, 0f);
+        _creditsContent.anchorMax = new Vector2(0.5f, 0f);
+        _creditsContent.pivot = new Vector2(0.5f, 0f);
+        _creditsContent.anchoredPosition = Vector2.zero;
+        _creditsContent.sizeDelta = new Vector2(1650f, 1f);
+
+        // Logo slot — assign a Sprite to "_endCreditsLogo" in the Inspector to show it here.
+        Image creditsLogo = CreateImage(
+            _creditsContent,
+            "EndCreditsLogo",
+            new Vector2(0.5f, 1f),
+            new Vector2(0.5f, 1f),
+            Vector2.zero,
+            Vector2.zero,
+            Color.white);
+        creditsLogo.sprite = _endCreditsLogo;
+        creditsLogo.preserveAspect = true;
+        creditsLogo.raycastTarget = false;
+        _creditsLogoRect = creditsLogo.rectTransform;
+        _creditsLogoRect.pivot = new Vector2(0.5f, 1f);
+        _creditsLogoRect.anchoredPosition = Vector2.zero;
+        _creditsLogoRect.sizeDelta = EndCreditsLogoSize;
+
         TMP_FontAsset creditsFont = GetVietnameseCreditsFont(headingFont);
-        TextMeshProUGUI creditsText = CreateText(
-            _creditsViewport,
+        _creditsText = CreateText(
+            _creditsContent,
             EndCreditsContent,
             46f,
             new Color(1f, 0.96f, 0.82f, 1f),
             FontStyles.Normal,
             TextAlignmentOptions.Center,
             creditsFont);
-        _creditsContent = creditsText.rectTransform;
-        _creditsContent.anchorMin = new Vector2(0.5f, 0f);
-        _creditsContent.anchorMax = new Vector2(0.5f, 0f);
-        _creditsContent.pivot = new Vector2(0.5f, 0f);
-        _creditsContent.anchoredPosition = Vector2.zero;
-        _creditsContent.sizeDelta = new Vector2(1650f, 1f);
-        creditsText.enableWordWrapping = true;
-        creditsText.overflowMode = TextOverflowModes.Overflow;
-        creditsText.verticalAlignment = VerticalAlignmentOptions.Top;
+        RectTransform textRect = _creditsText.rectTransform;
+        textRect.anchorMin = new Vector2(0f, 1f);
+        textRect.anchorMax = new Vector2(1f, 1f);
+        textRect.pivot = new Vector2(0.5f, 1f);
+        textRect.anchoredPosition = new Vector2(0f, -(EndCreditsLogoSize.y + EndCreditsLogoSpacing));
+        textRect.sizeDelta = new Vector2(0f, 1f);
+        _creditsText.enableWordWrapping = true;
+        _creditsText.overflowMode = TextOverflowModes.Overflow;
+        _creditsText.verticalAlignment = VerticalAlignmentOptions.Top;
         _creditsViewport.gameObject.SetActive(false);
     }
 
