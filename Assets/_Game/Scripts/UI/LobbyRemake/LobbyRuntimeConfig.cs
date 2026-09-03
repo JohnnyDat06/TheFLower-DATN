@@ -21,6 +21,7 @@ namespace Game.UI.LobbyAuto
         public Sprite LobbyLogo;
         public Sprite StartButton;
         public Sprite SettingsButton;
+        public Sprite CreditsButton;
         public Sprite BackButton;
         public Sprite CreateButton;
         public Sprite CancelButton;

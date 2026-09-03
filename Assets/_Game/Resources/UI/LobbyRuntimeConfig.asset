@@ -52,6 +52,7 @@ MonoBehaviour:
   LobbyLogo: {fileID: 21300000, guid: 94a3324eb6104450ba3c51d91ed6ed44, type: 3}
   StartButton: {fileID: 21300000, guid: 02d43fac54624ce2811fb196959d647f, type: 3}
   SettingsButton: {fileID: 21300000, guid: b76014c1a80642a692790de1fed53bb9, type: 3}
+  CreditsButton: {fileID: 21300000, guid: a916e4323c634a9ebca8c4be70584def, type: 3}
   BackButton: {fileID: 21300000, guid: aa7754323f924ed8bf1657db0e7426b5, type: 3}
   CreateButton: {fileID: 21300000, guid: 6fc8f1bf646246b481154159f41713e0, type: 3}
   CancelButton: {fileID: 21300000, guid: ae655097d7084ae58392cb812d8597ce, type: 3}

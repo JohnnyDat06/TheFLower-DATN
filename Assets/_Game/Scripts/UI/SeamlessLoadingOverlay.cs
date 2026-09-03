@@ -4,6 +4,7 @@ using Game.UI.LobbyAuto;
 using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 using UnityEngine.UI;
 
 /// <summary>
@@ -15,10 +16,8 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private const float EndCreditsStartPadding = 90f;
     private const float EndCreditsEndPadding = 120f;
     private const float EndTitleDuration = 2.5f;
-    private const float EndThankYouDuration = 2.5f;
     private const float EndCreditsHoldDuration = 1.2f;
     private const float EndFadeDuration = 0.24f;
-    private const float EndCreditsMusicFadeDuration = 1.2f;
     private const float EndCreditsLogoSpacing = 48f;
     private static readonly Vector2 EndCreditsLogoSize = new(360f, 360f);
     private const string EndCreditsContent =
@@ -41,7 +40,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         "<b>BUILT WITH</b>\nUnity 6 LTS\nNetcode for GameObjects\nUnity Gaming Services (Lobby & Relay)\nVivox Voice Chat\nCinemachine · Unity Splines · URP\n\n\n" +
         "<b>SPECIAL THANKS</b>\n" +
         "Thầy Nguyễn Thế Trung - Giảng viên hướng dẫn\n" +
-        "Thầy Nguyễn Thế Duy - Giảng viên Lập trình Game\n" +
+        "Thầy Đặng Thế Duy - Giảng viên Lập trình Game\n" +
         "Trường Cao đẳng FPT Polytechnic Cần Thơ";
 
     public static SeamlessLoadingOverlay Instance { get; private set; }
@@ -54,6 +53,8 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     [Header("End Credits")]
     [Tooltip("Assign the game logo here to have it appear above the end credits.")]
     [SerializeField] private Sprite _endCreditsLogo;
+    [Tooltip("Nhạc phát một lần từ lúc Credit bắt đầu. Kéo AudioClip vào đây trong Inspector.")]
+    [SerializeField] private AudioClip _endCreditsMusic;
 
     private GameObject _loadingPanel;
     private TextMeshProUGUI _progressText;
@@ -66,12 +67,12 @@ public class SeamlessLoadingOverlay : MonoBehaviour
     private GameObject _creditsBackdrop;
     private CanvasGroup _endTitleGroup;
     private CanvasGroup _creditsStageGroup;
-    private AudioClip _endCreditsMusic;
     private AudioSource _endCreditsMusicSource;
     private float _targetProgress;
     private bool _fadeInRequested;
     private bool _lobbyInteractive;
     private bool _isShowingEndCredits;
+    private bool _isEndCreditsSequenceActive;
     private bool _endCreditsFinished;
     private bool _returnToLobbyAfterTest;
     private float _endCreditsEndPosition;
@@ -91,7 +92,6 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
         if (_canvasGroup == null) _canvasGroup = GetComponent<CanvasGroup>();
         if (_canvasGroup == null) _canvasGroup = gameObject.AddComponent<CanvasGroup>();
-        _endCreditsMusic = Resources.Load<AudioClip>("Audio/Music/Where_The_River_Widens");
         BuildRemadeInterface();
         _lobbyInteractive = IsLobbyScene();
 
@@ -121,6 +121,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
 
     private void Update()
     {
+        if (HandleEndCreditsSkipInput()) return;
         HandleEndCreditsShortcut();
 
         if (_tipLeaf != null && _canvasGroup.alpha > 0.01f)
@@ -160,6 +161,8 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         _returnToLobbyAfterTest = _lobbyInteractive;
         BeginLoadingTransition();
         StopAllCoroutines();
+        _canvasGroup.interactable = false;
+        _canvasGroup.blocksRaycasts = true;
         StartEndCreditsMusic();
         HideForLoadingPresentation();
         if (_creditsBackdrop != null) _creditsBackdrop.SetActive(true);
@@ -168,6 +171,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         if (_creditsStageGroup != null) _creditsStageGroup.alpha = 0f;
         _endCreditsFinished = false;
         _isShowingEndCredits = false;
+        _isEndCreditsSequenceActive = true;
         StartCoroutine(PlayEndCreditsSequence());
     }
 
@@ -177,6 +181,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         StopAllCoroutines();
         StopEndCreditsMusic();
         _isShowingEndCredits = false;
+        _isEndCreditsSequenceActive = false;
         _endCreditsFinished = false;
         if (_creditsBackdrop != null) _creditsBackdrop.SetActive(false);
         if (_creditsViewport != null) _creditsViewport.gameObject.SetActive(false);
@@ -311,17 +316,9 @@ public class SeamlessLoadingOverlay : MonoBehaviour
             _toBeContinuedText.gameObject.SetActive(true);
         }));
 
-        yield return new WaitForSecondsRealtime(EndThankYouDuration);
-        yield return StartCoroutine(FadeOutEndCreditsMusic());
-        _endCreditsFinished = true;
-
-        if (_returnToLobbyAfterTest)
-        {
-            _returnToLobbyAfterTest = false;
-            _lobbyInteractive = true;
-            HideForLobby();
-            LobbyAutoController.ResumeLobbyMusicAfterEndCredits();
-        }
+        yield return StartCoroutine(WaitForEndCreditsMusicToFinish());
+        StopEndCreditsMusic();
+        CompleteEndCredits();
     }
 
     private void StartEndCreditsMusic()
@@ -336,14 +333,14 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         AudioManager.Instance.StopAllMusic();
         if (_endCreditsMusic == null)
         {
-            Debug.LogWarning("[SeamlessLoadingOverlay] End credits music was not found at Resources/Audio/Music/Where_The_River_Widens.");
+            Debug.LogWarning("[SeamlessLoadingOverlay] Chua gan End Credits Music trong Inspector.");
             return;
         }
 
         _endCreditsMusicSource = gameObject.AddComponent<AudioSource>();
         _endCreditsMusicSource.clip = _endCreditsMusic;
         _endCreditsMusicSource.playOnAwake = false;
-        _endCreditsMusicSource.loop = true;
+        _endCreditsMusicSource.loop = false;
         _endCreditsMusicSource.spatialBlend = 0f;
         _endCreditsMusicSource.outputAudioMixerGroup = null;
         _endCreditsMusicSource.ignoreListenerPause = true;
@@ -366,22 +363,11 @@ public class SeamlessLoadingOverlay : MonoBehaviour
         }
     }
 
-    private IEnumerator FadeOutEndCreditsMusic()
+    /// <summary>Giữ màn hình cảm ơn cho đến khi AudioClip Credits phát xong.</summary>
+    private IEnumerator WaitForEndCreditsMusicToFinish()
     {
-        if (_endCreditsMusicSource == null)
-            yield break;
-
-        float startVolume = _endCreditsMusicSource.volume;
-        float elapsed = 0f;
-        while (_endCreditsMusicSource != null && elapsed < EndCreditsMusicFadeDuration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float progress = Mathf.Clamp01(elapsed / EndCreditsMusicFadeDuration);
-            _endCreditsMusicSource.volume = Mathf.Lerp(startVolume, 0f, progress);
+        while (_endCreditsMusicSource != null && _endCreditsMusicSource.isPlaying)
             yield return null;
-        }
-
-        StopEndCreditsMusic();
     }
 
     private void StopEndCreditsMusic()
@@ -434,6 +420,56 @@ public class SeamlessLoadingOverlay : MonoBehaviour
             ShowEndCredits();
             Debug.Log("[SeamlessLoadingOverlay] End credits opened with Ctrl+Shift+Enter.");
         }
+    }
+
+    /// <summary>Skips the credit sequence when the player presses any keyboard or gamepad button.</summary>
+    private bool HandleEndCreditsSkipInput()
+    {
+        if (!_isEndCreditsSequenceActive || !WasSkipInputPressed()) return false;
+
+        StopAllCoroutines();
+        StopEndCreditsMusic();
+        _isShowingEndCredits = false;
+        _creditsViewport?.gameObject.SetActive(false);
+        _toBeContinuedText?.gameObject.SetActive(false);
+        if (_creditsBackdrop != null) _creditsBackdrop.SetActive(false);
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 0f;
+            _canvasGroup.blocksRaycasts = false;
+        }
+
+        CompleteEndCredits();
+        return true;
+    }
+
+    private static bool WasSkipInputPressed()
+    {
+        if (Keyboard.current?.anyKey.wasPressedThisFrame == true) return true;
+
+        Gamepad gamepad = Gamepad.current;
+        if (gamepad == null) return false;
+
+        foreach (InputControl control in gamepad.allControls)
+        {
+            if (control is ButtonControl button && button.wasPressedThisFrame)
+                return true;
+        }
+
+        return false;
+    }
+
+    private void CompleteEndCredits()
+    {
+        _isEndCreditsSequenceActive = false;
+        _endCreditsFinished = true;
+
+        if (!_returnToLobbyAfterTest) return;
+
+        _returnToLobbyAfterTest = false;
+        _lobbyInteractive = true;
+        HideForLobby();
+        LobbyAutoController.ResumeLobbyMusicAfterEndCredits();
     }
 
     private void ResetEndCreditsScroll()
@@ -609,6 +645,7 @@ public class SeamlessLoadingOverlay : MonoBehaviour
             Vector2.zero,
             Color.black);
         _creditsBackdrop = creditsBackdrop.gameObject;
+        creditsBackdrop.raycastTarget = true;
         _creditsBackdrop.SetActive(false);
         creditsBackdrop.transform.SetSiblingIndex(_toBeContinuedText.transform.GetSiblingIndex());
 

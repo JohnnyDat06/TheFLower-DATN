@@ -299,6 +299,18 @@ namespace Game.UI.LobbyAuto
             SetStatus("Audio and controls are saved for the whole game", Paper);
         }
 
+        private void ShowCredits()
+        {
+            if (SeamlessLoadingOverlay.Instance == null)
+            {
+                Debug.LogError("[LobbyAutoController] SeamlessLoadingOverlay is required to show credits.");
+                SetStatus("Credits are unavailable right now", Red);
+                return;
+            }
+
+            SeamlessLoadingOverlay.Instance.ShowEndCredits();
+        }
+
         private void ShowRoom()
         {
             ShowPanel(_roomPanel);
@@ -1057,15 +1069,18 @@ namespace Game.UI.LobbyAuto
             TMP_Text subtitle = CreateText(panel, "A cooperative adventure for two", 22f, new Color(0.85f, 1f, 0.90f, 1f), FontStyles.Italic, TextAlignmentOptions.Center);
             StyleColorfulCaption(subtitle);
             Place(subtitle.rectTransform, new Vector2(0f, -178f), new Vector2(800f, 40f), new Vector2(0.5f, 1f));
-            Button start = CreateButton(panel, "START", Teal, new Vector2(0f, -300f), 520f, 130f, 24f);
+            Button start = CreateButton(panel, "START", Teal, new Vector2(0f, -260f), 520f, 130f, 24f);
             start.onClick.AddListener(ShowModeSelection);
-            Button settings = CreateButton(panel, "SETTINGS", PanelSoft, new Vector2(0f, -448f), 520f, 110f, 19f);
+            Button settings = CreateButton(panel, "SETTINGS", PanelSoft, new Vector2(0f, -402f), 520f, 100f, 19f);
             settings.onClick.AddListener(ShowSettings);
-            Button exit = CreateButton(panel, "EXIT", Red, new Vector2(0f, -565f), 520f, 120f, 19f, Paper);
+            Button credits = CreateButton(panel, "CREDITS", Gold, new Vector2(0f, -514f), 520f, 100f, 19f);
+            credits.onClick.AddListener(ShowCredits);
+            Button exit = CreateButton(panel, "EXIT", Red, new Vector2(0f, -626f), 520f, 110f, 19f, Paper);
             exit.onClick.AddListener(ExitGame);
             SetExplicitNavigation(start, null, settings, null, null);
-            SetExplicitNavigation(settings, start, exit, null, null);
-            SetExplicitNavigation(exit, settings, null, null, null);
+            SetExplicitNavigation(settings, start, credits, null, null);
+            SetExplicitNavigation(credits, settings, exit, null, null);
+            SetExplicitNavigation(exit, credits, null, null, null);
             _panelDefaultSelections[panel.gameObject] = start;
             return panel.gameObject;
         }
@@ -1801,6 +1816,7 @@ namespace Game.UI.LobbyAuto
                 "JOIN ROOM" => _config?.JoinRoomButton,
                 "START" => _config?.StartButton,
                 "SETTINGS" => _config?.SettingsButton,
+                "CREDITS" => _config?.CreditsButton,
                 "EXIT" => _theFlowerExitButton,
                 "BACK" => _config?.BackButton,
                 "CREATE" => _config?.CreateButton,

@@ -13,8 +13,6 @@ public class MapCompletionTrigger : NetworkBehaviour
     private string _lobbySceneName = Constants.Scenes.LOBBY;
     [SerializeField, Min(0f), Tooltip("Thời gian chờ tối thiểu trước khi kiểm tra Credit đã chạy xong.")]
     private float _delayBeforeLoad = 4.0f;
-    [SerializeField, Min(1f), Tooltip("Thời gian tối đa chờ Credit trước khi tự động quay về Lobby.")]
-    private float _endCreditsTimeout = 120.0f;
     [SerializeField, Min(1), Tooltip("Số Network Player khác nhau phải cùng ở trong cổng trước khi Credit bắt đầu.")]
     private int _requiredPlayerCount = 1;
 
@@ -114,16 +112,8 @@ public class MapCompletionTrigger : NetworkBehaviour
         yield return new WaitForSecondsRealtime(_delayBeforeLoad);
         if (endCreditsStarted && SeamlessLoadingOverlay.Instance != null)
         {
-            float creditsElapsed = 0f;
             while (!SeamlessLoadingOverlay.Instance.IsEndCreditsComplete)
             {
-                creditsElapsed += Time.unscaledDeltaTime;
-                if (creditsElapsed >= _endCreditsTimeout)
-                {
-                    Debug.LogWarning("[MapCompletionTrigger] End credits timed out; continuing to Lobby.");
-                    break;
-                }
-
                 yield return null;
             }
         }
