@@ -1,36 +1,50 @@
+using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>One of the two player interaction points required to create a single Core Hit.</summary>
+/// <summary>Điểm Core hạ từ trên cao và chờ một trong hai người chơi tương tác.</summary>
 [RequireComponent(typeof(SphereCollider))]
 public sealed class CoreInteractionPoint : MonoBehaviour, IInteractable
 {
-    private const string StateMaterialResourcePath = "Materials/BossMarkerState_URP";
-
-    [Tooltip("Dinh danh diem Core nay. Hai player khac nhau co the kich hoat cung mot diem hoac hai diem khac nhau.")]
+    [Tooltip("Định danh của điểm Core này.")]
     [SerializeField] private CorePointId _pointId;
-    [Tooltip("Ban kinh player co the tim thay diem tuong tac Core.")]
+    [Tooltip("Bán kính người chơi có thể tìm và tương tác với Core.")]
     [SerializeField, Min(0.1f)] private float _interactionRadius = 1.2f;
-    [Tooltip("Controller kiem tra hai diem Core duoc kich hoat dong bo.")]
+    [Tooltip("Controller kiểm tra hai người chơi kích hoạt Core trong khoảng thời gian đồng bộ.")]
     [SerializeField] private DualCoreInteractionController _dualController;
-    [Tooltip("Kich thuoc world-space marker hien thi khi Core mo.")]
-    [SerializeField, Min(0.1f)] private float _visualDiameter = 0.55f;
+    [Tooltip("Tên object model Core nằm dưới điểm tương tác trong Hierarchy.")]
+    [SerializeField] private string _coreVisualName = "Core_Model";
+    [Tooltip("Độ cao Core bắt đầu rơi xuống so với vị trí đã đặt trong scene.")]
+    [SerializeField, Min(0.1f)] private float _descentHeight = 8f;
+    [Tooltip("Thời gian Core hạ từ trên cao xuống vị trí đã đặt.")]
+    [SerializeField, Min(0.1f)] private float _descentDuration = 1.4f;
 
     private SphereCollider _interactionTrigger;
-    private Renderer _stateVisual;
-    private Material _stateMaterialInstance;
+    private GameObject _coreVisual;
+    private Vector3 _targetLocalPosition;
+    private Coroutine _descentRoutine;
+    private bool _wasCoreExposed;
 
-    /// <summary>Stable identity used by the dual-activation validation.</summary>
+    /// <summary>Định danh ổn định dùng khi kiểm tra hai lượt tương tác.</summary>
     public CorePointId PointId => _pointId;
 
-    /// <summary>Maximum server-authoritative distance accepted for a Client interaction request.</summary>
+    /// <summary>Khoảng cách tối đa Host chấp nhận cho yêu cầu tương tác từ Client.</summary>
     public float ServerInteractionDistance => _interactionRadius + 2.2f;
+
+    /// <summary>Thời gian model Core cần để hạ xuống vị trí tương tác.</summary>
+    public float DescentDuration => _descentDuration;
+
+    /// <summary>Chỉ đúng sau khi model Core đã hạ xuống tới vị trí được đặt.</summary>
+    public bool IsReadyForInteraction { get; private set; }
 
     /// <inheritdoc />
     public string InteractionPrompt => $"Activate Core Point {_pointId}";
 
     /// <inheritdoc />
-    public bool CanInteract => _dualController != null && _dualController.CanActivatePoint(this);
+    public bool CanInteract =>
+        IsReadyForInteraction &&
+        _dualController != null &&
+        _dualController.CanActivatePoint(this);
 
     /// <inheritdoc />
     public bool IsActivated => _dualController != null && _dualController.IsPointPending(this);
@@ -41,25 +55,32 @@ public sealed class CoreInteractionPoint : MonoBehaviour, IInteractable
         _interactionTrigger.isTrigger = true;
         _interactionTrigger.radius = _interactionRadius;
         if (_dualController == null) _dualController = GetComponentInParent<DualCoreInteractionController>();
-        CreateStateVisual();
-        RefreshStateVisual();
+        CacheCoreVisual();
+        HideCoreVisual();
     }
 
-    private void OnDestroy()
+    private void OnDisable()
     {
-        if (_stateMaterialInstance != null)
-            Destroy(_stateMaterialInstance);
+        StopDescent();
     }
 
     private void Update()
     {
         if (_dualController == null) _dualController = GetComponentInParent<DualCoreInteractionController>();
-        RefreshStateVisual();
+        bool isCoreExposed = _dualController != null && _dualController.IsCoreExposed;
+
+        if (isCoreExposed && !_wasCoreExposed)
+            BeginDescent();
+        else if (!isCoreExposed && _wasCoreExposed)
+            HideCoreVisual();
+
+        _wasCoreExposed = isCoreExposed;
     }
 
     /// <inheritdoc />
     public void Interact(ulong playerId)
     {
+        if (!CanInteract) return;
         if (NetworkManager.Singleton != null && !NetworkManager.Singleton.IsServer)
         {
             BossNetworkState.Instance?.RequestCoreInteraction(this);
@@ -76,80 +97,78 @@ public sealed class CoreInteractionPoint : MonoBehaviour, IInteractable
     public void OnHoverExit() { }
 
     /// <inheritdoc />
-    public Transform GetPromptTransform() => transform;
+    public Transform GetPromptTransform() => _coreVisual != null ? _coreVisual.transform : transform;
 
-    private void CreateStateVisual()
+    private void CacheCoreVisual()
     {
-        Transform existingVisual = transform.Find("Core Point Visual");
-        if (existingVisual != null)
+        Transform visual = transform.Find(_coreVisualName);
+        if (visual == null)
         {
-            _stateVisual = existingVisual.GetComponent<Renderer>();
-            AssignBuildSafeMaterial();
+            Renderer renderer = GetComponentInChildren<Renderer>(true);
+            visual = renderer != null ? renderer.transform : null;
+        }
+
+        _coreVisual = visual != null ? visual.gameObject : null;
+        if (_coreVisual == null)
+        {
+            Debug.LogError($"[CoreInteractionPoint] Không tìm thấy model Core '{_coreVisualName}' cho {name}.", this);
             return;
         }
 
-        GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        visual.name = "Core Point Visual";
-        visual.transform.SetParent(transform, false);
-        visual.transform.localPosition = Vector3.zero;
-        visual.transform.localScale = Vector3.one * _visualDiameter;
-        Collider visualCollider = visual.GetComponent<Collider>();
-        if (visualCollider != null) Destroy(visualCollider);
-        _stateVisual = visual.GetComponent<Renderer>();
-        AssignBuildSafeMaterial();
+        _targetLocalPosition = _coreVisual.transform.localPosition;
     }
 
-    private void AssignBuildSafeMaterial()
+    private void BeginDescent()
     {
-        if (_stateVisual == null) return;
+        if (_coreVisual == null) CacheCoreVisual();
+        if (_coreVisual == null) return;
 
-        Material template = Resources.Load<Material>(StateMaterialResourcePath);
-        if (template != null)
-        {
-            _stateMaterialInstance = new Material(template)
-            {
-                name = $"{name}_CorePointStateMaterial"
-            };
-            _stateVisual.sharedMaterial = _stateMaterialInstance;
-            return;
-        }
-
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-            ?? Shader.Find("Universal Render Pipeline/Simple Lit")
-            ?? Shader.Find("Universal Render Pipeline/Unlit");
-        if (shader != null)
-        {
-            _stateMaterialInstance = new Material(shader)
-            {
-                name = $"{name}_CorePointStateMaterialFallback"
-            };
-            _stateVisual.sharedMaterial = _stateMaterialInstance;
-            Debug.LogWarning($"[CoreInteractionPoint] Missing Resources material '{StateMaterialResourcePath}', using shader fallback.", this);
-            return;
-        }
-
-        Debug.LogError($"[CoreInteractionPoint] URP visual shader is missing for {name}.", this);
+        StopDescent();
+        IsReadyForInteraction = false;
+        _coreVisual.SetActive(true);
+        _coreVisual.transform.localPosition = _targetLocalPosition + Vector3.up * _descentHeight;
+        _descentRoutine = StartCoroutine(AnimateDescent());
     }
 
-    private void RefreshStateVisual()
+    private IEnumerator AnimateDescent()
     {
-        if (_stateVisual == null) return;
+        Vector3 startPosition = _coreVisual.transform.localPosition;
+        float elapsed = 0f;
 
-        bool isCoreExposed = _dualController != null && _dualController.IsCoreExposed;
-        _stateVisual.gameObject.SetActive(isCoreExposed);
-        if (!isCoreExposed) return;
+        while (elapsed < _descentDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.SmoothStep(0f, 1f, elapsed / _descentDuration);
+            _coreVisual.transform.localPosition =
+                Vector3.LerpUnclamped(startPosition, _targetLocalPosition, progress);
+            yield return null;
+        }
 
-        Color color = IsActivated ? Color.yellow : new Color(0.1f, 0.9f, 1f, 1f);
-        Material material = _stateVisual.sharedMaterial;
-        if (material == null) return;
+        _coreVisual.transform.localPosition = _targetLocalPosition;
+        IsReadyForInteraction = true;
+        _descentRoutine = null;
+    }
 
-        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
-        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
-        if (material.HasProperty("_EmissionColor")) material.SetColor("_EmissionColor", color * 1.25f);
+    private void HideCoreVisual()
+    {
+        StopDescent();
+        IsReadyForInteraction = false;
+        if (_coreVisual == null) CacheCoreVisual();
+        if (_coreVisual == null) return;
+
+        _coreVisual.transform.localPosition = _targetLocalPosition;
+        _coreVisual.SetActive(false);
+    }
+
+    private void StopDescent()
+    {
+        if (_descentRoutine == null) return;
+        StopCoroutine(_descentRoutine);
+        _descentRoutine = null;
     }
 }
 
-/// <summary>Identifiers for the authored Core interaction markers.</summary>
+/// <summary>Định danh hai điểm Core được đặt trong arena.</summary>
 public enum CorePointId
 {
     A,

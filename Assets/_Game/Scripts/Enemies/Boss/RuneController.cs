@@ -2,40 +2,37 @@ using System;
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>Owns one Rune's state, trigger volume and minimal Phase 6 visual feedback.</summary>
+/// <summary>Điều khiển một thùng gỗ nhận sóng xung kích và kích hoạt Seal tương ứng.</summary>
 [RequireComponent(typeof(SphereCollider))]
 public sealed class RuneController : MonoBehaviour
 {
-    [Tooltip("Bán kính vùng Shockwave phải đi qua để Charge Rune.")]
+    [Tooltip("Bán kính vùng sóng xung kích phải đi qua để phá thùng gỗ.")]
     [SerializeField, Min(0.1f)] private float _shockwaveTriggerRadius = 0.9f;
-    [Tooltip("Prefab kim cương hiển thị trạng thái của Rune.")]
-    [SerializeField] private GameObject _diamondPrefab;
-    [Tooltip("Vị trí local của kim cương so với marker Rune.")]
-    [SerializeField] private Vector3 _diamondLocalPosition = new(0f, 0.55f, 0f);
-    [Tooltip("Tỷ lệ local của model kim cương.")]
-    [SerializeField] private Vector3 _diamondLocalScale = Vector3.one;
-    [Tooltip("So giay Rune giu Charged neu chua duoc Seal consume; co the tinh chinh theo arena.")]
+    [Tooltip("Thời gian Seal chờ người chơi tương tác trước khi thùng gỗ xuất hiện lại ở một ô sàn an toàn.")]
     [SerializeField, Min(0.1f)] private float _chargedDuration = 3f;
+    [Tooltip("Tên object model thùng gỗ nằm dưới Rune trong Hierarchy.")]
+    [SerializeField] private string _barrelVisualName = "ThungGo_Model";
 
     private SphereCollider _shockwaveTrigger;
-    private Renderer[] _stateVisuals;
-    private Light[] _stateLights;
+    private GameObject _barrelVisual;
     private RuneManager _manager;
+    private Vector3 _initialWorldPosition;
     private float _chargedUntil;
 
-    /// <summary>Current state of this Rune.</summary>
+    /// <summary>Trạng thái hiện tại của thùng gỗ.</summary>
     public RuneState State { get; private set; } = RuneState.Inactive;
 
-    /// <summary>Raised once after this Rune successfully changes state.</summary>
+    /// <summary>Phát ra sau khi trạng thái thùng gỗ thay đổi thành công.</summary>
     public event Action<RuneController, RuneState> StateChanged;
 
     private void Awake()
     {
+        _initialWorldPosition = transform.position;
         _shockwaveTrigger = GetComponent<SphereCollider>();
         _shockwaveTrigger.isTrigger = true;
         _shockwaveTrigger.radius = _shockwaveTriggerRadius;
         _manager = GetComponentInParent<RuneManager>();
-        CreateStateVisual();
+        CacheBarrelVisual();
         ApplyVisualState();
     }
 
@@ -43,11 +40,14 @@ public sealed class RuneController : MonoBehaviour
     {
         if (!IsServerAuthority() || State != RuneState.Charged || Time.time < _chargedUntil) return;
 
-        ResetRune();
-        Debug.Log($"[RuneController] {name} charge expired after {_chargedDuration:0.0} seconds.", this);
+        if (_manager == null) _manager = GetComponentInParent<RuneManager>();
+        if (_manager != null) _manager.RespawnTimedOutRune(this);
+        else ResetRune();
+
+        Debug.Log($"[RuneController] {name} hết thời gian chờ và đã xuất hiện lại.", this);
     }
 
-    /// <summary>Charges this Rune once. Only RuneManager may coordinate this change.</summary>
+    /// <summary>Ẩn thùng gỗ sau khi bị sóng xung kích chạm vào.</summary>
     public bool TryCharge()
     {
         if (State != RuneState.Inactive) return false;
@@ -59,7 +59,7 @@ public sealed class RuneController : MonoBehaviour
         return true;
     }
 
-    /// <summary>Marks this charged Rune as consumed by its matching Seal.</summary>
+    /// <summary>Đánh dấu thùng đã được Seal tương ứng sử dụng.</summary>
     public bool TryConsume()
     {
         if (State != RuneState.Charged) return false;
@@ -71,21 +71,45 @@ public sealed class RuneController : MonoBehaviour
         return true;
     }
 
-    /// <summary>Returns this Rune to the inactive state for the Phase 6 test cycle.</summary>
+    /// <summary>Cho thùng xuất hiện lại tại vị trí hiện tại.</summary>
     public void ResetRune()
     {
-        if (State == RuneState.Inactive) return;
-
+        RuneState previousState = State;
         State = RuneState.Inactive;
         _chargedUntil = 0f;
         ApplyVisualState();
-        StateChanged?.Invoke(this, State);
+        if (previousState != State) StateChanged?.Invoke(this, State);
     }
 
-    /// <summary>Applies the Host-owned Rune state and refreshes Client visuals.</summary>
+    /// <summary>Cho thùng xuất hiện lại tại một vị trí sàn an toàn do Host chọn.</summary>
+    public void ResetRuneAt(Vector3 worldPosition)
+    {
+        transform.position = worldPosition;
+        ResetRune();
+    }
+
+    /// <summary>Đưa thùng về vị trí ban đầu khi bắt đầu một chu kỳ Boss mới.</summary>
+    public void RestoreInitialPosition()
+    {
+        transform.position = _initialWorldPosition;
+        ResetRune();
+    }
+
+    /// <summary>Áp dụng vị trí thùng do Host đồng bộ sang Client.</summary>
+    public void ApplyNetworkPosition(Vector3 worldPosition)
+    {
+        if ((transform.position - worldPosition).sqrMagnitude < 0.000001f) return;
+        transform.position = worldPosition;
+    }
+
+    /// <summary>Áp dụng trạng thái do Host sở hữu và cập nhật model trên Client.</summary>
     public void ApplyNetworkState(RuneState state)
     {
-        if (State == state) return;
+        if (State == state)
+        {
+            ApplyVisualState();
+            return;
+        }
 
         State = state;
         _chargedUntil = 0f;
@@ -93,17 +117,11 @@ public sealed class RuneController : MonoBehaviour
         StateChanged?.Invoke(this, State);
     }
 
-    [ContextMenu("Debug/Charge Rune")]
-    private void ChargeRuneForDebug()
-    {
-        TryCharge();
-    }
+    [ContextMenu("Debug/Phá thùng bằng sóng xung kích")]
+    private void ChargeRuneForDebug() => TryCharge();
 
-    [ContextMenu("Debug/Reset Rune")]
-    private void ResetRuneForDebug()
-    {
-        ResetRune();
-    }
+    [ContextMenu("Debug/Khôi phục thùng")]
+    private void ResetRuneForDebug() => ResetRune();
 
     private void OnTriggerEnter(Collider other)
     {
@@ -114,61 +132,24 @@ public sealed class RuneController : MonoBehaviour
         _manager?.TryChargeRune(this);
     }
 
-    private void CreateStateVisual()
+    private void CacheBarrelVisual()
     {
-        Transform existingVisual = transform.Find("Rune State Visual");
-        if (existingVisual != null)
+        Transform visual = transform.Find(_barrelVisualName);
+        if (visual == null)
         {
-            CacheVisualComponents(existingVisual.gameObject);
-            return;
+            Renderer renderer = GetComponentInChildren<Renderer>(true);
+            visual = renderer != null ? renderer.transform : null;
         }
 
-        if (_diamondPrefab == null)
-        {
-            Debug.LogError($"[RuneController] Diamond prefab is missing for {name}.", this);
-            return;
-        }
-
-        GameObject visual = Instantiate(_diamondPrefab, transform);
-        visual.name = "Rune State Visual";
-        visual.transform.localPosition = _diamondLocalPosition;
-        visual.transform.localScale = _diamondLocalScale;
-        CacheVisualComponents(visual);
+        _barrelVisual = visual != null ? visual.gameObject : null;
+        if (_barrelVisual == null)
+            Debug.LogError($"[RuneController] Không tìm thấy model thùng gỗ '{_barrelVisualName}' cho {name}.", this);
     }
 
     private void ApplyVisualState()
     {
-        Color stateColor = State switch
-        {
-            RuneState.Charged => new Color(1f, 0.08f, 0.03f, 0.9f),
-            RuneState.Consumed => new Color(0.2f, 0.12f, 0.08f, 0.75f),
-            _ => new Color(0.93f, 0.96f, 1f, 0.75f)
-        };
-
-        if (_stateVisuals != null)
-        {
-            foreach (Renderer visual in _stateVisuals)
-            {
-                Material material = visual.material;
-                if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", stateColor);
-                if (material.HasProperty("_Color")) material.SetColor("_Color", stateColor);
-                if (material.HasProperty("_EmissionColor"))
-                    material.SetColor("_EmissionColor", State == RuneState.Charged ? stateColor * 1.5f : stateColor * 0.2f);
-            }
-        }
-
-        if (_stateLights == null) return;
-        foreach (Light stateLight in _stateLights)
-        {
-            stateLight.color = stateColor;
-            stateLight.intensity = State == RuneState.Charged ? 0.65f : 0.2f;
-        }
-    }
-
-    private void CacheVisualComponents(GameObject visual)
-    {
-        _stateVisuals = visual.GetComponentsInChildren<Renderer>(true);
-        _stateLights = visual.GetComponentsInChildren<Light>(true);
+        if (_barrelVisual == null) CacheBarrelVisual();
+        if (_barrelVisual != null) _barrelVisual.SetActive(State == RuneState.Inactive);
     }
 
     private static bool IsServerAuthority() =>

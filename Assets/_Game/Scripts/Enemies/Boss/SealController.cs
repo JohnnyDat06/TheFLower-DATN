@@ -1,30 +1,54 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
-/// <summary>Owns one Seal's Rune prerequisite, player interaction and active-duration timer.</summary>
+/// <summary>Điều khiển điều kiện Rune, hiệu ứng phát sáng và chuyển động bật dậy của một Seal.</summary>
 [RequireComponent(typeof(SphereCollider))]
 public sealed class SealController : MonoBehaviour, IInteractable
 {
-    private const string StateMaterialResourcePath = "Materials/BossMarkerState_URP";
-
-    [Tooltip("Rune phải ở trạng thái Charged trước khi Seal có thể tương tác.")]
+    [Tooltip("Thùng gỗ phải bị sóng xung kích phá trước khi Seal có thể tương tác.")]
     [SerializeField] private RuneController _requiredRune;
-    [Tooltip("Bán kính player có thể tìm và tương tác Seal.")]
+    [Tooltip("Bán kính người chơi có thể tìm và tương tác với Seal.")]
     [SerializeField, Min(0.1f)] private float _interactionRadius = 1.2f;
-    [Tooltip("So giay Seal giu trang thai Active truoc khi tu tat va reset Rune tuong ung.")]
+    [Tooltip("Số giây Seal giữ trạng thái đã kích hoạt trước khi tự tắt và khôi phục thùng tương ứng.")]
     [SerializeField, Range(10f, 15f)] private float _activeDuration = 12f;
+    [Tooltip("Tên pivot chứa model Seal và được dùng để chạy chuyển động bật dậy.")]
+    [SerializeField] private string _visualPivotName = "Seal Visual Pivot";
+    [Tooltip("Màu phát sáng của Seal sau khi thùng gỗ tương ứng bị phá.")]
+    [SerializeField] private Color _readyEmissionColor = new(0.05f, 0.9f, 1f, 1f);
+    [Tooltip("Cường độ phát sáng khi Seal đang chờ người chơi tương tác.")]
+    [SerializeField, Min(0f)] private float _readyEmissionIntensity = 2.2f;
+    [Tooltip("Cường độ phát sáng sau khi Seal đã được người chơi kích hoạt.")]
+    [SerializeField, Min(0f)] private float _activeEmissionIntensity = 3f;
+    [Tooltip("Cường độ đèn phụ khi Seal đang chờ tương tác.")]
+    [SerializeField, Min(0f)] private float _readyLightIntensity = 1.5f;
+    [Tooltip("Cường độ đèn phụ sau khi Seal đã bật dậy.")]
+    [SerializeField, Min(0f)] private float _activeLightIntensity = 2.2f;
+    [Tooltip("Phạm vi chiếu sáng của đèn phụ trên Seal.")]
+    [SerializeField, Min(0.1f)] private float _stateLightRange = 3f;
+    [Tooltip("Vị trí local cuối cùng của pivot khi Seal bật dậy.")]
+    [SerializeField] private Vector3 _activeLocalPosition = new(0f, 1.2f, 0f);
+    [Tooltip("Góc xoay local cuối cùng của pivot khi Seal bật dậy.")]
+    [SerializeField] private Vector3 _activeLocalEulerAngles = new(-90f, 0f, 0f);
+    [Tooltip("Thời gian Seal chuyển từ nằm trên sàn sang tư thế bật dậy.")]
+    [SerializeField, Min(0.05f)] private float _poseTransitionDuration = 0.45f;
 
+    private readonly List<Material> _stateMaterials = new();
     private SphereCollider _interactionTrigger;
-    private Renderer _stateVisual;
-    private Material _stateMaterialInstance;
     private SealManager _manager;
+    private Transform _visualPivot;
+    private Light _stateLight;
+    private Vector3 _inactiveLocalPosition;
+    private Quaternion _inactiveLocalRotation;
+    private Coroutine _poseRoutine;
     private float _activeUntil;
 
-    /// <summary>Current state of this Seal.</summary>
+    /// <summary>Trạng thái hiện tại của Seal.</summary>
     public SealState State { get; private set; } = SealState.Inactive;
 
-    /// <summary>Rune prerequisite assigned to this Seal.</summary>
+    /// <summary>Thùng gỗ bắt buộc phải bị phá trước Seal này.</summary>
     public RuneController RequiredRune => _requiredRune;
 
     /// <inheritdoc />
@@ -36,7 +60,7 @@ public sealed class SealController : MonoBehaviour, IInteractable
     /// <inheritdoc />
     public bool IsActivated => State == SealState.Active;
 
-    /// <summary>Raised whenever the Seal changes state.</summary>
+    /// <summary>Phát ra mỗi khi trạng thái Seal thay đổi.</summary>
     public event Action<SealController, SealState> StateChanged;
 
     private void Awake()
@@ -45,15 +69,23 @@ public sealed class SealController : MonoBehaviour, IInteractable
         _interactionTrigger.isTrigger = true;
         _interactionTrigger.radius = _interactionRadius;
         _manager = GetComponentInParent<SealManager>();
-        CreateStateVisual();
+        CacheModelVisual();
         RefreshReadiness();
-        ApplyVisualState();
+        ApplyVisualState(false);
+    }
+
+    private void OnDisable()
+    {
+        if (_poseRoutine == null) return;
+        StopCoroutine(_poseRoutine);
+        _poseRoutine = null;
     }
 
     private void OnDestroy()
     {
-        if (_stateMaterialInstance != null)
-            Destroy(_stateMaterialInstance);
+        foreach (Material material in _stateMaterials)
+            if (material != null) Destroy(material);
+        _stateMaterials.Clear();
     }
 
     private void Update()
@@ -89,16 +121,16 @@ public sealed class SealController : MonoBehaviour, IInteractable
     public void OnHoverExit() { }
 
     /// <inheritdoc />
-    public Transform GetPromptTransform() => transform;
+    public Transform GetPromptTransform() => _visualPivot != null ? _visualPivot : transform;
 
-    /// <summary>Updates Ready state after the assigned Rune changes.</summary>
+    /// <summary>Chuyển Seal sang phát sáng sau khi thùng gỗ tương ứng bị phá.</summary>
     public void RefreshReadiness()
     {
         if (State != SealState.Inactive || _requiredRune == null || _requiredRune.State != RuneState.Charged) return;
         SetState(SealState.Ready);
     }
 
-    /// <summary>Activates this Seal once after the manager validates player and Rune conditions.</summary>
+    /// <summary>Kích hoạt Seal và chạy chuyển động bật dậy sau khi manager xác thực người chơi.</summary>
     public bool TryActivate()
     {
         if (State != SealState.Ready || _requiredRune == null || !_requiredRune.TryConsume()) return false;
@@ -108,28 +140,33 @@ public sealed class SealController : MonoBehaviour, IInteractable
         return true;
     }
 
-    /// <summary>Clears this Seal's active timer so the next Rune-and-Seal cycle can begin.</summary>
+    /// <summary>Đưa Seal về trạng thái ban đầu cho chu kỳ kế tiếp.</summary>
     public void ResetSealForCycle()
     {
         _activeUntil = 0f;
-        SetState(SealState.Inactive);
+        if (State == SealState.Inactive) ApplyVisualState(true);
+        else SetState(SealState.Inactive);
     }
 
-    /// <summary>Applies the Host-owned Seal state and refreshes Client visuals.</summary>
+    /// <summary>Áp dụng trạng thái Seal do Host đồng bộ sang Client.</summary>
     public void ApplyNetworkState(SealState state)
     {
-        if (State == state) return;
-
         _activeUntil = 0f;
+        if (State == state)
+        {
+            ApplyVisualState(false);
+            return;
+        }
+
         SetState(state);
     }
 
     private void ResetAfterActiveTimeout()
     {
         _activeUntil = 0f;
-        _requiredRune?.ResetRune();
+        _requiredRune?.RestoreInitialPosition();
         SetState(SealState.Inactive);
-        Debug.Log($"[SealController] {name} timed out and reset with its Rune.", this);
+        Debug.Log($"[SealController] {name} hết thời gian kích hoạt và đã trở về trạng thái ban đầu.", this);
     }
 
     private void SetState(SealState nextState)
@@ -137,81 +174,161 @@ public sealed class SealController : MonoBehaviour, IInteractable
         if (State == nextState) return;
 
         State = nextState;
-        ApplyVisualState();
-        Debug.Log($"[SealController] {name} is now {State}.", this);
+        ApplyVisualState(false);
+        Debug.Log($"[SealController] {name} chuyển sang trạng thái {State}.", this);
         StateChanged?.Invoke(this, State);
     }
 
-    private void CreateStateVisual()
+    private void CacheModelVisual()
     {
-        Transform existingVisual = transform.Find("Seal State Visual");
-        if (existingVisual != null)
+        _visualPivot = transform.Find(_visualPivotName);
+        if (_visualPivot == null)
         {
-            _stateVisual = existingVisual.GetComponent<Renderer>();
-            AssignBuildSafeMaterial();
+            Transform model = transform.Find("Seal_Model");
+            if (model != null)
+            {
+                GameObject pivotObject = new(_visualPivotName);
+                _visualPivot = pivotObject.transform;
+                _visualPivot.SetParent(transform, false);
+                model.SetParent(_visualPivot, false);
+            }
+        }
+
+        if (_visualPivot == null)
+        {
+            Debug.LogError($"[SealController] Không tìm thấy model Seal cho {name}.", this);
             return;
         }
 
-        GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        visual.name = "Seal State Visual";
-        visual.transform.SetParent(transform, false);
-        visual.transform.localPosition = new Vector3(0f, 0.05f, 0f);
-        visual.transform.localScale = new Vector3(1.1f, 0.05f, 1.1f);
-        Collider visualCollider = visual.GetComponent<Collider>();
-        if (visualCollider != null) Destroy(visualCollider);
-        _stateVisual = visual.GetComponent<Renderer>();
-        AssignBuildSafeMaterial();
+        _inactiveLocalPosition = _visualPivot.localPosition;
+        _inactiveLocalRotation = _visualPivot.localRotation;
+        CacheMaterialInstances();
+        CreateStateLight();
     }
 
-    private void AssignBuildSafeMaterial()
+    private void CacheMaterialInstances()
     {
-        if (_stateVisual == null) return;
-
-        Material template = Resources.Load<Material>(StateMaterialResourcePath);
-        if (template != null)
+        _stateMaterials.Clear();
+        foreach (Renderer renderer in _visualPivot.GetComponentsInChildren<Renderer>(true))
         {
-            _stateMaterialInstance = new Material(template)
+            Material[] materials = renderer.materials;
+            foreach (Material material in materials)
             {
-                name = $"{name}_SealStateMaterial"
-            };
-            _stateVisual.sharedMaterial = _stateMaterialInstance;
-            return;
+                if (material != null && !_stateMaterials.Contains(material))
+                    _stateMaterials.Add(material);
+            }
         }
-
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-            ?? Shader.Find("Universal Render Pipeline/Simple Lit")
-            ?? Shader.Find("Universal Render Pipeline/Unlit");
-        if (shader != null)
-        {
-            _stateMaterialInstance = new Material(shader)
-            {
-                name = $"{name}_SealStateMaterialFallback"
-            };
-            _stateVisual.sharedMaterial = _stateMaterialInstance;
-            Debug.LogWarning($"[SealController] Missing Resources material '{StateMaterialResourcePath}', using shader fallback.", this);
-            return;
-        }
-
-        Debug.LogError($"[SealController] URP visual material is missing for {name}.", this);
     }
 
-    private void ApplyVisualState()
+    private void CreateStateLight()
     {
-        if (_stateVisual == null) return;
+        Transform existingLight = _visualPivot.Find("Seal Activation Light");
+        if (existingLight != null) _stateLight = existingLight.GetComponent<Light>();
 
-        Color color = State switch
+        if (_stateLight == null)
         {
-            SealState.Ready => Color.yellow,
-            SealState.Active => Color.green,
-            _ => new Color(0.15f, 0.2f, 0.25f, 1f)
+            GameObject lightObject = new("Seal Activation Light");
+            lightObject.transform.SetParent(_visualPivot, false);
+            lightObject.transform.localPosition = new Vector3(0f, 0.35f, 0f);
+            _stateLight = lightObject.AddComponent<Light>();
+            _stateLight.type = LightType.Point;
+            _stateLight.shadows = LightShadows.None;
+        }
+
+        _stateLight.color = _readyEmissionColor;
+        _stateLight.range = _stateLightRange;
+    }
+
+    private void ApplyVisualState(bool snapPose)
+    {
+        float emissionIntensity = State switch
+        {
+            SealState.Ready => _readyEmissionIntensity,
+            SealState.Active => _activeEmissionIntensity,
+            _ => 0f
         };
-        Material material = _stateVisual.sharedMaterial;
-        if (material == null) return;
+        Color emissionColor = _readyEmissionColor * emissionIntensity;
 
-        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
-        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
-        if (material.HasProperty("_EmissionColor"))
-            material.SetColor("_EmissionColor", State == SealState.Active ? color * 1.25f : color * 0.15f);
+        foreach (Material material in _stateMaterials)
+        {
+            if (material == null || !IsGlowAccentMaterial(material) || !material.HasProperty("_EmissionColor"))
+                continue;
+
+            material.SetColor("_EmissionColor", emissionColor);
+            if (emissionIntensity > 0f) material.EnableKeyword("_EMISSION");
+            else material.DisableKeyword("_EMISSION");
+        }
+
+        if (_stateLight != null)
+        {
+            _stateLight.color = _readyEmissionColor;
+            _stateLight.range = _stateLightRange;
+            _stateLight.intensity = State switch
+            {
+                SealState.Ready => _readyLightIntensity,
+                SealState.Active => _activeLightIntensity,
+                _ => 0f
+            };
+            _stateLight.enabled = _stateLight.intensity > 0f;
+        }
+
+        SetRaisedPose(State == SealState.Active, snapPose);
+    }
+
+    private static bool IsGlowAccentMaterial(Material material)
+    {
+        string materialName = material.name.ToLowerInvariant();
+        return materialName.Contains("cyan") ||
+               materialName.Contains("turquoise") ||
+               materialName.Contains("ivory") ||
+               materialName.Contains("crystal") ||
+               materialName.Contains("emission") ||
+               materialName.Contains("glow");
+    }
+
+    private void SetRaisedPose(bool isRaised, bool snap)
+    {
+        if (_visualPivot == null) return;
+
+        Vector3 targetPosition = isRaised ? _activeLocalPosition : _inactiveLocalPosition;
+        Quaternion targetRotation = isRaised
+            ? Quaternion.Euler(_activeLocalEulerAngles)
+            : _inactiveLocalRotation;
+
+        if (_poseRoutine != null)
+        {
+            StopCoroutine(_poseRoutine);
+            _poseRoutine = null;
+        }
+
+        if (snap || !isActiveAndEnabled)
+        {
+            _visualPivot.localPosition = targetPosition;
+            _visualPivot.localRotation = targetRotation;
+            return;
+        }
+
+        _poseRoutine = StartCoroutine(AnimatePose(targetPosition, targetRotation));
+    }
+
+    private IEnumerator AnimatePose(Vector3 targetPosition, Quaternion targetRotation)
+    {
+        Vector3 startPosition = _visualPivot.localPosition;
+        Quaternion startRotation = _visualPivot.localRotation;
+        float elapsed = 0f;
+
+        while (elapsed < _poseTransitionDuration)
+        {
+            elapsed += Time.deltaTime;
+            float progress = Mathf.SmoothStep(0f, 1f, elapsed / _poseTransitionDuration);
+            _visualPivot.localPosition = Vector3.LerpUnclamped(startPosition, targetPosition, progress);
+            _visualPivot.localRotation = Quaternion.SlerpUnclamped(startRotation, targetRotation, progress);
+            yield return null;
+        }
+
+        _visualPivot.localPosition = targetPosition;
+        _visualPivot.localRotation = targetRotation;
+        _poseRoutine = null;
     }
 
     private static bool IsServerAuthority() =>
