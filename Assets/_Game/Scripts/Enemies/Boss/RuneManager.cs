@@ -14,8 +14,11 @@ public sealed class RuneManager : MonoBehaviour
     [SerializeField, Min(0f)] private float _barrelSurfaceOffset = 0.03f;
     [Tooltip("Khoảng cách tối thiểu giữa hai thùng gỗ khi chọn vị trí xuất hiện lại.")]
     [SerializeField, Min(0f)] private float _minimumBarrelSpacing = 2f;
+    [Tooltip("Khoảng cách tối thiểu tính từ Boss theo hướng tiến vào arena; các ô ngang hàng hoặc phía sau Boss sẽ không được chọn.")]
+    [SerializeField, Min(0f)] private float _minimumDistanceInFrontOfBoss = 1f;
 
     private SealManager _sealManager;
+    private BossArenaReferences _arenaReferences;
 
     /// <summary>Raised whenever a Rune enters the Charged state.</summary>
     public event Action<RuneController> RuneCharged;
@@ -35,6 +38,7 @@ public sealed class RuneManager : MonoBehaviour
         RefreshRuneReferences();
         if (_floorTileManager == null) _floorTileManager = GetComponent<FloorTileManager>();
         _sealManager = GetComponent<SealManager>();
+        _arenaReferences = GetComponent<BossArenaReferences>();
     }
 
     /// <summary>Charges one Rune after a server-authoritative Shockwave overlap.</summary>
@@ -66,6 +70,7 @@ public sealed class RuneManager : MonoBehaviour
         if (rune == null || rune.State != RuneState.Charged || !IsServerAuthority()) return;
         if (_floorTileManager == null) _floorTileManager = GetComponent<FloorTileManager>();
         if (_sealManager == null) _sealManager = GetComponent<SealManager>();
+        if (_arenaReferences == null) _arenaReferences = GetComponent<BossArenaReferences>();
 
         _sealManager?.ResetAllSealsForCycle();
         RespawnRunePairOnSafeTiles();
@@ -118,6 +123,7 @@ public sealed class RuneManager : MonoBehaviour
             if (tile == null || !tile.CanHostBossPickup) continue;
 
             Vector3 candidatePosition = tile.WorldSurfaceCenter + Vector3.up * _barrelSurfaceOffset;
+            if (!IsPositionInFrontOfBoss(candidatePosition)) continue;
             float requiredSpacing = enforceSpacing ? _minimumBarrelSpacing : 0.1f;
             if (IsTooCloseToReservedPosition(reservedPositions, candidatePosition, requiredSpacing)) continue;
             candidates.Add(tile);
@@ -143,6 +149,19 @@ public sealed class RuneManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    private bool IsPositionInFrontOfBoss(Vector3 candidatePosition)
+    {
+        if (_arenaReferences == null || _arenaReferences.ShockwaveOrigin == null) return false;
+
+        Vector3 arenaForward = Vector3.ProjectOnPlane(_arenaReferences.ShockwaveDirection, Vector3.up).normalized;
+        if (arenaForward.sqrMagnitude < 0.0001f) return false;
+
+        Vector3 offsetFromBoss = Vector3.ProjectOnPlane(
+            candidatePosition - _arenaReferences.ShockwaveOrigin.position,
+            Vector3.up);
+        return Vector3.Dot(offsetFromBoss, arenaForward) >= _minimumDistanceInFrontOfBoss;
     }
 
     private static bool IsServerAuthority() =>
