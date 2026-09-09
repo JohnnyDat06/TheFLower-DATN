@@ -15,6 +15,8 @@ public sealed class RuneManager : MonoBehaviour
     [Tooltip("Khoảng cách tối thiểu giữa hai thùng gỗ khi chọn vị trí xuất hiện lại.")]
     [SerializeField, Min(0f)] private float _minimumBarrelSpacing = 2f;
 
+    private SealManager _sealManager;
+
     /// <summary>Raised whenever a Rune enters the Charged state.</summary>
     public event Action<RuneController> RuneCharged;
 
@@ -32,6 +34,7 @@ public sealed class RuneManager : MonoBehaviour
     {
         RefreshRuneReferences();
         if (_floorTileManager == null) _floorTileManager = GetComponent<FloorTileManager>();
+        _sealManager = GetComponent<SealManager>();
     }
 
     /// <summary>Charges one Rune after a server-authoritative Shockwave overlap.</summary>
@@ -60,18 +63,36 @@ public sealed class RuneManager : MonoBehaviour
     /// <summary>Cho một thùng hết thời gian chờ xuất hiện lại trên ô sàn còn an toàn.</summary>
     public void RespawnTimedOutRune(RuneController rune)
     {
-        if (rune == null || !IsServerAuthority()) return;
+        if (rune == null || rune.State != RuneState.Charged || !IsServerAuthority()) return;
         if (_floorTileManager == null) _floorTileManager = GetComponent<FloorTileManager>();
+        if (_sealManager == null) _sealManager = GetComponent<SealManager>();
 
-        if (TryFindSafeSpawnPosition(rune, true, out Vector3 spawnPosition) ||
-            TryFindSafeSpawnPosition(rune, false, out spawnPosition))
+        _sealManager?.ResetAllSealsForCycle();
+        RespawnRunePairOnSafeTiles();
+        Debug.Log($"[RuneManager] {rune.name} hết thời gian chờ; Host đã đặt lại cả hai thùng gỗ và hai Seal.", this);
+    }
+
+    private void RespawnRunePairOnSafeTiles()
+    {
+        RefreshRuneReferences();
+        List<Vector3> reservedPositions = new();
+
+        foreach (RuneController rune in _runes)
         {
-            rune.ResetRuneAt(spawnPosition);
-            return;
-        }
+            if (rune == null) continue;
 
-        rune.RestoreInitialPosition();
-        Debug.LogWarning($"[RuneManager] Không còn ô sàn an toàn; {rune.name} trở về vị trí ban đầu.", rune);
+            if (TryFindSafeSpawnPosition(reservedPositions, true, out Vector3 spawnPosition) ||
+                TryFindSafeSpawnPosition(reservedPositions, false, out spawnPosition))
+            {
+                reservedPositions.Add(spawnPosition);
+                rune.ResetRuneAt(spawnPosition);
+                continue;
+            }
+
+            rune.RestoreInitialPosition();
+            reservedPositions.Add(rune.transform.position);
+            Debug.LogWarning($"[RuneManager] Không còn ô sàn an toàn; {rune.name} trở về vị trí ban đầu.", rune);
+        }
     }
 
     private void RefreshRuneReferences()
@@ -83,11 +104,11 @@ public sealed class RuneManager : MonoBehaviour
     }
 
     private bool TryFindSafeSpawnPosition(
-        RuneController rune,
+        IReadOnlyList<Vector3> reservedPositions,
         bool enforceSpacing,
         out Vector3 spawnPosition)
     {
-        spawnPosition = rune.transform.position;
+        spawnPosition = Vector3.zero;
         FloorTile[] tiles = _floorTileManager != null ? _floorTileManager.Tiles : null;
         if (tiles == null || tiles.Length == 0) return false;
 
@@ -97,7 +118,8 @@ public sealed class RuneManager : MonoBehaviour
             if (tile == null || !tile.CanHostBossPickup) continue;
 
             Vector3 candidatePosition = tile.WorldSurfaceCenter + Vector3.up * _barrelSurfaceOffset;
-            if (enforceSpacing && IsTooCloseToAnotherRune(rune, candidatePosition)) continue;
+            float requiredSpacing = enforceSpacing ? _minimumBarrelSpacing : 0.1f;
+            if (IsTooCloseToReservedPosition(reservedPositions, candidatePosition, requiredSpacing)) continue;
             candidates.Add(tile);
         }
 
@@ -108,14 +130,15 @@ public sealed class RuneManager : MonoBehaviour
         return true;
     }
 
-    private bool IsTooCloseToAnotherRune(RuneController rune, Vector3 candidatePosition)
+    private bool IsTooCloseToReservedPosition(
+        IReadOnlyList<Vector3> reservedPositions,
+        Vector3 candidatePosition,
+        float requiredSpacing)
     {
-        float minimumSqrDistance = _minimumBarrelSpacing * _minimumBarrelSpacing;
-        foreach (RuneController otherRune in _runes)
+        float minimumSqrDistance = requiredSpacing * requiredSpacing;
+        foreach (Vector3 reservedPosition in reservedPositions)
         {
-            if (otherRune == null || otherRune == rune) continue;
-
-            Vector3 offset = Vector3.ProjectOnPlane(otherRune.transform.position - candidatePosition, Vector3.up);
+            Vector3 offset = Vector3.ProjectOnPlane(reservedPosition - candidatePosition, Vector3.up);
             if (offset.sqrMagnitude < minimumSqrDistance) return true;
         }
 
