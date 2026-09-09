@@ -13,7 +13,7 @@ public sealed class SealController : MonoBehaviour, IInteractable
     [Tooltip("Bán kính người chơi có thể tìm và tương tác với Seal.")]
     [SerializeField, Min(0.1f)] private float _interactionRadius = 1.2f;
     [Tooltip("Số giây Seal giữ trạng thái đã kích hoạt trước khi tự tắt và khôi phục thùng tương ứng.")]
-    [SerializeField, Range(10f, 15f)] private float _activeDuration = 12f;
+    [SerializeField, Min(0.1f)] private float _activeDuration = 14f;
     [Tooltip("Tên pivot chứa model Seal và được dùng để chạy chuyển động bật dậy.")]
     [SerializeField] private string _visualPivotName = "Seal Visual Pivot";
     [Tooltip("Màu phát sáng của Seal sau khi thùng gỗ tương ứng bị phá.")]
