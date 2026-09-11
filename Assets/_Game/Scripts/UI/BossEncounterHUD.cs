@@ -10,10 +10,16 @@ public sealed class BossEncounterHUD : MonoBehaviour
     private const ulong NoClient = ulong.MaxValue;
     private const float ObjectivePanelBottomOffset = 28f;
 
-    private CanvasGroup _root;
+    private CanvasGroup _guidanceRoot;
+    private CanvasGroup _respawnOverlay;
     private TMP_Text _objective;
     private TMP_Text _status;
     private Image _progress;
+    private Image _respawnCountdownRing;
+    private TMP_Text _respawnKeyText;
+    private TMP_Text _respawnCountdownText;
+    private Sprite _respawnRingSprite;
+    private float _respawnKeyPulseStartedAt = float.NegativeInfinity;
     private float _searchTimer;
     private BossEncounterManager _encounter;
     private BossRespawnPolicy _respawn;
@@ -61,6 +67,15 @@ public sealed class BossEncounterHUD : MonoBehaviour
         PlayerHealthHUDRemake.GameplayHudVisibilityChanged -= HandleGameplayHudVisibilityChanged;
     }
 
+    private void OnDestroy()
+    {
+        if (_respawnRingSprite == null) return;
+
+        if (_respawnRingSprite.texture != null)
+            Destroy(_respawnRingSprite.texture);
+        Destroy(_respawnRingSprite);
+    }
+
     private void Update()
     {
         _searchTimer -= Time.unscaledDeltaTime;
@@ -94,7 +109,7 @@ public sealed class BossEncounterHUD : MonoBehaviour
         panel.sizeDelta = new Vector2(620f, 118f);
         Image background = panel.gameObject.AddComponent<Image>();
         background.color = new Color(0.04f, 0.025f, 0.09f, 0.88f);
-        _root = panel.gameObject.AddComponent<CanvasGroup>();
+        _guidanceRoot = panel.gameObject.AddComponent<CanvasGroup>();
 
         _objective = CreateText(panel, "Objective", 25f, FontStyles.Bold, new Vector2(0f, -12f), new Vector2(580f, 36f));
         _status = CreateText(panel, "Status", 18f, FontStyles.Normal, new Vector2(0f, -53f), new Vector2(580f, 32f));
@@ -119,19 +134,23 @@ public sealed class BossEncounterHUD : MonoBehaviour
         _progress.type = Image.Type.Filled;
         _progress.fillMethod = Image.FillMethod.Horizontal;
         _progress.fillAmount = 0f;
+
+        BuildRespawnOverlay(canvasObject.transform);
     }
 
     private void PresentState()
     {
         if (!_uiVisible)
         {
-            if (_root != null) _root.alpha = 0f;
+            SetGuidanceVisible(false);
+            SetRespawnOverlayVisible(false);
             return;
         }
 
         if (_objective == null || _status == null || _encounter == null)
         {
-            if (_root != null) _root.alpha = 0f;
+            SetGuidanceVisible(false);
+            SetRespawnOverlayVisible(false);
             return;
         }
 
@@ -139,12 +158,25 @@ public sealed class BossEncounterHUD : MonoBehaviour
         // at the same time for both Host and Client instead of leaving stale combat guidance.
         if (_defeatController != null && _defeatController.IsDefeated)
         {
-            _root.alpha = 0f;
+            SetGuidanceVisible(false);
+            SetRespawnOverlayVisible(false);
             return;
         }
 
-        _root.alpha = 1f;
-        if (TryPresentLocalDownedStatus()) return;
+        bool localEnteredArena = HasLocalPlayerEnteredArena();
+        bool localPlayerIsDown = IsLocalPlayerRespawning();
+        PresentRespawnOverlay(localPlayerIsDown && _encounter.HasEncounterStarted);
+
+        // Do not show boss instructions while walking through the room approach.
+        // The local player's replicated EnterBoss entry is the only authority for
+        // this visual decision, so Host and Client never show it for the other player.
+        if (!localEnteredArena || localPlayerIsDown)
+        {
+            SetGuidanceVisible(false);
+            return;
+        }
+
+        SetGuidanceVisible(true);
 
         switch (_encounter.State)
         {
@@ -180,11 +212,16 @@ public sealed class BossEncounterHUD : MonoBehaviour
     private void ApplyGameplayHudVisibility(bool visible)
     {
         _uiVisible = visible;
-        if (_root == null) return;
+        SetGuidanceVisible(visible);
+        SetRespawnOverlayVisible(visible);
+    }
 
-        _root.alpha = visible ? 1f : 0f;
-        _root.interactable = visible;
-        _root.blocksRaycasts = visible;
+    private void SetGuidanceVisible(bool visible)
+    {
+        if (_guidanceRoot == null) return;
+        _guidanceRoot.alpha = visible ? 1f : 0f;
+        _guidanceRoot.interactable = false;
+        _guidanceRoot.blocksRaycasts = false;
     }
 
     private void PresentActiveStatus()
@@ -222,16 +259,133 @@ public sealed class BossEncounterHUD : MonoBehaviour
         _status.text = "Coordinate, dodge attacks, and activate the arena mechanism";
     }
 
-    private bool TryPresentLocalDownedStatus()
+    private bool HasLocalPlayerEnteredArena()
     {
-        if (_respawn == null || NetworkManager.Singleton == null ||
-            _respawn.CountdownTarget != NetworkManager.Singleton.LocalClientId)
-            return false;
+        return NetworkManager.Singleton != null &&
+               _encounter != null &&
+               _encounter.HasPlayerEntered(NetworkManager.Singleton.LocalClientId);
+    }
 
-        _objective.text = "You have fallen";
-        _status.text = $"Spam E to respawn faster. Respawning in {_respawn.CountdownRemaining:0.0} seconds.";
-        _progress.fillAmount = 0f;
-        return true;
+    private bool IsLocalPlayerRespawning()
+    {
+        return _respawn != null &&
+               NetworkManager.Singleton != null &&
+               _respawn.CountdownTarget == NetworkManager.Singleton.LocalClientId;
+    }
+
+    private void BuildRespawnOverlay(Transform canvasTransform)
+    {
+        RectTransform overlay = CreateRect(canvasTransform, "BossRespawnOverlay");
+        overlay.anchorMin = Vector2.zero;
+        overlay.anchorMax = Vector2.one;
+        overlay.offsetMin = Vector2.zero;
+        overlay.offsetMax = Vector2.zero;
+        Image dimmer = overlay.gameObject.AddComponent<Image>();
+        dimmer.color = new Color(0f, 0f, 0f, 0.6f);
+        dimmer.raycastTarget = false;
+        _respawnOverlay = overlay.gameObject.AddComponent<CanvasGroup>();
+        _respawnOverlay.alpha = 0f;
+        _respawnOverlay.interactable = false;
+        _respawnOverlay.blocksRaycasts = false;
+
+        RectTransform ring = CreateRect(overlay, "RespawnCountdownRing");
+        ring.anchorMin = new Vector2(0.5f, 0.5f);
+        ring.anchorMax = new Vector2(0.5f, 0.5f);
+        ring.pivot = new Vector2(0.5f, 0.5f);
+        ring.sizeDelta = new Vector2(264f, 264f);
+
+        _respawnRingSprite = CreateRingSprite();
+        Image ringBackground = ring.gameObject.AddComponent<Image>();
+        ringBackground.sprite = _respawnRingSprite;
+        ringBackground.color = new Color(0.12f, 0.12f, 0.15f, 0.85f);
+
+        RectTransform fill = CreateRect(ring, "RespawnCountdownFill");
+        fill.anchorMin = Vector2.zero;
+        fill.anchorMax = Vector2.one;
+        fill.offsetMin = Vector2.zero;
+        fill.offsetMax = Vector2.zero;
+        _respawnCountdownRing = fill.gameObject.AddComponent<Image>();
+        _respawnCountdownRing.sprite = _respawnRingSprite;
+        _respawnCountdownRing.color = new Color(1f, 0.78f, 0.24f, 1f);
+        _respawnCountdownRing.type = Image.Type.Filled;
+        _respawnCountdownRing.fillMethod = Image.FillMethod.Radial360;
+        _respawnCountdownRing.fillOrigin = (int)Image.Origin360.Top;
+        _respawnCountdownRing.fillClockwise = false;
+
+        _respawnKeyText = CreateCenteredText(ring, "RespawnKey", "E", 94f, FontStyles.Bold,
+            Vector2.zero, new Vector2(130f, 118f));
+        _respawnKeyText.color = Color.white;
+
+        _respawnCountdownText = CreateCenteredText(overlay, "RespawnCountdownText", "", 28f,
+            FontStyles.Bold, new Vector2(0f, -182f), new Vector2(560f, 42f));
+        _respawnCountdownText.color = new Color(1f, 0.9f, 0.62f, 1f);
+
+        TMP_Text prompt = CreateCenteredText(overlay, "RespawnPrompt", "Press E to respawn faster", 20f,
+            FontStyles.Normal, new Vector2(0f, -222f), new Vector2(560f, 36f));
+        prompt.color = new Color(1f, 1f, 1f, 0.9f);
+    }
+
+    private void PresentRespawnOverlay(bool visible)
+    {
+        SetRespawnOverlayVisible(visible);
+        if (!visible || _respawn == null || _respawnCountdownRing == null ||
+            _respawnKeyText == null || _respawnCountdownText == null)
+            return;
+
+        float duration = Mathf.Max(0.01f, _respawn.CountdownDuration);
+        _respawnCountdownRing.fillAmount = Mathf.Clamp01(_respawn.CountdownRemaining / duration);
+        _respawnCountdownText.text = $"Respawning in {_respawn.CountdownRemaining:0.0}s";
+
+        if (WasLocalRespawnKeyPressed())
+            _respawnKeyPulseStartedAt = Time.unscaledTime;
+
+        float elapsed = Time.unscaledTime - _respawnKeyPulseStartedAt;
+        float pulse = elapsed >= 0f && elapsed < 0.22f
+            ? Mathf.Sin(elapsed / 0.22f * Mathf.PI)
+            : 0f;
+        _respawnKeyText.rectTransform.localScale = Vector3.one * Mathf.Lerp(1f, 1.22f, pulse);
+    }
+
+    private void SetRespawnOverlayVisible(bool visible)
+    {
+        if (_respawnOverlay == null) return;
+        _respawnOverlay.alpha = visible ? 1f : 0f;
+        _respawnOverlay.interactable = false;
+        _respawnOverlay.blocksRaycasts = false;
+        if (!visible && _respawnKeyText != null)
+            _respawnKeyText.rectTransform.localScale = Vector3.one;
+    }
+
+    private static Sprite CreateRingSprite()
+    {
+        const int size = 128;
+        const float innerRadius = 0.62f;
+        const float outerRadius = 0.94f;
+        Texture2D texture = new(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "BossRespawnRing"
+        };
+
+        Color clear = new(1f, 1f, 1f, 0f);
+        Color solid = Color.white;
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            float normalizedX = (x + 0.5f) / size * 2f - 1f;
+            float normalizedY = (y + 0.5f) / size * 2f - 1f;
+            float radius = Mathf.Sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+            texture.SetPixel(x, y, radius >= innerRadius && radius <= outerRadius ? solid : clear);
+        }
+
+        texture.Apply(false, true);
+        return Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
+    }
+
+    private bool WasLocalRespawnKeyPressed()
+    {
+        if (NetworkManager.Singleton?.LocalClient?.PlayerObject == null) return false;
+        return NetworkManager.Singleton.LocalClient.PlayerObject.TryGetComponent<PlayerInputHandler>(out var input) &&
+               input.InteractPressed;
     }
 
     private void CacheCombatControllers()
@@ -357,6 +511,31 @@ public sealed class BossEncounterHUD : MonoBehaviour
         text.fontStyle = style;
         text.color = Color.white;
         text.enableWordWrapping = true;
+        return text;
+    }
+
+    private static TMP_Text CreateCenteredText(
+        RectTransform parent,
+        string name,
+        string content,
+        float size,
+        FontStyles style,
+        Vector2 position,
+        Vector2 dimensions)
+    {
+        RectTransform rect = CreateRect(parent, name);
+        rect.anchorMin = new Vector2(0.5f, 0.5f);
+        rect.anchorMax = new Vector2(0.5f, 0.5f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.anchoredPosition = position;
+        rect.sizeDelta = dimensions;
+        TextMeshProUGUI text = rect.gameObject.AddComponent<TextMeshProUGUI>();
+        text.text = content;
+        text.alignment = TextAlignmentOptions.Center;
+        text.fontSize = size;
+        text.fontStyle = style;
+        text.color = Color.white;
+        text.textWrappingMode = TextWrappingModes.NoWrap;
         return text;
     }
 }

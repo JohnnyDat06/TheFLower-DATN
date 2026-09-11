@@ -28,6 +28,9 @@ public sealed class BossRespawnPolicy : NetworkBehaviour
     public ulong Reviver => _reviver.Value;
     public ulong ReviveTarget => _reviveTarget.Value;
     public float ReviveProgress => _reviveProgress.Value;
+    public float CountdownDuration => _encounter != null && _encounter.Config != null
+        ? _encounter.Config.AutoRespawnDelay
+        : 10f;
 
     private void Awake()
     {
