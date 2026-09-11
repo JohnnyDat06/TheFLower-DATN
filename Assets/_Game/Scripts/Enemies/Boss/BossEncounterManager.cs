@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -21,7 +20,9 @@ public sealed class BossEncounterManager : NetworkBehaviour
         EncounterState.WaitingForPlayers,
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Server);
-    private readonly HashSet<ulong> _playersInEntry = new();
+    // The entry list is replicated so each client can decide whether its own
+    // boss HUD should be visible before the encounter begins.
+    private NetworkList<ulong> _playersInEntry;
     private bool _resetInProgress;
     private BossNetworkState _bossNetworkState;
 
@@ -31,9 +32,15 @@ public sealed class BossEncounterManager : NetworkBehaviour
     /// <summary>True from the first boss intro through wipe recovery, until the boss is defeated.</summary>
     public bool HasEncounterStarted => _state.Value is EncounterState.Intro or EncounterState.Active or EncounterState.WipeReset;
 
+    /// <summary>Returns whether a player has crossed the EnterBoss trigger for this attempt.</summary>
+    public bool HasPlayerEntered(ulong clientId) => _playersInEntry != null && _playersInEntry.Contains(clientId);
+
     private void Awake()
     {
         Instance = this;
+        _playersInEntry = new NetworkList<ulong>(
+            readPerm: NetworkVariableReadPermission.Everyone,
+            writePerm: NetworkVariableWritePermission.Server);
         _bossNetworkState = GetComponent<BossNetworkState>();
     }
 
@@ -60,7 +67,8 @@ public sealed class BossEncounterManager : NetworkBehaviour
     public void RegisterPlayerEntry(ulong clientId)
     {
         if (!IsServer || _state.Value != EncounterState.WaitingForPlayers) return;
-        if (!_playersInEntry.Add(clientId)) return;
+        if (_playersInEntry.Contains(clientId)) return;
+        _playersInEntry.Add(clientId);
 
         int requiredPlayers = RequiredPlayerCount();
         Debug.Log($"[BossEncounterManager] Player {clientId} entered EnterBoss. {_playersInEntry.Count}/{requiredPlayers} ready.", this);
