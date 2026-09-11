@@ -28,7 +28,7 @@ public abstract class InteractableBase : NetworkBehaviour, IInteractable
 
     public string InteractableId => _interactableId;
     public string InteractionPrompt => _interactionPrompt;
-    public bool CanInteract => _canInteract && (_allowReactivation || !_isActivated.Value);
+    public virtual bool CanInteract => _canInteract && (_allowReactivation || !_isActivated.Value);
     public bool IsActivated => _isActivated.Value;
 
     protected virtual void Awake()

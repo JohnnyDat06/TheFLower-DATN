@@ -41,9 +41,11 @@ namespace Game.Testing
         private int _selectedPointIndex;
         private Action _onClosed;
         private bool _skipGamepadInputFrame;
+        private bool _isDebugTeleportEnabled;
         private readonly Dictionary<PlayerInputHandler, bool> _cameraLookStates = new Dictionary<PlayerInputHandler, bool>();
 
         public bool IsUIVisible => _isUIVisible;
+        public bool IsDebugTeleportEnabled => _isDebugTeleportEnabled;
 
         private void Awake()
         {
@@ -70,6 +72,15 @@ namespace Game.Testing
 
         private void Update()
         {
+            if (WasDebugTeleportTogglePressed())
+            {
+                SetDebugTeleportEnabled(!_isDebugTeleportEnabled);
+                return;
+            }
+
+            if (!_isDebugTeleportEnabled)
+                return;
+
             // Kiểm tra phím Tab từ Input System mới
             if (Keyboard.current != null && Keyboard.current.tabKey.wasPressedThisFrame)
             {
@@ -109,11 +120,17 @@ namespace Game.Testing
 
         public void ToggleUI()
         {
+            if (!_isDebugTeleportEnabled)
+                return;
+
             SetUIVisible(!_isUIVisible);
         }
 
         public void ShowUI(Action onClosed = null, bool managePlayerInput = true)
         {
+            if (!_isDebugTeleportEnabled)
+                return;
+
             _onClosed = onClosed;
             _managesPlayerInput = managePlayerInput;
             SetUIVisible(true);
@@ -248,6 +265,9 @@ namespace Game.Testing
 
         public void OnTeleportRequested()
         {
+            if (!_isDebugTeleportEnabled)
+                return;
+
             if (_idInputField != null && int.TryParse(_idInputField.text, out int id))
             {
                 TeleportToPoint(id);
@@ -261,6 +281,9 @@ namespace Game.Testing
 
         private void TeleportToPoint(int id)
         {
+            if (!_isDebugTeleportEnabled)
+                return;
+
             if (id < 0 || id >= _teleportPoints.Count)
             {
                 Debug.LogWarning($"[TeleportManager] ID {id} không hợp lệ.");
@@ -300,6 +323,30 @@ namespace Game.Testing
             playerSync.RequestTeleport(target.position, target.rotation);
 
             Debug.Log($"[TeleportManager] Đã dịch chuyển đến: {_teleportPoints[id].Name}");
+        }
+
+        private static bool WasDebugTeleportTogglePressed()
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard == null || !keyboard.tKey.wasPressedThisFrame)
+                return false;
+
+            bool controlPressed = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed;
+            bool shiftPressed = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+            return controlPressed && shiftPressed;
+        }
+
+        private void SetDebugTeleportEnabled(bool enabled)
+        {
+            if (_isDebugTeleportEnabled == enabled)
+                return;
+
+            _isDebugTeleportEnabled = enabled;
+
+            if (!enabled)
+                HideUI();
+
+            Debug.Log($"[TeleportManager] Debug teleport {(enabled ? "enabled" : "disabled")}.");
         }
 
         private void LockPlayerInput(bool isLocked)

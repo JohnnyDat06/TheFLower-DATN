@@ -74,6 +74,8 @@ public class PauseMenuController : MonoBehaviour
 
     private void Update()
     {
+        RefreshDebugTeleportButton();
+
         if (IsBlockedByScene() || IsInputSettingsTakingFocus() || _childMenuOpen) return;
 
         if (_isOpen && WasBackPressed())
@@ -173,6 +175,7 @@ public class PauseMenuController : MonoBehaviour
 
         BindSettingsControls();
         RefreshInputHints();
+        RefreshDebugTeleportButton();
     }
 
     private void BindSettingsControls()
@@ -237,9 +240,9 @@ public class PauseMenuController : MonoBehaviour
 
     private void OpenTeleportUI()
     {
-        if (TeleportManager.Instance == null)
+        if (TeleportManager.Instance == null || !TeleportManager.Instance.IsDebugTeleportEnabled)
         {
-            Debug.LogWarning("[PauseMenuController] TeleportManager is not available in this scene.");
+            Debug.LogWarning("[PauseMenuController] Debug teleport is not enabled in this scene.");
             return;
         }
 
@@ -306,6 +309,17 @@ public class PauseMenuController : MonoBehaviour
         bool gamepad = InputDeviceDetector.Instance != null
             && InputDeviceDetector.Instance.CurrentDeviceType == InputDeviceType.Gamepad;
         _pauseHint.text = gamepad ? "Menu / B" : "Esc";
+    }
+
+    private void RefreshDebugTeleportButton()
+    {
+        if (_teleportButton == null)
+            return;
+
+        bool isDebugTeleportEnabled = TeleportManager.Instance != null
+            && TeleportManager.Instance.IsDebugTeleportEnabled;
+        _teleportButton.style.display = isDebugTeleportEnabled ? DisplayStyle.Flex : DisplayStyle.None;
+        _teleportButton.SetEnabled(isDebugTeleportEnabled);
     }
 
     private bool IsBlockedByScene()

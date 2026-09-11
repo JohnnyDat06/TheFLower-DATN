@@ -4,8 +4,14 @@ using UnityEngine.Events;
 
 public class SoloInteractable : InteractableBase
 {
+    [Tooltip("Cần gạt cùng điều khiển một vật thể. Khi cần này đang giữ vật thể ở trạng thái bật, cần được liên kết sẽ không thể tương tác.")]
+    [SerializeField] private SoloInteractable _exclusivePartner;
+
     private ulong _lastInteractedPlayerId;
     private bool _hasActivatingPlayer = false;
+
+    public override bool CanInteract => base.CanInteract
+        && (_exclusivePartner == null || !_exclusivePartner.IsActivated);
 
     public override void OnNetworkSpawn()
     {

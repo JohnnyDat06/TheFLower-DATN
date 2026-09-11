@@ -135,17 +135,15 @@ public sealed class SandBoatMovement : MonoBehaviour
     }
 
     /// <summary>
-    /// Places the boat at the authored Route endpoint and permanently stops the
-    /// automatic route movement for the current chase attempt.
+    /// Permanently stops automatic route movement at the boat's current pose for
+    /// the current chase attempt. The completion trigger can sit before the
+    /// spline endpoint, so this must never snap the boat to another location.
     /// </summary>
     public void CompleteRoute()
     {
         _routeLength = CalculateRouteLength();
-        _progress = _route != null ? _route.ClampProgress(1f) : _progress;
-        _horizontalOffset = 0f;
         _isComplete = true;
         _isRouteMovementEnabled = false;
-        ApplyRoutePose();
     }
 
     /// <summary>Stores the lateral offset that will be applied with the next single route-pose update.</summary>
