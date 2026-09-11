@@ -73,15 +73,44 @@ namespace Game.Editor
                 Debug.Log($"[RouteSplineGroundAdjuster] EndpointReference '{endpointRef.name}' worldPos: {epWorld}, groundY: {groundY} (hit: {hitName}), delta: {epWorld.y - groundY:F3}");
             }
 
-            // Inspect last 15 knots
-            int startKnot = Mathf.Max(0, totalKnots - 15);
-            for (int i = startKnot; i < totalKnots; i++)
+            // Inspect knots along the entire route at intervals
+            Debug.Log("--- ROUTE HEIGHT PROFILE SAMPLES ---");
+            for (int i = 0; i < totalKnots; i += 20)
             {
                 BezierKnot knot = spline[i];
                 Vector3 worldPos = container.transform.TransformPoint((Vector3)knot.Position);
                 float groundY = GetGroundHeight(worldPos, out string hitName);
                 float diff = worldPos.y - groundY;
-                Debug.Log($"[RouteSplineGroundAdjuster] Knot[{i}] localPos: {knot.Position}, worldPos: {worldPos}, groundY: {groundY:F3} ({hitName}), diffY: {diff:F3}");
+                Debug.Log($"[Profile] Knot[{i}/{totalKnots}] worldY: {worldPos.y:F3}, groundY: {groundY:F3} ({hitName}), diffY: {diff:F3}");
+            }
+
+            // Check boat collider/mesh hull offset from pivot
+            GameObject boat = GameObject.Find("BoatController");
+            if (boat != null)
+            {
+                Renderer[] rends = boat.GetComponentsInChildren<Renderer>();
+                float lowestRendY = float.MaxValue;
+                foreach (var r in rends)
+                {
+                    if (r.bounds.min.y < lowestRendY) lowestRendY = r.bounds.min.y;
+                }
+                Collider[] cols = boat.GetComponentsInChildren<Collider>();
+                float lowestColY = float.MaxValue;
+                foreach (var c in cols)
+                {
+                    if (c.bounds.min.y < lowestColY) lowestColY = c.bounds.min.y;
+                }
+                Debug.Log($"[BoatProfile] Boat pos: {boat.transform.position}, LowestRendererY: {lowestRendY:F3} (deltaFromPivot: {lowestRendY - boat.transform.position.y:F3}), LowestColliderY: {lowestColY:F3} (deltaFromPivot: {lowestColY - boat.transform.position.y:F3})");
+            }
+
+            // Inspect knots from 290 to 315 in detail
+            for (int i = 290; i < totalKnots; i++)
+            {
+                BezierKnot knot = spline[i];
+                Vector3 worldPos = container.transform.TransformPoint((Vector3)knot.Position);
+                float groundY = GetGroundHeight(worldPos, out string hitName);
+                float diff = worldPos.y - groundY;
+                Debug.Log($"[EndKnot] Knot[{i}] worldPos: ({worldPos.x:F2}, {worldPos.y:F2}, {worldPos.z:F2}), groundY: {groundY:F3} ({hitName}), diffY: {diff:F3}");
             }
         }
 
@@ -118,26 +147,31 @@ namespace Game.Editor
             int totalKnots = spline.Count;
             Undo.RecordObject(container, "Adjust Route Spline To Ground");
 
-            // Look at knots where diffY > 0.05 near the end (last 30 knots)
+            const float DEFAULT_ROUTE_RIDE_HEIGHT = 0.233f;
+            const float ENDPOINT_RIDE_HEIGHT = 0.280f;
+
             int checkRange = Mathf.Min(35, totalKnots);
             int startIdx = totalKnots - checkRange;
             int adjustedCount = 0;
 
-            for (int i = startIdx; i < totalKnots; i++)
+            for (int i = startIdx; i < totalKnots - 1; i++)
             {
                 BezierKnot knot = spline[i];
                 Vector3 worldPos = container.transform.TransformPoint((Vector3)knot.Position);
                 float groundY = GetGroundHeight(worldPos, out string hitName);
 
-                // If the knot is noticeably higher than ground
-                if (worldPos.y > groundY + 0.02f)
+                float t = Mathf.InverseLerp(startIdx, totalKnots - 1, i);
+                float targetRideHeight = Mathf.Lerp(DEFAULT_ROUTE_RIDE_HEIGHT, ENDPOINT_RIDE_HEIGHT, t);
+                float targetWorldY = groundY + targetRideHeight;
+
+                if (Mathf.Abs(worldPos.y - targetWorldY) > 0.005f)
                 {
-                    Vector3 adjustedWorldPos = new Vector3(worldPos.x, groundY, worldPos.z);
+                    Vector3 adjustedWorldPos = new Vector3(worldPos.x, targetWorldY, worldPos.z);
                     Vector3 localAdjustedPos = container.transform.InverseTransformPoint(adjustedWorldPos);
                     knot.Position = localAdjustedPos;
                     spline[i] = knot;
                     adjustedCount++;
-                    Debug.Log($"[RouteSplineGroundAdjuster] Adjusted Knot[{i}] from world Y {worldPos.y:F3} to ground Y {groundY:F3} (hit {hitName})");
+                    Debug.Log($"[RouteSplineGroundAdjuster] Adjusted Knot[{i}] world Y from {worldPos.y:F3} to target {targetWorldY:F3} (groundY {groundY:F3} + offset {targetRideHeight:F3}, hit: {hitName})");
                 }
             }
 
@@ -147,11 +181,12 @@ namespace Game.Editor
                 Undo.RecordObject(endpointRef, "Adjust Endpoint Reference");
                 Vector3 epWorld = endpointRef.position;
                 float epGroundY = GetGroundHeight(epWorld, out string epHitName);
-                if (epWorld.y > epGroundY + 0.02f)
+                float epTargetY = epGroundY + ENDPOINT_RIDE_HEIGHT;
+                if (Mathf.Abs(epWorld.y - epTargetY) > 0.005f)
                 {
-                    endpointRef.position = new Vector3(epWorld.x, epGroundY, epWorld.z);
+                    endpointRef.position = new Vector3(epWorld.x, epTargetY, epWorld.z);
                     EditorUtility.SetDirty(endpointRef);
-                    Debug.Log($"[RouteSplineGroundAdjuster] Adjusted endpoint '{endpointRef.name}' from world Y {epWorld.y:F3} to ground Y {epGroundY:F3} (hit {epHitName})");
+                    Debug.Log($"[RouteSplineGroundAdjuster] Adjusted endpoint '{endpointRef.name}' from world Y {epWorld.y:F3} to target {epTargetY:F3} (groundY {epGroundY:F3} + offset {ENDPOINT_RIDE_HEIGHT:F3}, hit: {epHitName})");
                 }
 
                 // Sync the very last knot to endpoint
@@ -164,7 +199,7 @@ namespace Game.Editor
             UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(routeGo.scene);
             UnityEditor.SceneManagement.EditorSceneManager.SaveScene(routeGo.scene);
 
-            Debug.Log($"[RouteSplineGroundAdjuster] Successfully adjusted {adjustedCount} knots to ground and saved scene {routeGo.scene.name}!");
+            Debug.Log($"[RouteSplineGroundAdjuster] Successfully adjusted {adjustedCount} knots with ride height offsets and saved scene {routeGo.scene.name}!");
         }
 
         public static float GetGroundHeight(Vector3 worldPos, out string hitName)
@@ -172,9 +207,9 @@ namespace Game.Editor
             hitName = "None";
             float highestGroundY = float.MinValue;
 
-            // 1. Raycast down from above
-            Ray ray = new Ray(new Vector3(worldPos.x, worldPos.y + 30f, worldPos.z), Vector3.down);
-            RaycastHit[] hits = Physics.RaycastAll(ray, 60f, ~0, QueryTriggerInteraction.Ignore);
+            // 1. Raycast down from slightly above the current position to prevent hitting high overhead structures
+            Ray ray = new Ray(new Vector3(worldPos.x, worldPos.y + 4f, worldPos.z), Vector3.down);
+            RaycastHit[] hits = Physics.RaycastAll(ray, 20f, ~0, QueryTriggerInteraction.Ignore);
             foreach (var hit in hits)
             {
                 // Ignore boat colliders, player colliders, route colliders
