@@ -25,6 +25,7 @@ public sealed class DualCoreInteractionController : MonoBehaviour
     {
         if (point == null || _coreController == null || !_coreController.CanAcceptDualActivation)
             return false;
+        if (!point.IsReadyForInteraction) return false;
 
         if (!IsServerAuthority()) return true;
 

@@ -15,6 +15,8 @@ public sealed class BossDefeatController : MonoBehaviour
     private BossController _bossController;
     private BossAnimationController _animationController;
     private BossArenaReferences _arenaReferences;
+    private RuneManager _runeManager;
+    private SealManager _sealManager;
     private GameObject _fallbackDoorBarrier;
     private bool _isExitDoorUnlocked;
 
@@ -75,6 +77,7 @@ public sealed class BossDefeatController : MonoBehaviour
         _bossController?.Defeat();
         _animationController?.SetDefeated();
         PowerDownBossEffects();
+        HidePuzzleMarkers();
         DisableCombatControllers();
         UnlockExitDoor();
         Debug.Log("[BossDefeatController] Cat Sphinx defeated. Exit Door unlocked.", this);
@@ -142,6 +145,24 @@ public sealed class BossDefeatController : MonoBehaviour
         }
     }
 
+    private void HidePuzzleMarkers()
+    {
+        if (_runeManager == null) _runeManager = GetComponent<RuneManager>();
+        if (_sealManager == null) _sealManager = GetComponent<SealManager>();
+
+        if (_runeManager != null)
+        {
+            foreach (RuneController rune in _runeManager.Runes)
+                if (rune != null) rune.gameObject.SetActive(false);
+        }
+
+        if (_sealManager != null)
+        {
+            foreach (SealController seal in _sealManager.Seals)
+                if (seal != null) seal.gameObject.SetActive(false);
+        }
+    }
+
     private void CacheDependencies()
     {
         _coreController = GetComponent<BossCoreController>();
@@ -149,5 +170,7 @@ public sealed class BossDefeatController : MonoBehaviour
         _bossController = GetComponent<BossController>();
         _animationController = GetComponent<BossAnimationController>();
         _arenaReferences = GetComponent<BossArenaReferences>();
+        _runeManager = GetComponent<RuneManager>();
+        _sealManager = GetComponent<SealManager>();
     }
 }

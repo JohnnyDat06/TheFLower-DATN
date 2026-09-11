@@ -29,6 +29,7 @@ public sealed class BossNetworkState : NetworkBehaviour
         NetworkVariableWritePermission.Server);
 
     private NetworkList<byte> _runeStates;
+    private NetworkList<Vector3> _runePositions;
     private NetworkList<byte> _sealStates;
     private NetworkList<byte> _floorTileStates;
 
@@ -74,6 +75,10 @@ public sealed class BossNetworkState : NetworkBehaviour
             null,
             NetworkVariableReadPermission.Everyone,
             NetworkVariableWritePermission.Server);
+        _runePositions = new NetworkList<Vector3>(
+            null,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server);
         _sealStates = new NetworkList<byte>(
             null,
             NetworkVariableReadPermission.Everyone,
@@ -93,6 +98,7 @@ public sealed class BossNetworkState : NetworkBehaviour
         _fightSnapshot.OnValueChanged += HandleFightSnapshotChanged;
         _attackSnapshot.OnValueChanged += HandleAttackSnapshotChanged;
         _runeStates.OnListChanged += HandleRuneListChanged;
+        _runePositions.OnListChanged += HandleRunePositionListChanged;
         _sealStates.OnListChanged += HandleSealListChanged;
         _floorTileStates.OnListChanged += HandleFloorTileListChanged;
 
@@ -115,6 +121,7 @@ public sealed class BossNetworkState : NetworkBehaviour
         _fightSnapshot.OnValueChanged -= HandleFightSnapshotChanged;
         _attackSnapshot.OnValueChanged -= HandleAttackSnapshotChanged;
         _runeStates.OnListChanged -= HandleRuneListChanged;
+        _runePositions.OnListChanged -= HandleRunePositionListChanged;
         _sealStates.OnListChanged -= HandleSealListChanged;
         _floorTileStates.OnListChanged -= HandleFloorTileListChanged;
         base.OnNetworkDespawn();
@@ -272,6 +279,7 @@ public sealed class BossNetworkState : NetworkBehaviour
         };
 
         _attackSnapshot.Value = BuildServerAttackSnapshot();
+        SynchronizeRunePositions();
         SynchronizeStateList(_runeStates, _runes, rune => (byte)rune.State);
         SynchronizeStateList(_sealStates, _seals, seal => (byte)seal.State);
         SynchronizeStateList(_floorTileStates, _floorTiles, floorTile => (byte)floorTile.State);
@@ -357,6 +365,7 @@ public sealed class BossNetworkState : NetworkBehaviour
     private void ApplyAllReplicatedState()
     {
         ApplyFightSnapshot(_fightSnapshot.Value);
+        ApplyRunePositions();
         ApplyRuneStates();
         ApplySealStates();
         ApplyFloorTileStates();
@@ -471,6 +480,11 @@ public sealed class BossNetworkState : NetworkBehaviour
         if (!IsServer) ApplyRuneStates();
     }
 
+    private void HandleRunePositionListChanged(NetworkListEvent<Vector3> changeEvent)
+    {
+        if (!IsServer) ApplyRunePositions();
+    }
+
     private void HandleSealListChanged(NetworkListEvent<byte> changeEvent)
     {
         if (!IsServer) ApplySealStates();
@@ -486,6 +500,13 @@ public sealed class BossNetworkState : NetworkBehaviour
         int count = Mathf.Min(_runes.Length, _runeStates.Count);
         for (int index = 0; index < count; index++)
             _runes[index]?.ApplyNetworkState((RuneState)_runeStates[index]);
+    }
+
+    private void ApplyRunePositions()
+    {
+        int count = Mathf.Min(_runes.Length, _runePositions.Count);
+        for (int index = 0; index < count; index++)
+            _runes[index]?.ApplyNetworkPosition(_runePositions[index]);
     }
 
     private void ApplySealStates()
@@ -619,6 +640,32 @@ public sealed class BossNetworkState : NetworkBehaviour
             byte state = readState(component);
             if (networkList[stateIndex] != state) networkList[stateIndex] = state;
             stateIndex++;
+        }
+    }
+
+    private void SynchronizeRunePositions()
+    {
+        int liveRuneCount = 0;
+        foreach (RuneController rune in _runes)
+            if (rune != null) liveRuneCount++;
+
+        if (_runePositions.Count != liveRuneCount)
+        {
+            _runePositions.Clear();
+            foreach (RuneController rune in _runes)
+                if (rune != null) _runePositions.Add(rune.transform.position);
+            return;
+        }
+
+        int positionIndex = 0;
+        foreach (RuneController rune in _runes)
+        {
+            if (rune == null) continue;
+
+            Vector3 position = rune.transform.position;
+            if ((_runePositions[positionIndex] - position).sqrMagnitude > 0.000001f)
+                _runePositions[positionIndex] = position;
+            positionIndex++;
         }
     }
 

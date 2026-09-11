@@ -53,10 +53,10 @@ public sealed class DualRuneChallengeController : MonoBehaviour
         if (_debugState == DualRuneChallengeState.WaitingForSecondRune &&
             Time.time >= _firstChargeTime + _dualChargeWindow)
         {
-            _runeA?.ResetRune();
-            _runeB?.ResetRune();
+            RespawnChargedRune(_runeA);
+            RespawnChargedRune(_runeB);
             ResetChallenge();
-            Debug.Log("[DualRuneChallenge] Failed: both Runes reset because they were not charged in time.", this);
+            Debug.Log("[DualRuneChallenge] Hết thời gian ghép đôi; thùng đã bị phá xuất hiện lại trên ô sàn an toàn.", this);
         }
     }
 
@@ -105,6 +105,14 @@ public sealed class DualRuneChallengeController : MonoBehaviour
         _firstChargeTime = 0f;
         _runeACharged = false;
         _runeBCharged = false;
+    }
+
+    private void RespawnChargedRune(RuneController rune)
+    {
+        if (rune == null || rune.State != RuneState.Charged) return;
+
+        if (_runeManager != null) _runeManager.RespawnTimedOutRune(rune);
+        else rune.ResetRune();
     }
 
     /// <summary>Clears the Phase 3 Rune timing challenge for a complete encounter retry.</summary>

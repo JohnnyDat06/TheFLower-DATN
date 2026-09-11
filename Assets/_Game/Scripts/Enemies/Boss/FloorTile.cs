@@ -44,6 +44,26 @@ public sealed class FloorTile : MonoBehaviour
         }
     }
 
+    /// <summary>Điểm chính giữa bề mặt trên của ô sàn, dùng để đặt lại thùng gỗ.</summary>
+    public Vector3 WorldSurfaceCenter
+    {
+        get
+        {
+            EnsureRenderersCached();
+            if (_renderers == null || _renderers.Length == 0) return transform.position;
+
+            Bounds combinedBounds = _renderers[0].bounds;
+            for (int index = 1; index < _renderers.Length; index++)
+                combinedBounds.Encapsulate(_renderers[index].bounds);
+
+            return new Vector3(combinedBounds.center.x, combinedBounds.max.y, combinedBounds.center.z);
+        }
+    }
+
+    /// <summary>Cho biết ô sàn còn đủ an toàn để đặt lại thùng gỗ.</summary>
+    public bool CanHostBossPickup =>
+        gameObject.activeInHierarchy && State is FloorTileState.Normal or FloorTileState.Cracked;
+
     /// <summary>Raised whenever the tile changes state after a valid Shockwave hit.</summary>
     public event Action<FloorTile, FloorTileState> StateChanged;
 
@@ -148,6 +168,11 @@ public sealed class FloorTile : MonoBehaviour
     {
         _renderers ??= GetComponentsInChildren<Renderer>(true);
         _colliders ??= GetComponentsInChildren<Collider>(true);
+    }
+
+    private void EnsureRenderersCached()
+    {
+        _renderers ??= GetComponentsInChildren<Renderer>(true);
     }
 
     private void CaptureInitialState()
